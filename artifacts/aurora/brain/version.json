@@ -1,0 +1,64 @@
+{
+  "brain_version": "1.0.0",
+  "schema_version": "1",
+  "created": "2026-07-07",
+  "last_updated": "2026-07-07",
+  "sections": [
+    "mission",
+    "methodology",
+    "bankroll",
+    "betting_rules",
+    "confidence",
+    "markets",
+    "learning",
+    "glossary"
+  ],
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-07-07",
+      "author": "Aurora",
+      "changes": [
+        "Initial AURORA_BRAIN created",
+        "Static rule-based confidence thresholds (confidence.md)",
+        "Poisson + standings prior methodology (methodology.md)",
+        "Flat staking bankroll rules (bankroll.md)",
+        "Market definitions and reliability matrix (markets.md)",
+        "Betting gate rules and disqualifying conditions (betting_rules.md)",
+        "Learning roadmap and calibration plan (learning.md)",
+        "Full football and betting glossary (glossary.md)"
+      ]
+    }
+  ],
+  "operational_parameters": {
+    "confidence_thresholds": {
+      "low_risk_min_confidence": 7.0,
+      "low_risk_min_probability": 68.0,
+      "medium_risk_min_confidence": 5.0,
+      "medium_risk_min_probability": 52.0
+    },
+    "betting_gates": {
+      "min_confidence": 5.0,
+      "min_probability": 52.0,
+      "min_overall_confidence": 4.0,
+      "allowed_risk_levels": ["Low", "Medium"],
+      "min_data_signals": 2
+    },
+    "signal_weights": {
+      "xg_blend_weight": 0.60,
+      "standings_prior_weight": 0.40,
+      "form_weight_in_prior": 0.40,
+      "venue_weight_in_prior": 0.60,
+      "max_live_score_weight": 0.88
+    },
+    "market_baselines": {
+      "avg_corners_per_90": 10.5,
+      "avg_cards_per_90": 3.5,
+      "default_home_gpg": 1.2,
+      "default_away_gpg": 0.9,
+      "draw_base_rate": 0.12,
+      "max_goals_poisson": 7
+    },
+    "pre_match_confidence_cap": 6.5
+  }
+}
