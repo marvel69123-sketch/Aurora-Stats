@@ -1,48 +1,27 @@
 kind = "api"
-previewPath = "/api"
-title = "API Server"
+previewPath = "/aurora"
+title = "Aurora"
 version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
 
 [[services]]
 localPort = 8080
-name = "API Server"
-paths = ["/api"]
-
-[services.development]
-run = "pnpm --filter @workspace/api-server run dev"
-
-[services.production]
-
-[services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
-
-[services.production.build.env]
-NODE_ENV = "production"
-
-[services.production.run]
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
-
-[services.production.run.env]
-PORT = "8080"
-NODE_ENV = "production"
-
-[services.production.health.startup]
-path = "/api/healthz"
-
-[[services]]
-localPort = 8000
 name = "Aurora"
 paths = ["/aurora"]
 
 [services.development]
-run = "cd /home/runner/workspace/artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+run = "cd /home/runner/workspace/artifacts/aurora && uvicorn main:app --host 0.0.0.0 --port 8080 --reload"
+
+[services.production]
+
+[services.production.build]
+args = ["pip", "install", "-r", "/home/runner/workspace/artifacts/aurora/requirements.txt"]
 
 [services.production.run]
-args = ["sh", "-c", "cd /home/runner/workspace/artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+args = ["/home/runner/workspace/artifacts/aurora/start.sh"]
 
 [services.production.run.env]
-PORT = "8000"
+PORT = "8080"
 
 [services.production.health.startup]
 path = "/aurora/healthz"
