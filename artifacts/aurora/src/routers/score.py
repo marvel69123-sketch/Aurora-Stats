@@ -22,6 +22,8 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from src.brain import get_brain_meta, get_config
+from src.learning_db import resolve_predictions as _lrn_resolve
+from src.learning_db import save_prediction as _lrn_save
 from src.routers.analyze import analyze_fixture
 
 router = APIRouter()
@@ -502,6 +504,95 @@ def _score(data: dict) -> ScoreResponse:  # noqa: C901
 
 
 # ---------------------------------------------------------------------------
+# Learning engine hook — called after every prediction, never raises
+# ---------------------------------------------------------------------------
+
+# Human-readable market label → snake_case key used in learning_db
+_MARKET_LABEL_TO_KEY = {
+    "Draw":              "draw",
+    "BTTS Yes":          "btts",
+    "Over 2.5 Goals":    "over_25_goals",
+    "Over 8.5 Corners":  "over_85_corners",
+    "Over 4.5 Cards":    "over_45_cards",
+}
+
+
+def _learning_hook(data: dict, result: ScoreResponse) -> None:
+    """
+    Fire-and-forget learning engine integration.
+
+    1. Saves the best-market prediction to prediction_history (deduped per fixture+market).
+    2. If the match is finished, resolves all pending predictions for this fixture
+       against the actual match outcomes and updates learning_rules.
+
+    Any exception is swallowed — the learning engine must never affect the API response.
+    """
+    import logging as _log
+    try:
+        fx     = data["fixture"]
+        teams  = data["teams"]
+        sc     = data["score"]
+        hs     = data["statistics"]["home"]
+        as_    = data["statistics"]["away"]
+        league = data.get("league", {}).get("name")
+
+        fixture_id    = fx["id"]
+        status_short  = fx["status"]["short"]
+        is_finished   = status_short in _FINISHED
+
+        hn = teams["home"]["name"]
+        an = teams["away"]["name"]
+
+        # Resolve dynamic market labels that include team names
+        dynamic_map = {f"{hn} Win": "home_win", f"{an} Win": "away_win"}
+        market_key = (
+            dynamic_map.get(result.best_market)
+            or _MARKET_LABEL_TO_KEY.get(result.best_market)
+            or result.best_market.lower().replace(" ", "_")
+        )
+
+        # Confidence/risk for the best market field
+        market_obj = getattr(result, market_key, None)
+        conf = market_obj.confidence if market_obj else result.overall_confidence
+        risk = market_obj.risk       if market_obj else result.risk_level
+
+        _lrn_save(
+            fixture_id=fixture_id,
+            date=fx.get("date"),
+            home_team=hn,
+            away_team=an,
+            league=league,
+            market=market_key,
+            prediction=result.best_market,
+            confidence=conf,
+            risk=risk,
+            reason=result.summary,
+        )
+
+        # Auto-resolve if match is finished
+        if is_finished and sc["current"]["home"] is not None:
+            hg = _i(sc["current"]["home"], 0)
+            ag = _i(sc["current"]["away"], 0)
+            total_cor   = _i(hs.get("corners"), 0)     + _i(as_.get("corners"), 0)
+            total_cards = (
+                _i(hs.get("yellow_cards"), 0) + _i(hs.get("red_cards"), 0)
+                + _i(as_.get("yellow_cards"), 0) + _i(as_.get("red_cards"), 0)
+            )
+            _lrn_resolve(fixture_id, {
+                "home_win":        hg > ag,
+                "draw":            hg == ag,
+                "away_win":        ag > hg,
+                "btts":            hg >= 1 and ag >= 1,
+                "over_25_goals":   (hg + ag) >= 3,
+                "over_85_corners": total_cor   >= 9,
+                "over_45_cards":   total_cards >= 5,
+            })
+
+    except Exception as exc:
+        _log.getLogger(__name__).error("Learning hook error: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
 
@@ -524,10 +615,12 @@ async def score_fixture(
     - **BTTS / Over 2.5**: Poisson on xG or season GPG
     - **Corners / Cards**: pace extrapolated to 90' vs brain baselines
 
-    **Response includes:**
-    - `recommended_markets`: markets that pass all brain betting_gates
-    - `actionable` per market: whether the brain gates allow acting on it
-    - `brain`: version metadata of the brain used for this prediction
+    **Automatic learning:**
+    Every call saves the best-market prediction to the learning engine.
+    Finished matches are auto-resolved against actual outcomes and update
+    learning statistics visible at `GET /aurora/learning/stats`.
     """
     data = await analyze_fixture(home=home, away=away)
-    return _score(data)
+    result = _score(data)
+    _learning_hook(data, result)
+    return result
