@@ -2,7 +2,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers import fixtures, leagues, teams, players, standings
+from src.routers import fixtures, leagues, teams, players, standings, live
 
 app = FastAPI(
     title="Aurora",
@@ -20,6 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(live.router, prefix="/aurora", tags=["Live"])
 app.include_router(fixtures.router, prefix="/aurora/fixtures", tags=["Fixtures"])
 app.include_router(leagues.router, prefix="/aurora/leagues", tags=["Leagues"])
 app.include_router(teams.router, prefix="/aurora/teams", tags=["Teams"])
