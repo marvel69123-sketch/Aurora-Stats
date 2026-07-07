@@ -1,12 +1,15 @@
 import asyncio
+import time
 from fastapi import APIRouter
 from src.client import api_football_get
 
 router = APIRouter()
 
+_CACHE_TTL = 30
+_cache: dict = {"data": None, "expires_at": 0.0}
+
 
 def _extract_stat(team_stats: list, stat_name: str):
-    """Pull a single stat value out of a team's statistics list."""
     for s in team_stats:
         if s.get("type") == stat_name:
             val = s.get("value")
@@ -17,7 +20,6 @@ def _extract_stat(team_stats: list, stat_name: str):
 
 
 def _build_team_stats(raw_stats: list, team_index: int) -> dict:
-    """Build the stats dict for one team from the /fixtures/statistics response."""
     if not raw_stats or team_index >= len(raw_stats):
         return {
             "possession": None,
@@ -43,7 +45,6 @@ def _build_team_stats(raw_stats: list, team_index: int) -> dict:
 
 
 def _count_cards(events: list, team_id: int, card_type: str) -> int:
-    """Count yellow or red cards from embedded fixture events for a given team."""
     return sum(
         1
         for e in events
@@ -54,7 +55,6 @@ def _count_cards(events: list, team_id: int, card_type: str) -> int:
 
 
 async def _fetch_stats(fixture_id: int) -> tuple[int, list]:
-    """Fetch statistics for one fixture; returns (id, raw_stats) even on error."""
     try:
         result = await api_football_get("/fixtures/statistics", {"fixture": fixture_id})
         return fixture_id, result.get("response", [])
@@ -62,23 +62,13 @@ async def _fetch_stats(fixture_id: int) -> tuple[int, list]:
         return fixture_id, []
 
 
-@router.get("/live")
-async def get_live_matches():
-    """
-    Return all currently live fixtures enriched with:
-    - fixture id, score, minute
-    - statistics: possession, shots on target, shots total, corners, fouls,
-      offsides, goalkeeper saves
-    - xG (expected goals) when available
-    - cards (yellow / red) per team derived from inline events
-    """
+async def _build_live_response() -> dict:
     live_data = await api_football_get("/fixtures", {"live": "all"})
     fixtures = live_data.get("response", [])
 
     if not fixtures:
-        return {"total": 0, "matches": []}
+        return {"total": 0, "cached": False, "matches": []}
 
-    # Fetch statistics for every live fixture in parallel
     fixture_ids = [f["fixture"]["id"] for f in fixtures]
     stats_results = await asyncio.gather(*[_fetch_stats(fid) for fid in fixture_ids])
     stats_map: dict[int, list] = {fid: raw for fid, raw in stats_results}
@@ -88,11 +78,10 @@ async def get_live_matches():
         fid = fixture["fixture"]["id"]
         raw_stats = stats_map.get(fid, [])
         events: list = fixture.get("events", [])
-
         home_id = fixture["teams"]["home"]["id"]
         away_id = fixture["teams"]["away"]["id"]
 
-        match = {
+        matches.append({
             "fixture_id": fid,
             "date": fixture["fixture"]["date"],
             "status": {
@@ -129,7 +118,25 @@ async def get_live_matches():
                 "red_cards": _count_cards(events, away_id, "Red Card"),
                 "statistics": _build_team_stats(raw_stats, 1),
             },
-        }
-        matches.append(match)
+        })
 
-    return {"total": len(matches), "matches": matches}
+    return {"total": len(matches), "cached": False, "matches": matches}
+
+
+@router.get("/live")
+async def get_live_matches():
+    """
+    Return all currently live fixtures enriched with score, minute, statistics
+    (possession, shots on target, corners, fouls, offsides, saves, xG), and
+    card counts per team. Results are cached for 30 seconds to protect API quota.
+    """
+    now = time.monotonic()
+    if _cache["data"] is not None and now < _cache["expires_at"]:
+        payload = dict(_cache["data"])
+        payload["cached"] = True
+        return payload
+
+    result = await _build_live_response()
+    _cache["data"] = result
+    _cache["expires_at"] = now + _CACHE_TTL
+    return result

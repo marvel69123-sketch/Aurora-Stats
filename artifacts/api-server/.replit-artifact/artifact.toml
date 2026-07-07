@@ -36,4 +36,13 @@ name = "Aurora"
 paths = ["/aurora"]
 
 [services.development]
-run = "cd artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+run = "cd /home/runner/workspace/artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+
+[services.production.run]
+args = ["sh", "-c", "cd /home/runner/workspace/artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+
+[services.production.run.env]
+PORT = "8000"
+
+[services.production.health.startup]
+path = "/aurora/healthz"
