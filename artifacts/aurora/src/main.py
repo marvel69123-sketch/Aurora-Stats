@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers import fixtures, leagues, teams, players, standings, live
+from src.routers import fixtures, leagues, teams, players, standings, live, analyze
 
 app = FastAPI(
     title="Aurora",
@@ -27,6 +27,7 @@ app.include_router(leagues.router, prefix="/aurora/leagues", tags=["Leagues"])
 app.include_router(teams.router, prefix="/aurora/teams", tags=["Teams"])
 app.include_router(players.router, prefix="/aurora/players", tags=["Players"])
 app.include_router(standings.router, prefix="/aurora/standings", tags=["Standings"])
+app.include_router(analyze.router, prefix="/aurora", tags=["Analyze"])
 
 
 @app.get("/aurora/healthz", tags=["Health"])
