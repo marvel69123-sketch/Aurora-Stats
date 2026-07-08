@@ -22,6 +22,11 @@ from pydantic import BaseModel
 from src.core.decision_engine import DecisionResult, run as _decide
 from src.learning_db import resolve_predictions as _lrn_resolve
 from src.learning_db import save_prediction as _lrn_save
+from src.memory_db import (
+    recall_context as _mem_context,
+    remember_lesson_from_finished as _mem_lesson,
+    remember_recommendation as _mem_rec,
+)
 from src.routers.analyze import analyze_fixture
 
 logger = logging.getLogger(__name__)
@@ -150,6 +155,65 @@ def _to_score_response(decision: DecisionResult) -> ScoreResponse:
 
 
 # ---------------------------------------------------------------------------
+# Memory hook — consult memory before, write memory after every prediction
+# ---------------------------------------------------------------------------
+
+
+def _memory_hook(decision: DecisionResult) -> None:
+    """
+    Write every prediction into Aurora's permanent memory.
+    For finished matches, generate and store a lesson.
+    Never raises — swallows all exceptions.
+    """
+    try:
+        bm   = decision.markets.best
+        mv1  = decision.methodology_v1
+        meth = decision.methodology
+
+        cat_scores = {
+            key: {"name": cs.name, "score": cs.score}
+            for key, cs in mv1.categories.items()
+        }
+
+        _mem_rec(
+            fixture_id=decision.fixture_id,
+            hn=decision.hn,
+            an=decision.an,
+            league=decision.league,
+            best_market=bm.label,
+            market_prob=bm.probability,
+            market_key=bm.key,
+            confidence=bm.confidence,
+            risk=bm.risk,
+            methodology_score=mv1.overall_score,
+            methodology_passed=mv1.passed,
+            recommended_market=mv1.recommended_market,
+            summary=decision.summary,
+            category_scores=cat_scores,
+        )
+
+        if meth.is_finished and meth.has_score:
+            _mem_lesson(
+                fixture_id=decision.fixture_id,
+                hn=decision.hn,
+                an=decision.an,
+                league=decision.league,
+                methodology_score=mv1.overall_score,
+                overall_confidence=decision.overall_confidence,
+                best_market=bm.label,
+                market_prob=bm.probability,
+                risk_level=decision.risk_level,
+                h_goals=meth.h_goals,
+                a_goals=meth.a_goals,
+                total_corners=meth.total_corners,
+                total_cards=meth.total_cards,
+                category_scores=cat_scores,
+            )
+    except Exception as exc:
+        logger.error("Memory hook error: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Learning hook — fires after every prediction, never raises
 # ---------------------------------------------------------------------------
 
@@ -227,8 +291,14 @@ async def score_fixture(
     Finished matches are auto-resolved and update accuracy statistics
     visible at `GET /aurora/learning/stats`.
     """
-    data     = await analyze_fixture(home=home, away=away)
+    data   = await analyze_fixture(home=home, away=away)
+    league = data.get("league", {}).get("name")
+
+    # Step 0: Consult memory before generating any recommendation
+    _mem_context(hn=home, an=away, league=league)
+
     decision = _decide(data)
     result   = _to_score_response(decision)
     _learning_hook(decision)
+    _memory_hook(decision)
     return result

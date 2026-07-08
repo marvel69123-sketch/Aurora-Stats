@@ -3,10 +3,11 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers import fixtures, leagues, teams, players, standings, live, analyze, report, score, brain_router, learning_router
+from src.routers import fixtures, leagues, teams, players, standings, live, analyze, report, score, brain_router, learning_router, memory_router
 from src.brain import get_config as _init_brain
 from src.knowledge_db import init_db as _init_db
 from src.learning_db import init_learning_db as _init_learning
+from src.memory_db import init_memory_db as _init_memory
 
 app = FastAPI(
     title="Aurora",
@@ -35,6 +36,7 @@ app.include_router(report.router, prefix="/aurora", tags=["Report"])
 app.include_router(score.router, prefix="/aurora", tags=["Score"])
 app.include_router(brain_router.router, prefix="/aurora", tags=["Brain"])
 app.include_router(learning_router.router, prefix="/aurora", tags=["Learning"])
+app.include_router(memory_router.router, prefix="/aurora", tags=["Memory"])
 
 
 @app.on_event("startup")
@@ -43,6 +45,7 @@ async def _startup():
     _init_brain()
     _init_db()
     _init_learning()
+    _init_memory()
 
 
 @app.get("/aurora/healthz", tags=["Health"])

@@ -22,15 +22,19 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+import dataclasses
+
 from src.brain import (
     get_all_sections,
     get_brain_meta,
     get_config,
+    get_methodology_config,
     get_section,
     get_version,
     reload_brain,
 )
 from src.knowledge_db import TABLES, save_knowledge, search_knowledge
+from src.memory_db import remember_methodology_change as _mem_meth
 
 router = APIRouter()
 
@@ -250,14 +254,35 @@ async def brain_reload():
     Does NOT affect the SQLite knowledge database.
     """
     reload_brain()
-    ver = get_version()
+    ver  = get_version()
+    mcfg = get_methodology_config()
+
+    # Record every methodology reload in permanent memory
+    try:
+        _mem_meth(
+            version=str(ver.get("brain_version", "1.0")),
+            weights=dataclasses.asdict(mcfg.category_weights),
+            thresholds={
+                "min_score_to_recommend": mcfg.min_score_to_recommend,
+                "low_risk_above":         mcfg.low_risk_above,
+                "medium_risk_above":      mcfg.medium_risk_above,
+                "blocking_thresholds":    mcfg.blocking_thresholds,
+            },
+            changed_by="brain_reload_api",
+            notes=f"Brain files reloaded. Sections: {sorted(get_all_sections().keys())}",
+        )
+    except Exception:
+        pass
+
     return {
         "status": "reloaded",
         "brain_version": ver.get("brain_version"),
         "sections_loaded": sorted(get_all_sections().keys()),
+        "methodology_weights_sum": round(sum(dataclasses.asdict(mcfg.category_weights).values()), 4),
         "message": (
             "File-brain cache cleared and reloaded from disk. "
             "All prediction endpoints will use updated parameters. "
+            "Methodology version snapshot saved to memory. "
             "SQLite knowledge engine is unaffected."
         ),
     }
