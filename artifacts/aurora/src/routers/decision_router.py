@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from src.brain import get_brain_meta, get_config, get_methodology_config
 from src.core import confidence_engine, learning_engine, market_engine, methodology_engine, methodology_v1
 from src.core.decision_center import DecisionCenterResult, MarketEvaluation, run as _dc_run
+from src.core.knowledge_engine import KnowledgeContext, consult as _knowledge_consult
 from src.memory_db import recall_context as _mem_ctx, remember as _mem_save
 from src.routers.analyze import analyze_fixture
 
@@ -72,6 +73,7 @@ class DecisionResponse(BaseModel):
     top_5:            list[MarketRow]
     all_markets:      list[MarketRow]
     rejected_markets: list[MarketRow]
+    knowledge_notes:  list[str]
     brain:            dict[str, Any]
 
 
@@ -85,7 +87,8 @@ class OpportunitiesResponse(BaseModel):
     top_5:          list[MarketRow]
     ranked_table:   str
     recommendation: str
-    brain:          dict[str, Any]
+    knowledge_notes: list[str]
+    brain:           dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -226,13 +229,19 @@ def _memory_hook(dc: DecisionCenterResult, match: str, date: str, league: str | 
         logger.error("Decision center memory hook: %s", exc)
 
 
-async def _run_pipeline(home: str, away: str) -> tuple[dict, DecisionCenterResult, str | None]:
+async def _run_pipeline(home: str, away: str) -> tuple[dict, DecisionCenterResult, str | None, KnowledgeContext]:
     """Shared pipeline for both endpoints."""
     data   = await analyze_fixture(home=home, away=away)
     league = (data.get("league") or {}).get("name")
 
-    # Consult memory before any recommendation
+    # Consult memory + knowledge before any recommendation
     _mem_ctx(hn=home, an=away, league=league)
+    knowledge = _knowledge_consult(
+        hn=home, an=away, league=league,
+        is_live=bool((data.get("fixture") or {}).get("status", {}).get("elapsed")),
+        has_xg=bool(data.get("statistics")),
+        has_referee=bool((data.get("fixture") or {}).get("referee")),
+    )
 
     cfg  = get_config()
     mcfg = get_methodology_config()
@@ -259,7 +268,7 @@ async def _run_pipeline(home: str, away: str) -> tuple[dict, DecisionCenterResul
         mv1=mv1, learning=learning, cfg=cfg,
     )
 
-    return data, dc, league
+    return data, dc, league, knowledge
 
 
 # ---------------------------------------------------------------------------
@@ -297,10 +306,9 @@ async def decision(
     Markets below `min_confidence` are **automatically rejected** — they appear
     in `rejected_markets` with the specific reason.
     """
-    data, dc, league = await _run_pipeline(home=home, away=away)
+    data, dc, league, knowledge = await _run_pipeline(home=home, away=away)
 
     fx     = data["fixture"]
-    teams  = data["teams"]
     meth_s = fx["status"]["long"]
     minute = fx["status"].get("elapsed")
     date   = fx.get("date", "")
@@ -320,6 +328,7 @@ async def decision(
         top_5=[_to_row(m) for m in dc.top_5],
         all_markets=[_to_row(m) for m in dc.all_markets],
         rejected_markets=[_to_row(m) for m in dc.rejected],
+        knowledge_notes=knowledge.knowledge_notes,
         brain=get_brain_meta(),
     )
 
@@ -347,7 +356,7 @@ async def opportunities(
     Markets are **automatically rejected** if probability < min threshold,
     confidence < min threshold, or risk is High (configurable in brain).
     """
-    data, dc, league = await _run_pipeline(home=home, away=away)
+    data, dc, league, knowledge = await _run_pipeline(home=home, away=away)
 
     fx     = data["fixture"]
     meth_s = fx["status"]["long"]
@@ -356,7 +365,7 @@ async def opportunities(
 
     _memory_hook(dc, f"{dc.hn} vs {dc.an}", date, league)
 
-    table        = _build_ranked_table(dc.top_5, dc.hn, dc.an)
+    table          = _build_ranked_table(dc.top_5, dc.hn, dc.an)
     recommendation = _build_recommendation(dc)
 
     return OpportunitiesResponse(
@@ -369,5 +378,6 @@ async def opportunities(
         top_5=[_to_row(m) for m in dc.top_5],
         ranked_table=table,
         recommendation=recommendation,
+        knowledge_notes=knowledge.knowledge_notes,
         brain=get_brain_meta(),
     )

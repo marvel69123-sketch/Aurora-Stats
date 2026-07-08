@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from src.core.decision_engine import DecisionResult, run as _decide
 from src.core import confidence_engine, learning_engine, market_engine, methodology_engine
 from src.core.evolution_engine import analyze as _evo_analyze, generate_report as _evo_report
+from src.core.knowledge_engine import consult as _knowledge_consult
 from src.core.methodology_v1 import run as _mv1_run
 from src.brain import get_config as _get_cfg, get_methodology_config as _get_mcfg
 from src.learning_db import resolve_predictions as _lrn_resolve
@@ -92,8 +93,9 @@ class ScoreResponse(BaseModel):
     over_85_corners:  MarketScore
     over_45_cards:    MarketScore
 
-    methodology:  MethodologyV1Response
-    brain:        dict[str, Any]
+    methodology:      MethodologyV1Response
+    knowledge_notes:  list[str]
+    brain:            dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +137,7 @@ def _methodology_response(decision: DecisionResult) -> MethodologyV1Response:
     )
 
 
-def _to_score_response(decision: DecisionResult) -> ScoreResponse:
+def _to_score_response(decision: DecisionResult, knowledge_notes: list[str] | None = None) -> ScoreResponse:
     return ScoreResponse(
         match=f"{decision.hn} vs {decision.an}",
         fixture_id=decision.fixture_id,
@@ -155,6 +157,7 @@ def _to_score_response(decision: DecisionResult) -> ScoreResponse:
         over_85_corners=_ms("over_85_corners", decision),
         over_45_cards=_ms("over_45_cards", decision),
         methodology=_methodology_response(decision),
+        knowledge_notes=knowledge_notes or [],
         brain=decision.brain_meta,
     )
 
@@ -389,11 +392,17 @@ async def score_fixture(
     data   = await analyze_fixture(home=home, away=away)
     league = data.get("league", {}).get("name")
 
-    # Step 0: Consult memory before generating any recommendation
+    # Step 0: Consult memory + knowledge before generating any recommendation
     _mem_context(hn=home, an=away, league=league)
+    knowledge = _knowledge_consult(
+        hn=home, an=away, league=league,
+        is_live=bool(data.get("fixture", {}).get("status", {}).get("elapsed")),
+        has_xg=bool(data.get("statistics")),
+        has_referee=bool(data.get("fixture", {}).get("referee")),
+    )
 
     decision = _decide(data)
-    result   = _to_score_response(decision)
+    result   = _to_score_response(decision, knowledge_notes=knowledge.knowledge_notes)
     _learning_hook(decision)
     _memory_hook(decision)
     _evolution_hook(decision, data)
