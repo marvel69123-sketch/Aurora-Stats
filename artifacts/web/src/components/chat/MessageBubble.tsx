@@ -1,10 +1,6 @@
 import { AuroraResponse } from "./AuroraResponse";
 import type { Message } from "@/types/chat";
 
-// ---------------------------------------------------------------------------
-// Typing indicator
-// ---------------------------------------------------------------------------
-
 export function TypingIndicator() {
   return (
     <div className="flex gap-3 items-start">
@@ -17,10 +13,6 @@ export function TypingIndicator() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Avatars
-// ---------------------------------------------------------------------------
 
 function AvatarA() {
   return (
@@ -38,10 +30,6 @@ function AvatarUser() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main MessageBubble
-// ---------------------------------------------------------------------------
-
 export function MessageBubble({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
@@ -54,7 +42,6 @@ export function MessageBubble({ message }: { message: Message }) {
     );
   }
 
-  // Aurora message
   return (
     <div className="flex gap-3 items-start">
       <AvatarA />
@@ -70,7 +57,7 @@ export function MessageBubble({ message }: { message: Message }) {
           <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3">
             <p className="text-sm text-red-300/80">{message.error}</p>
             <p className="text-xs text-white/30 mt-1">
-              Check the fixture name spelling and try again.
+              Verifique o nome da partida e tente novamente.
             </p>
           </div>
         ) : message.response ? (

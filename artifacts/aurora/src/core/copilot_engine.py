@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__)
 _SEP = r"(?:vs\.?|versus|v\.?(?!\w)|\bx\b)"
 
 _GREETING_RE = re.compile(
-    r"^(?:hi|hello|hey|oi|olá|good\s+(?:morning|afternoon|evening|day)|howdy|yo)(?:\s+aurora)?\W*$",
+    r"^(?:hi|hello|hey|oi|ol[aá]|bom\s+(?:dia|tarde|noite)|good\s+(?:morning|afternoon|evening|day)|howdy|yo|e\s+a[íi])(?:\s+aurora)?\W*$",
     re.IGNORECASE,
 )
 _HELP_RE = re.compile(
-    r"(?:^help$|what\s+can\s+(?:you|aurora)\s+do|commands|options|capabilities|^menu$)",
+    r"(?:^help$|what\s+can\s+(?:you|aurora)\s+do|commands|options|capabilities|^menu$|"
+    r"^ajuda$|o\s+que\s+voc[eê]\s+(?:faz|pode)|como\s+(?:funciona|usar)\s+a?\s*aurora|^comandos?$)",
     re.IGNORECASE,
 )
 _LIVE_RE = re.compile(
@@ -45,7 +46,11 @@ _LIVE_RE = re.compile(
     r"what(?:'s|\s+is)\s+(?:currently\s+)?live|"
     r"live\s+right\s+now|"
     r"^live\??$|"
-    r"any(?:thing)?\s+live",
+    r"any(?:thing)?\s+live|"
+    r"(?:melhores\s+)?oportunidades?\s+ao\s+vivo|"
+    r"partidas?\s+ao\s+vivo|"
+    r"o\s+que\s+(?:est[aá]|tem)\s+ao\s+vivo|"
+    r"^ao\s+vivo\??$",
     re.IGNORECASE,
 )
 _BANKROLL_RE = re.compile(
@@ -55,7 +60,12 @@ _BANKROLL_RE = re.compile(
     r"my\s+performance|"
     r"roi|"
     r"profit|"
-    r"results\s+(?:so\s+far|today)?",
+    r"results\s+(?:so\s+far|today)?|"
+    r"(?:revisar?|ver|checar|como\s+est[aá])\s+(?:minha\s+)?banca|"
+    r"(?:minha\s+)?banca\s+(?:atual|hoje|status|resumo)|"
+    r"como\s+estou\s+(?:indo|me\s+saindo)?|"
+    r"meu\s+desempenho|"
+    r"meus\s+resultados",
     re.IGNORECASE,
 )
 _LEARNING_RE = re.compile(
@@ -63,7 +73,11 @@ _LEARNING_RE = re.compile(
     r"learning\s+(?:recap|summary|today|history)|"
     r"aurora(?:'s)?\s+(?:performance|track\s+record)|"
     r"accuracy\s+(?:today|summary)|"
-    r"what\s+did\s+you\s+learn",
+    r"what\s+did\s+you\s+learn|"
+    r"o\s+que\s+a?\s*aurora\s+aprendeu|"
+    r"resumo\s+de\s+aprendizado|"
+    r"aprendizado\s+(?:de\s+hoje|resumo)?|"
+    r"o\s+que\s+voc[eê]\s+aprendeu",
     re.IGNORECASE,
 )
 _EXPLAIN_RE = re.compile(
@@ -79,7 +93,10 @@ _KNOWLEDGE_RE = re.compile(
     r"(?:explain|tell\s+me\s+about)\s+(.+?)\s+(?:market|rule|strategy|knowledge|system)|"
     r"(?:how\s+does|what\s+is|what\s+are)\s+(.+?)(?:\s+work(?:s)?|\s+mean(?:s)?|\?)?$|"
     r"knowledge\s+(?:about|on)\s+(.+)|"
-    r"aurora(?:'s)?\s+rule\s+(?:on|for|about)\s+(.+)",
+    r"aurora(?:'s)?\s+rule\s+(?:on|for|about)\s+(.+)|"
+    r"o\s+que\s+voc[eê]\s+sabe\s+sobre\s+(.+)|"
+    r"me\s+(?:fale|conte|explique)\s+(?:sobre\s+)?(.+?)\s*\??$|"
+    r"como\s+funciona\s+(.+?)\s*\??$",
     re.IGNORECASE,
 )
 _MATCH_PATTERNS = [
@@ -185,13 +202,13 @@ def _fmt_match(
     # Recommendation box
     if report.primary_recommendation != "No actionable market":
         lines += [
-            f"**Primary recommendation:** {report.primary_recommendation}",
-            f"**Confidence:** {report.overall_confidence}/10 · **Risk:** {report.risk_level}",
+            f"**Recomendação principal:** {report.primary_recommendation}",
+            f"**Confiança:** {report.overall_confidence}/10 · **Risco:** {report.risk_level}",
             "",
         ]
 
     # Top factors
-    lines.append("**Key factors:**")
+    lines.append("**Principais fatores:**")
     for f in report.main_factors[:3]:
         lines.append(f"  {f}")
     lines.append("")
@@ -199,7 +216,7 @@ def _fmt_match(
     # Positive signals (condensed)
     pos = [p for p in report.positive_factors if not p.startswith("• No category")]
     if pos:
-        lines.append("**Supporting signals:**")
+        lines.append("**Sinais favoráveis:**")
         for p in pos[:2]:
             lines.append(f"  {p}")
         lines.append("")
@@ -207,7 +224,7 @@ def _fmt_match(
     # Risk flags (condensed)
     risks = [r for r in report.risk_factors if not r.startswith("• No critical")]
     if risks:
-        lines.append("**Risks to note:**")
+        lines.append("**Riscos a considerar:**")
         for r in risks[:2]:
             lines.append(f"  {r}")
         lines.append("")
@@ -220,7 +237,7 @@ def _fmt_match(
             stake_examples = ln.strip()
             break
     lines += [
-        "**Recommended stake:**",
+        "**Stake recomendada:**",
         f"  {stake_first}",
     ]
     if stake_examples:
@@ -230,7 +247,7 @@ def _fmt_match(
     # Alternatives (condensed)
     alts = [a for a in report.alternative_markets if not a.startswith("No alternative")]
     if alts:
-        lines.append("**Alternative markets:**")
+        lines.append("**Mercados alternativos:**")
         for a in alts[:2]:
             lines.append(f"  • {a[:180]}")
         lines.append("")
@@ -238,7 +255,7 @@ def _fmt_match(
     # Invalidation teaser
     if report.invalidation_conditions:
         lines += [
-            "**What could change this call:**",
+            "**O que poderia mudar esta análise:**",
             f"  {report.invalidation_conditions[0][:220]}",
             "",
         ]
@@ -246,7 +263,7 @@ def _fmt_match(
     # Footer
     lines += [
         "---",
-        f"*Session `{session_id}` · Ask: \"explain confidence\", \"what are the risks?\", or analyze another match.*",
+        f"*Sessão `{session_id}` · Pergunte: \"explicar confiança\", \"quais são os riscos?\", ou analise outra partida.*",
     ]
 
     return "\n".join(lines)
@@ -256,24 +273,24 @@ def _fmt_live(live_data: dict, session_id: str) -> str:
     fixtures = live_data.get("live_matches", [])
     if not fixtures:
         return (
-            "**No matches are currently live.**\n\n"
-            "Check back later, or ask me to analyze an upcoming fixture:\n"
-            "*\"Analyze [Home Team] vs [Away Team]\"*"
+            "**Nenhuma partida ao vivo no momento.**\n\n"
+            "Volte em breve, ou peça para analisar uma partida:\n"
+            "*\"Analisar [Time da Casa] x [Time Visitante]\"*"
         )
 
     count = len(fixtures)
-    lines = [f"**Live now — {count} match{'es' if count != 1 else ''}**", ""]
+    lines = [f"**Ao vivo agora — {count} partida{'s' if count != 1 else ''}**", ""]
 
     for fx in fixtures[:5]:
-        hn = (fx.get("teams", {}).get("home", {}) or {}).get("name", "Home")
-        an = (fx.get("teams", {}).get("away", {}) or {}).get("name", "Away")
+        hn = (fx.get("teams", {}).get("home", {}) or {}).get("name", "Casa")
+        an = (fx.get("teams", {}).get("away", {}) or {}).get("name", "Fora")
         minute = (fx.get("status") or {}).get("minute", "?")
         score_h = (fx.get("score", {}).get("current") or {}).get("home", 0)
         score_a = (fx.get("score", {}).get("current") or {}).get("away", 0)
         league = (fx.get("league") or {}).get("name", "")
         league_str = f" ({league})" if league else ""
 
-        lines.append(f"**{hn} {score_h}–{score_a} {an}**{league_str} · Minute {minute}")
+        lines.append(f"**{hn} {score_h}–{score_a} {an}**{league_str} · Minuto {minute}")
 
         # Pull best stat hint
         hs = (fx.get("stats") or {}).get("home") or {}
@@ -284,15 +301,15 @@ def _fmt_live(live_data: dict, session_id: str) -> str:
         lines.append("")
 
     if count > 5:
-        lines.append(f"*+{count - 5} more live matches.*")
+        lines.append(f"*+{count - 5} partidas ao vivo adicionais.*")
         lines.append("")
 
     lines += [
-        "**Want a full analysis?** Ask:",
-        "*\"Analyze [Home Team] vs [Away Team]\"*",
+        "**Quer uma análise completa?** Pergunte:",
+        "*\"Analisar [Time da Casa] x [Time Visitante]\"*",
         "",
         "---",
-        f"*Session `{session_id}`*",
+        f"*Sessão `{session_id}`*",
     ]
     return "\n".join(lines)
 
@@ -311,68 +328,68 @@ def _fmt_bankroll(stats: dict, session_id: str) -> str:
     acc_str = f"{acc:.1f}%" if acc is not None else "not yet computed (no resolved bets)"
     roi_str = f"{roi:+.1f}%" if roi is not None else "not yet computed"
 
-    lines = ["**Bankroll & Performance Review**", ""]
+    lines = ["**Revisão de Banca e Desempenho**", ""]
 
     if total == 0:
         lines += [
-            "Aurora hasn't logged any predictions yet in this session.",
-            "Every prediction is automatically tracked — start by analyzing a match.",
+            "A Aurora ainda não registrou nenhuma previsão nesta sessão.",
+            "Cada previsão é rastreada automaticamente — comece analisando uma partida.",
             "",
-            f"*Session `{session_id}`*",
+            f"*Sessão `{session_id}`*",
         ]
         return "\n".join(lines)
 
     decided = wins + losses
     lines += [
-        f"**{total} predictions tracked** — {wins}W / {losses}L / {pending} pending",
-        f"**Accuracy:** {acc_str}",
+        f"**{total} previsões monitoradas** — {wins}V / {losses}D / {pending} pendentes",
+        f"**Precisão:** {acc_str}",
         f"**ROI:** {roi_str}",
         "",
     ]
 
     if best_m:
-        lines.append(f"**Best-performing market:** {best_m.replace('_', ' ').title()}")
+        lines.append(f"**Melhor mercado:** {best_m.replace('_', ' ').title()}")
     if worst_m and worst_m != best_m:
-        lines.append(f"**Weakest market:** {worst_m.replace('_', ' ').title()} — approach with extra caution")
+        lines.append(f"**Mercado mais fraco:** {worst_m.replace('_', ' ').title()} — aborde com cautela extra")
     if best_l:
-        lines.append(f"**Strongest league:** {best_l}")
+        lines.append(f"**Liga mais forte:** {best_l}")
     lines.append("")
 
-    # Qualitative assessment
+    # Avaliação qualitativa
     if acc is not None:
         if acc >= 60:
             verdict = (
-                f"Aurora is performing well at {acc:.1f}% accuracy. "
-                f"Maintain discipline — stick to the quarter-Kelly staking plan."
+                f"A Aurora está performando bem com {acc:.1f}% de precisão. "
+                f"Mantenha a disciplina — siga o plano de stake pelo Critério de Kelly."
             )
         elif acc >= 45:
             verdict = (
-                f"Performance at {acc:.1f}% is marginally below the target of 55%+. "
-                f"Review which markets are losing and consider reducing exposure there."
+                f"Desempenho de {acc:.1f}% está levemente abaixo da meta de 55%+. "
+                f"Revise quais mercados estão perdendo e considere reduzir exposição."
             )
         else:
             verdict = (
-                f"Accuracy of {acc:.1f}% is below expectations. "
-                f"Aurora recommends entering protection mode: halve all stakes "
-                f"and only bet on markets with confidence ≥ 7.0 until the streak improves."
+                f"Precisão de {acc:.1f}% está abaixo do esperado. "
+                f"A Aurora recomenda modo de proteção: reduza todas as stakes pela metade "
+                f"e aposte apenas em mercados com confiança ≥ 7,0 até a sequência melhorar."
             )
         lines += [verdict, ""]
 
-    # Market breakdown
+    # Breakdown de mercados
     breakdown = stats.get("market_breakdown", [])
     if breakdown:
-        lines.append("**Market breakdown (top 3 by accuracy):**")
+        lines.append("**Breakdown de mercados (top 3 por precisão):**")
         for r in breakdown[:3]:
             rule = r.get("rule", "").replace("_", " ").title()
             mkt_acc = r.get("accuracy", 0)
             mkt_w = r.get("wins", 0)
             mkt_l = r.get("losses", 0)
-            lines.append(f"  • {rule}: {mkt_acc:.1f}% ({mkt_w}W/{mkt_l}L)")
+            lines.append(f"  • {rule}: {mkt_acc:.1f}% ({mkt_w}V/{mkt_l}D)")
         lines.append("")
 
     lines += [
         "---",
-        f"*Session `{session_id}` · Ask: \"What did Aurora learn?\" or analyze a match.*",
+        f"*Sessão `{session_id}` · Pergunte: \"O que a Aurora aprendeu?\" ou analise uma partida.*",
     ]
     return "\n".join(lines)
 
@@ -388,56 +405,56 @@ def _fmt_learning(stats: dict, session_id: str) -> str:
     breakdown = stats.get("market_breakdown", [])
     league_br = stats.get("league_breakdown", [])
 
-    lines = ["**Aurora Learning Recap**", ""]
+    lines = ["**Resumo de Aprendizado da Aurora**", ""]
 
     if total == 0:
         lines += [
-            "No predictions have been resolved yet.",
-            "Aurora begins learning automatically once match results come in.",
-            "Every prediction is tracked — the learning engine updates in real time.",
+            "Nenhuma previsão foi resolvida ainda.",
+            "A Aurora começa a aprender automaticamente assim que os resultados das partidas chegam.",
+            "Cada previsão é rastreada — o motor de aprendizado atualiza em tempo real.",
             "",
-            f"*Session `{session_id}`*",
+            f"*Sessão `{session_id}`*",
         ]
         return "\n".join(lines)
 
     decided = wins + losses
-    acc_str = f"{acc:.1f}%" if acc is not None else "pending"
+    acc_str = f"{acc:.1f}%" if acc is not None else "pendente"
     lines += [
-        f"**Prediction track record:** {total} total — {wins}W / {losses}L / {pending} pending",
-        f"**Current accuracy:** {acc_str}",
+        f"**Histórico de previsões:** {total} total — {wins}V / {losses}D / {pending} pendentes",
+        f"**Precisão atual:** {acc_str}",
         "",
     ]
 
     if breakdown:
-        lines.append("**What's working:**")
+        lines.append("**O que está funcionando:**")
         for r in [x for x in breakdown if x.get("wins", 0) > 0][:3]:
             rule = r.get("rule", "").replace("_", " ").title()
-            lines.append(f"  ✓ {rule} — {r.get('accuracy', 0):.1f}% accuracy ({r.get('wins', 0)}W/{r.get('losses', 0)}L)")
+            lines.append(f"  ✓ {rule} — {r.get('accuracy', 0):.1f}% precisão ({r.get('wins', 0)}V/{r.get('losses', 0)}D)")
         lines.append("")
 
         losing = [x for x in breakdown if x.get("losses", 0) > x.get("wins", 0)]
         if losing:
-            lines.append("**What's struggling:**")
+            lines.append("**O que precisa de atenção:**")
             for r in losing[:2]:
                 rule = r.get("rule", "").replace("_", " ").title()
-                lines.append(f"  ✗ {rule} — {r.get('accuracy', 0):.1f}% accuracy ({r.get('wins', 0)}W/{r.get('losses', 0)}L)")
+                lines.append(f"  ✗ {rule} — {r.get('accuracy', 0):.1f}% precisão ({r.get('wins', 0)}V/{r.get('losses', 0)}D)")
             lines.append("")
 
     if league_br:
-        lines.append("**League performance:**")
+        lines.append("**Desempenho por liga:**")
         for lg in league_br[:3]:
             lines.append(
-                f"  • {lg.get('league', 'Unknown')}: "
-                f"{lg.get('accuracy', 0):.1f}% ({lg.get('wins', 0)}W/{lg.get('losses', 0)}L)"
+                f"  • {lg.get('league', 'Desconhecida')}: "
+                f"{lg.get('accuracy', 0):.1f}% ({lg.get('wins', 0)}V/{lg.get('losses', 0)}D)"
             )
         lines.append("")
 
     lines += [
-        "Aurora learns continuously — every resolved match updates the accuracy model.",
-        "Weight changes to the methodology engine require 20+ consistent observations.",
+        "A Aurora aprende continuamente — cada partida resolvida atualiza o modelo de precisão.",
+        "Mudanças de peso no motor de metodologia requerem 20+ observações consistentes.",
         "",
         "---",
-        f"*Session `{session_id}` · Ask: \"Review bankroll\" or analyze a match to add more data.*",
+        f"*Sessão `{session_id}` · Pergunte: \"Revisar banca\" ou analise uma partida para adicionar mais dados.*",
     ]
     return "\n".join(lines)
 
@@ -445,15 +462,15 @@ def _fmt_learning(stats: dict, session_id: str) -> str:
 def _fmt_knowledge(results: list, query: str, session_id: str) -> str:
     if not results:
         return (
-            f"**No knowledge found for \"{query}\"**\n\n"
-            f"Aurora's knowledge base covers: methodology, betting rules, bankroll management, "
-            f"market rules, live rules, pre-match rules, referee tendencies, league profiles, "
-            f"team patterns, psychology, risk management, red flags, and golden rules.\n\n"
-            f"Try: *\"What do you know about BTTS?\"* or *\"Explain Kelly Criterion\"*\n\n"
-            f"---\n*Session `{session_id}`*"
+            f"**Nenhum conhecimento encontrado para \"{query}\"**\n\n"
+            f"A base de conhecimento da Aurora cobre: metodologia, regras de apostas, gestão de banca, "
+            f"regras de mercado, regras ao vivo, regras pré-jogo, tendências de árbitros, perfis de ligas, "
+            f"padrões de equipes, psicologia, gestão de risco, alertas vermelhos e regras de ouro.\n\n"
+            f"Tente: *\"O que você sabe sobre BTTS?\"* ou *\"Explique o Critério de Kelly\"*\n\n"
+            f"---\n*Sessão `{session_id}`*"
         )
 
-    lines = [f"**Aurora Knowledge — \"{query}\"**", f"*{len(results)} relevant item(s) found*", ""]
+    lines = [f"**Conhecimento Aurora — \"{query}\"**", f"*{len(results)} item(ns) relevante(s) encontrado(s)*", ""]
 
     for item in results[:4]:
         cat = item.get("category", "").replace("_", " ").title()
@@ -463,16 +480,16 @@ def _fmt_knowledge(results: list, query: str, session_id: str) -> str:
         examples_raw = item.get("examples", [])
 
         lines += [
-            f"**{title}** · *{cat}* · Confidence {conf:.0%}",
+            f"**{title}** · *{cat}* · Confiança {conf:.0%}",
             desc,
         ]
         if examples_raw and isinstance(examples_raw, list):
-            lines.append(f"*Example: {examples_raw[0][:150]}*")
+            lines.append(f"*Exemplo: {examples_raw[0][:150]}*")
         lines.append("")
 
     lines += [
         "---",
-        f"*Session `{session_id}` · These rules are applied before every Aurora recommendation.*",
+        f"*Sessão `{session_id}` · Estas regras são aplicadas antes de cada recomendação da Aurora.*",
     ]
     return "\n".join(lines)
 
@@ -480,82 +497,82 @@ def _fmt_knowledge(results: list, query: str, session_id: str) -> str:
 def _fmt_explain(report: Any, session_id: str) -> str:
     """Focused explanation using the confidence + main factors sections."""
     lines = [
-        f"**Explaining: {report.match}**",
-        f"*Recommendation: {report.primary_recommendation} | {report.overall_confidence}/10 confidence*",
+        f"**Explicando: {report.match}**",
+        f"*Recomendação: {report.primary_recommendation} | Confiança {report.overall_confidence}/10*",
         "",
     ]
 
     lines += [report.confidence_explanation, ""]
 
-    lines.append("**Top factors:**")
+    lines.append("**Principais fatores:**")
     for f in report.main_factors[:5]:
         lines.append(f"  {f}")
     lines.append("")
 
-    lines.append("**What could change this:**")
+    lines.append("**O que poderia mudar esta análise:**")
     for c in report.invalidation_conditions[:3]:
         lines.append(f"  • {c[:200]}")
     lines.append("")
 
     lines += [
         "---",
-        f"*Session `{session_id}` · Ask: \"what are the risks?\" or analyze another match.*",
+        f"*Sessão `{session_id}` · Pergunte: \"quais são os riscos?\" ou analise outra partida.*",
     ]
     return "\n".join(lines)
 
 
 def _fmt_greeting(session_id: str) -> str:
     return (
-        "Hello! I'm **Aurora**, your football intelligence assistant.\n\n"
-        "I combine live match data, expected goals, historical patterns, "
-        "and 39 foundational betting rules to give you professional-grade analysis.\n\n"
-        "**What you can ask:**\n"
-        "  • *\"Analyze Arsenal vs Chelsea\"* — full intelligence report\n"
-        "  • *\"Best live opportunities\"* — current live match opportunities\n"
-        "  • *\"Review bankroll\"* — your prediction performance\n"
-        "  • *\"What did Aurora learn today?\"* — learning & accuracy recap\n"
-        "  • *\"What do you know about BTTS?\"* — search knowledge base\n"
-        "  • *\"Explain recommendation\"* — deep dive into the last call\n\n"
-        "**Where to start?** Try: *\"Analyze [Home Team] vs [Away Team]\"*\n\n"
+        "Olá! Sou a **Aurora**, sua assistente de inteligência esportiva.\n\n"
+        "Combino dados ao vivo, gols esperados (xG), padrões históricos "
+        "e 39 regras metodológicas de apostas para oferecer análises de nível profissional.\n\n"
+        "**O que você pode me perguntar:**\n"
+        "  • *\"Analisar Arsenal x Chelsea\"* — relatório completo de inteligência\n"
+        "  • *\"Melhores oportunidades ao vivo\"* — oportunidades em partidas ao vivo\n"
+        "  • *\"Revisar banca\"* — desempenho das suas previsões\n"
+        "  • *\"O que a Aurora aprendeu hoje?\"* — resumo de aprendizado e precisão\n"
+        "  • *\"O que você sabe sobre BTTS?\"* — buscar na base de conhecimento\n"
+        "  • *\"Explique a recomendação\"* — análise aprofundada da última chamada\n\n"
+        "**Por onde começar?** Tente: *\"Analisar [Time da Casa] x [Time Visitante]\"*\n\n"
         "---\n"
-        f"*Session `{session_id}` started.*"
+        f"*Sessão `{session_id}` iniciada.*"
     )
 
 
 def _fmt_help(session_id: str) -> str:
     return (
-        "**Aurora Copilot — Available Commands**\n\n"
-        "| Command | Example |\n"
+        "**Aurora — Comandos Disponíveis**\n\n"
+        "| Comando | Exemplo |\n"
         "|---|---|\n"
-        "| Analyze a match | *\"Analyze Palmeiras vs Flamengo\"* |\n"
-        "| Live opportunities | *\"Best live opportunities\"* |\n"
-        "| Bankroll review | *\"Review bankroll\"* |\n"
-        "| Learning recap | *\"What did Aurora learn today?\"* |\n"
-        "| Knowledge search | *\"What do you know about corners?\"* |\n"
-        "| Explain last call | *\"Explain the recommendation\"* |\n\n"
-        "**Natural language works:** You don't need exact commands. "
-        "Try *\"Man City x Arsenal\"*, *\"how are my results?\"*, or *\"why did you pick that market?\"*\n\n"
-        "**Every analysis includes:**\n"
-        "  • Primary recommendation with probability and expected value\n"
-        "  • 7 factors ranked by contribution\n"
-        "  • Quarter-Kelly stake recommendation with bankroll examples\n"
-        "  • Alternative markets\n"
-        "  • Risk flags and invalidation conditions\n\n"
+        "| Analisar partida | *\"Analisar Palmeiras x Flamengo\"* |\n"
+        "| Oportunidades ao vivo | *\"Melhores oportunidades ao vivo\"* |\n"
+        "| Revisão de banca | *\"Revisar banca\"* |\n"
+        "| Resumo de aprendizado | *\"O que a Aurora aprendeu hoje?\"* |\n"
+        "| Busca de conhecimento | *\"O que você sabe sobre escanteios?\"* |\n"
+        "| Explicar última análise | *\"Explique a recomendação\"* |\n\n"
+        "**Linguagem natural funciona:** Não é preciso usar comandos exatos. "
+        "Tente *\"Man City x Arsenal\"*, *\"como estão meus resultados?\"*, ou *\"por que você escolheu esse mercado?\"*\n\n"
+        "**Cada análise inclui:**\n"
+        "  • Recomendação principal com probabilidade e valor esperado\n"
+        "  • 7 fatores classificados por contribuição\n"
+        "  • Recomendação de stake pelo Critério de Kelly\n"
+        "  • Mercados alternativos\n"
+        "  • Alertas de risco e condições de invalidação\n\n"
         "---\n"
-        f"*Session `{session_id}`*"
+        f"*Sessão `{session_id}`*"
     )
 
 
 def _fmt_unknown(message: str, session_id: str) -> str:
     return (
-        f"I didn't quite understand: *\"{message[:120]}\"*\n\n"
-        "**Try one of these:**\n"
-        "  • *\"Analyze [Home] vs [Away]\"* — match analysis\n"
-        "  • *\"Best live opportunities\"* — live matches\n"
-        "  • *\"Review bankroll\"* — performance\n"
-        "  • *\"Help\"* — full command list\n\n"
+        f"Não entendi bem: *\"{message[:120]}\"*\n\n"
+        "**Tente uma dessas opções:**\n"
+        "  • *\"Analisar [Casa] x [Fora]\"* — análise de partida\n"
+        "  • *\"Melhores oportunidades ao vivo\"* — partidas ao vivo\n"
+        "  • *\"Revisar banca\"* — desempenho\n"
+        "  • *\"Ajuda\"* — lista completa de comandos\n\n"
         "---\n"
-        f"*Session `{session_id}`*"
+        f"*Sessão `{session_id}`*"
     )
 
 
@@ -604,9 +621,9 @@ async def dispatch(
     except Exception as exc:
         logger.error("Copilot dispatch error [%s]: %s", intent, exc, exc_info=True)
         return (
-            f"Aurora encountered an error processing your request: {exc}\n\n"
-            "Please try again. If the error persists, check the fixture name spelling or try a different query.\n\n"
-            f"---\n*Session `{session_id}`*"
+            f"A Aurora encontrou um erro ao processar sua solicitação: {exc}\n\n"
+            "Por favor, tente novamente. Se o erro persistir, verifique o nome da partida ou tente uma consulta diferente.\n\n"
+            f"---\n*Sessão `{session_id}`*"
         )
 
 
@@ -615,8 +632,8 @@ async def _handle_analyze(entities: dict, session_id: str) -> str:
     away = entities.get("away", "")
     if not home or not away:
         return (
-            "Please specify both teams: *\"Analyze [Home Team] vs [Away Team]\"*\n\n"
-            f"---\n*Session `{session_id}`*"
+            "Por favor, especifique os dois times: *\"Analisar [Time da Casa] x [Time Visitante]\"*\n\n"
+            f"---\n*Sessão `{session_id}`*"
         )
 
     # Import engines lazily
@@ -674,9 +691,9 @@ async def _handle_explain(session_ctx: dict, session_id: str) -> str:
     away = session_ctx.get("last_away")
     if not home or not away:
         return (
-            "No recent match to explain. First analyze a fixture:\n"
-            "*\"Analyze [Home Team] vs [Away Team]\"*\n\n"
-            f"---\n*Session `{session_id}`*"
+            "Nenhuma partida recente para explicar. Primeiro analise uma partida:\n"
+            "*\"Analisar [Time da Casa] x [Time Visitante]\"*\n\n"
+            f"---\n*Sessão `{session_id}`*"
         )
 
     from src.brain import get_config, get_methodology_config
@@ -744,9 +761,9 @@ def _handle_learning(session_id: str) -> str:
 def _handle_knowledge(query: str, session_id: str) -> str:
     if not query or len(query) < 2:
         return (
-            "Please specify what you'd like to know about:\n"
-            "*\"What do you know about [topic]?\"*\n\n"
-            f"---\n*Session `{session_id}`*"
+            "Por favor, especifique sobre o que você quer saber:\n"
+            "*\"O que você sabe sobre [tópico]?\"*\n\n"
+            f"---\n*Sessão `{session_id}`*"
         )
     from src.knowledge_db import search_knowledge_items
     results = search_knowledge_items(query, limit=4)

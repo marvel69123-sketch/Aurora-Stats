@@ -195,17 +195,24 @@ def _compose_final(
     risk_level: str,
     best_ev: float | None,
 ) -> str:
+    _CONF_PT = {
+        "strong": "forte", "moderate": "moderada", "adequate": "adequada",
+        "weak": "fraca", "insufficient": "insuficiente",
+    }
+    _RISK_PT = {"Low": "Baixo", "Medium": "Médio", "High": "Alto"}
     if not primary_mkt or primary_mkt == "No actionable market":
         return (
-            "No actionable market identified. Aurora's methodology has not found "
-            "a bet with positive expected value passing all confidence and risk gates. "
-            "Consider waiting for live data or confirmed lineups."
+            "Nenhum mercado acionável identificado. A metodologia da Aurora não encontrou "
+            "uma aposta com valor esperado positivo aprovada em todos os filtros de confiança e risco. "
+            "Considere aguardar dados ao vivo ou escalações confirmadas."
         )
-    ev_str = f", EV +{best_ev:.1f}%" if best_ev and best_ev > 0 else ""
-    stake_str = f", {stake_pct:.1f}% stake recommended" if stake_pct > 0 else ", no stake recommended"
+    ev_str = f", VE +{best_ev:.1f}%" if best_ev and best_ev > 0 else ""
+    stake_str = f", stake de {stake_pct:.1f}% recomendada" if stake_pct > 0 else ", sem stake recomendada"
+    conf_label_pt = _CONF_PT.get(conf_label, conf_label)
+    risk_level_pt = _RISK_PT.get(risk_level, risk_level)
     return (
-        f"**{primary_mkt}** — {conf_label.title()} confidence ({conf_score:.1f}/10){stake_str}, "
-        f"{risk_level} risk{ev_str}."
+        f"**{primary_mkt}** — Confiança {conf_label_pt} ({conf_score:.1f}/10){stake_str}, "
+        f"risco {risk_level_pt}{ev_str}."
     )
 
 
@@ -385,25 +392,25 @@ async def _run_live() -> dict:
         league  = (fx.get("league") or {}).get("name", "")
         markets.append({
             "rank":           i,
-            "market":         f"{hn} vs {an}",
+            "market":         f"{hn} x {an}",
             "probability":    0.0,
             "expected_value": 0.0,
             "confidence":     0.0,
             "risk":           "Unknown",
             "rationale":      (
-                f"{hn} {score_h}–{score_a} {an} · Minute {minute}"
+                f"{hn} {score_h}–{score_a} {an} · Minuto {minute}"
                 + (f" · {league}" if league else "")
-                + ". Ask Aurora to \"Analyze [Home] vs [Away]\" for a full assessment."
+                + ". Peça à Aurora para \"Analisar [Casa] x [Fora]\" para uma avaliação completa."
             ),
         })
 
     summary = (
-        f"{count} match{'es' if count != 1 else ''} currently live."
-        if count else "No matches are currently live."
+        f"{count} partida{'s' if count != 1 else ''} ao vivo agora."
+        if count else "Nenhuma partida ao vivo no momento."
     )
     final = (
-        f"Run \"Analyze [Home] vs [Away]\" on any live fixture for a full intelligence report."
-        if count else "No live opportunities at this time. Check back later."
+        f"Execute \"Analisar [Casa] x [Fora]\" em qualquer partida ao vivo para um relatório completo de inteligência."
+        if count else "Nenhuma oportunidade ao vivo no momento. Volte mais tarde."
     )
 
     return {
@@ -419,8 +426,8 @@ async def _run_live() -> dict:
         "confidence": {
             "score":        0.0,
             "label":        "insufficient",
-            "explanation":  "Live fixture list only. Full analysis requires a specific fixture.",
-            "data_sources": ["Live API-Football feed"],
+            "explanation":  "Apenas lista de partidas ao vivo. Análise completa requer uma partida específica.",
+            "data_sources": ["Feed ao vivo API-Football"],
         },
         "risk": {
             "level":                  "Unknown",
@@ -431,7 +438,7 @@ async def _run_live() -> dict:
             "recommended_stake_pct": 0.0,
             "method":                "quarter-Kelly",
             "examples":              {},
-            "reasoning":             "No stake recommended without full match analysis.",
+            "reasoning":             "Nenhuma stake recomendada sem análise completa da partida.",
             "no_bet":                True,
         },
         "positive_factors":       [],
@@ -478,13 +485,13 @@ def _run_bankroll() -> dict:
         hist.append(f"{lg.get('league','?')}: {lg.get('accuracy',0):.1f}% ({lg.get('wins',0)}W/{lg.get('losses',0)}L)")
 
     summary = (
-        f"Aurora has tracked {total} predictions: {wins}W / {losses}L / {pending} pending. "
-        f"Accuracy: {acc_str}. ROI: {roi_str}. "
-        f"Best market: {best_m}. Best league: {best_l}."
+        f"A Aurora monitorou {total} previsões: {wins}V / {losses}D / {pending} pendentes. "
+        f"Precisão: {acc_str}. ROI: {roi_str}. "
+        f"Melhor mercado: {best_m}. Melhor liga: {best_l}."
     )
     final = (
-        f"Performance is {'above' if (acc or 0) >= 55 else 'below'} the target accuracy threshold. "
-        f"{'Maintain discipline.' if (acc or 0) >= 55 else 'Consider reducing stakes until accuracy recovers.'}"
+        f"Desempenho {'acima' if (acc or 0) >= 55 else 'abaixo'} da meta de precisão. "
+        f"{'Mantenha a disciplina.' if (acc or 0) >= 55 else 'Considere reduzir as stakes até que a precisão se recupere.'}"
     )
 
     return {
@@ -504,8 +511,8 @@ def _run_bankroll() -> dict:
         "confidence": {
             "score":        min(10.0, round((total / 20) * 10, 1)) if total else 0.0,
             "label":        _conf_label(min(10.0, (total / 20) * 10) if total else 0),
-            "explanation":  f"Based on {total} tracked predictions. More predictions increase statistical confidence.",
-            "data_sources": ["Learning database"],
+            "explanation":  f"Baseado em {total} previsões monitoradas. Mais previsões aumentam a confiança estatística.",
+            "data_sources": ["Base de dados de aprendizado"],
         },
         "risk": {
             "level":                  "Low" if (acc or 0) >= 55 else "High",
@@ -516,7 +523,7 @@ def _run_bankroll() -> dict:
             "recommended_stake_pct": 0.0,
             "method":                "quarter-Kelly",
             "examples":              {},
-            "reasoning":             "Bankroll review only — no specific bet recommended. Analyze a match for a stake recommendation.",
+            "reasoning":             "Apenas revisão de banca — nenhuma aposta específica recomendada. Analise uma partida para obter uma recomendação de stake.",
             "no_bet":                True,
         },
         "positive_factors":      pos[:5],
@@ -566,14 +573,14 @@ def _run_learning() -> dict:
     ]
 
     summary = (
-        f"Aurora has resolved {total} predictions: {wins}W / {losses}L. "
-        f"Current accuracy: {f'{acc:.1f}%' if acc is not None else 'not computed yet'}. "
-        f"Aurora learns continuously — weight changes require 20+ consistent observations."
+        f"A Aurora resolveu {total} previsões: {wins}V / {losses}D. "
+        f"Precisão atual: {f'{acc:.1f}%' if acc is not None else 'não calculada ainda'}. "
+        f"A Aurora aprende continuamente — mudanças de peso requerem 20+ observações consistentes."
     )
     final = (
-        "Learning engine active. "
-        f"{'Strong markets to continue: ' + ', '.join(r.get('rule','').replace('_',' ').title() for r in working[:2]) + '.' if working else ''}"
-        f"{'Markets needing caution: ' + ', '.join(r.get('rule','').replace('_',' ').title() for r in struggling[:2]) + '.' if struggling else ''}"
+        "Motor de aprendizado ativo. "
+        f"{'Mercados sólidos para continuar: ' + ', '.join(r.get('rule','').replace('_',' ').title() for r in working[:2]) + '.' if working else ''}"
+        f"{'Mercados para atenção: ' + ', '.join(r.get('rule','').replace('_',' ').title() for r in struggling[:2]) + '.' if struggling else ''}"
     ).strip()
 
     return {
@@ -586,8 +593,8 @@ def _run_learning() -> dict:
         "confidence": {
             "score":        min(10.0, round((total / 20) * 10, 1)) if total else 0.0,
             "label":        _conf_label(min(10.0, (total / 20) * 10) if total else 0),
-            "explanation":  f"Statistical confidence grows with more resolved predictions. Currently {total} resolved.",
-            "data_sources": ["Learning database", "Evolution engine"],
+            "explanation":  f"A confiança estatística cresce com mais previsões resolvidas. Atualmente {total} resolvidas.",
+            "data_sources": ["Base de dados de aprendizado", "Motor de evolução"],
         },
         "risk": {
             "level":                  "Low" if (acc or 0) >= 55 else "High",
@@ -597,7 +604,7 @@ def _run_learning() -> dict:
         "bankroll_recommendation": {
             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
             "examples": {}, "no_bet": True,
-            "reasoning": "Learning review only.",
+            "reasoning": "Apenas revisão de aprendizado.",
         },
         "positive_factors":      pos,
         "negative_factors":      neg,
@@ -623,13 +630,13 @@ def _run_knowledge(query: str) -> dict:
         notes.append(f"[{cat} · {conf:.0%}] {title}: {desc}")
 
     summary = (
-        f"Found {len(results)} knowledge item(s) for \"{query}\"."
+        f"Encontrei {len(results)} item(ns) de conhecimento para \"{query}\"."
         if results else
-        f"No knowledge items matched \"{query}\"."
+        f"Nenhum item de conhecimento encontrado para \"{query}\"."
     )
     final = (
-        f"Knowledge base has {len(results)} relevant rule(s) for \"{query}\". "
-        "These are applied before every Aurora prediction."
+        f"A base de conhecimento tem {len(results)} regra(s) relevante(s) para \"{query}\". "
+        "Estas são aplicadas antes de cada previsão da Aurora."
     )
 
     return {
@@ -641,8 +648,8 @@ def _run_knowledge(query: str) -> dict:
         "best_markets":      [],
         "confidence": {
             "score": 0.0, "label": "insufficient",
-            "explanation": "Knowledge search only — no match analysis performed.",
-            "data_sources": ["Knowledge database"],
+            "explanation": "Apenas busca de conhecimento — nenhuma análise de partida realizada.",
+            "data_sources": ["Base de conhecimento"],
         },
         "risk": {
             "level": "Unknown", "flags": [],
@@ -651,13 +658,90 @@ def _run_knowledge(query: str) -> dict:
         "bankroll_recommendation": {
             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
             "examples": {}, "no_bet": True,
-            "reasoning": "No bet recommended from knowledge search alone.",
+            "reasoning": "Nenhuma aposta recomendada apenas com base em busca de conhecimento.",
         },
         "positive_factors":      [],
         "negative_factors":      [],
         "historical_references": [],
         "knowledge_notes":       notes,
         "final_recommendation":  final,
+        "aurora_version": "Copilot v1.0",
+        "brain":          get_brain_meta(),
+    }
+
+
+def _run_greeting() -> dict:
+    from src.brain import get_brain_meta
+    return {
+        "intent":   "greeting",
+        "entities": {},
+        "match":   None, "status": None, "is_live": False, "minute": None,
+        "executive_summary": (
+            "Olá! Sou a **Aurora**, sua assistente profissional de inteligência esportiva. "
+            "Combino dados ao vivo, gols esperados (xG), padrões históricos e 39 regras metodológicas "
+            "de apostas para entregar análises de nível profissional."
+        ),
+        "best_markets":      [],
+        "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Sessão iniciada.", "data_sources": []},
+        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+        "bankroll_recommendation": {
+            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+            "examples": {}, "no_bet": True,
+            "reasoning": "Comece analisando uma partida para receber uma recomendação de stake.",
+        },
+        "positive_factors":      [],
+        "negative_factors":      [],
+        "historical_references": [],
+        "knowledge_notes": [
+            "Analisar partida: \"Analisar Palmeiras x Flamengo\"",
+            "Oportunidades ao vivo: \"Melhores oportunidades ao vivo\"",
+            "Revisão de banca: \"Revisar banca\"",
+            "Aprendizado: \"O que a Aurora aprendeu hoje?\"",
+            "Conhecimento: \"O que você sabe sobre BTTS?\"",
+        ],
+        "final_recommendation": (
+            "Por onde começar? Tente: **\"Analisar [Time da Casa] x [Time Visitante]\"** "
+            "para um relatório completo de inteligência."
+        ),
+        "aurora_version": "Copilot v1.0",
+        "brain":          get_brain_meta(),
+    }
+
+
+def _run_help() -> dict:
+    from src.brain import get_brain_meta
+    return {
+        "intent":   "help",
+        "entities": {},
+        "match":   None, "status": None, "is_live": False, "minute": None,
+        "executive_summary": (
+            "A Aurora suporta análise completa de partidas, oportunidades ao vivo, "
+            "revisão de banca, resumo de aprendizado e busca na base de conhecimento. "
+            "Linguagem natural funciona — não é preciso usar comandos exatos."
+        ),
+        "best_markets":      [],
+        "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Consulta de ajuda.", "data_sources": []},
+        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+        "bankroll_recommendation": {
+            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+            "examples": {}, "no_bet": True,
+            "reasoning": "Nenhuma aposta recomendada em consulta de ajuda.",
+        },
+        "positive_factors":      [],
+        "negative_factors":      [],
+        "historical_references": [],
+        "knowledge_notes": [
+            "Analisar partida → \"Analisar Palmeiras x Flamengo\"",
+            "Oportunidades ao vivo → \"Melhores oportunidades ao vivo\"",
+            "Revisão de banca → \"Revisar banca\"",
+            "Resumo de aprendizado → \"O que a Aurora aprendeu hoje?\"",
+            "Busca de conhecimento → \"O que você sabe sobre escanteios?\"",
+            "Explicar análise → \"Explique a recomendação\"",
+        ],
+        "final_recommendation": (
+            "Cada análise inclui: recomendação principal com probabilidade e valor esperado, "
+            "stake pelo Critério de Kelly, fatores positivos e negativos, e condições de invalidação."
+        ),
         "aurora_version": "Copilot v1.0",
         "brain":          get_brain_meta(),
     }
@@ -671,14 +755,14 @@ def _run_fallback(message: str, intent: str) -> dict:
         "match":   None, "status": None, "is_live": False, "minute": None,
 
         "executive_summary": (
-            f"Intent detected: {intent}. "
-            "For a full analysis, ask: \"Analyze [Home Team] vs [Away Team]\", "
-            "\"Best live opportunities\", \"Review bankroll\", or \"What did Aurora learn?\"."
+            f"Intenção detectada: {intent}. "
+            "Para uma análise completa, pergunte: \"Analisar [Casa] x [Fora]\", "
+            "\"Melhores oportunidades ao vivo\", \"Revisar banca\", ou \"O que a Aurora aprendeu?\"."
         ),
         "best_markets":      [],
         "confidence": {
             "score": 0.0, "label": "insufficient",
-            "explanation": "No analysis pipeline run for this intent.",
+            "explanation": "Nenhum pipeline de análise executado para esta intenção.",
             "data_sources": [],
         },
         "risk": {
@@ -688,15 +772,15 @@ def _run_fallback(message: str, intent: str) -> dict:
         "bankroll_recommendation": {
             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
             "examples": {}, "no_bet": True,
-            "reasoning": "No bet recommended.",
+            "reasoning": "Nenhuma aposta recomendada.",
         },
         "positive_factors":      [],
         "negative_factors":      [],
         "historical_references": [],
         "knowledge_notes":       [],
         "final_recommendation":  (
-            "Please provide a specific match or intent. Examples: "
-            "\"Analyze Arsenal vs Chelsea\", \"Best live opportunities\"."
+            "Por favor, informe uma partida ou intenção específica. Exemplos: "
+            "\"Analisar Arsenal x Chelsea\", \"Melhores oportunidades ao vivo\"."
         ),
         "aurora_version": "Copilot v1.0",
         "brain":          get_brain_meta(),
@@ -775,6 +859,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         elif intent == "knowledge_search":
             payload = _run_knowledge(entities.get("query", message))
 
+        elif intent == "greeting":
+            payload = _run_greeting()
+
+        elif intent == "help":
+            payload = _run_help()
+
         else:
             payload = _run_fallback(message, intent)
 
@@ -785,14 +875,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             "intent":   intent,
             "entities": entities,
             "match":   None, "status": None, "is_live": False, "minute": None,
-            "executive_summary": f"Aurora encountered an error: {exc}. Check the fixture name or try again.",
+            "executive_summary": f"A Aurora encontrou um erro: {exc}. Verifique o nome da partida ou tente novamente.",
             "best_markets":      [],
             "confidence": {"score": 0.0, "label": "insufficient", "explanation": str(exc), "data_sources": []},
             "risk": {"level": "Unknown", "flags": [str(exc)], "invalidation_conditions": []},
             "bankroll_recommendation": {"recommended_stake_pct": 0.0, "method": "quarter-Kelly", "examples": {}, "reasoning": "Error state.", "no_bet": True},
             "positive_factors": [], "negative_factors": [],
             "historical_references": [], "knowledge_notes": [],
-            "final_recommendation": "Error — no recommendation available.",
+            "final_recommendation": "Erro — nenhuma recomendação disponível.",
             "aurora_version": "Copilot v1.0",
             "brain": get_brain_meta(),
         }

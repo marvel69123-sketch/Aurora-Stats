@@ -61,7 +61,7 @@ export default function App() {
         {/* Desktop header bar */}
         <header className="hidden md:flex items-center h-12 px-6 border-b border-white/[0.05] bg-background flex-shrink-0">
           <p className="text-xs text-white/25 truncate">
-            {activeSession?.title ?? "Aurora Intelligence Engine"}
+            {activeSession?.title ?? "Aurora — Inteligência Esportiva"}
           </p>
         </header>
 

@@ -64,7 +64,7 @@ export function useChat() {
     const id = uid();
     const session: Session = {
       id,
-      title: "New conversation",
+      title: "Nova conversa",
       messages: [],
       createdAt: now(),
       lastActive: now(),

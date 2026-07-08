@@ -3,14 +3,14 @@ import { ArrowUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SUGGESTIONS = [
-  "Analyze Arsenal vs Chelsea",
-  "Analyze Manchester City vs Liverpool",
-  "Best live opportunities",
-  "Review bankroll",
-  "What did Aurora learn today?",
-  "What do you know about BTTS?",
-  "What do you know about corners?",
-  "Explain the Kelly Criterion",
+  "Analisar Arsenal x Chelsea",
+  "Analisar Manchester City x Liverpool",
+  "Melhores oportunidades ao vivo",
+  "Revisar banca",
+  "O que a Aurora aprendeu hoje?",
+  "O que você sabe sobre BTTS?",
+  "O que você sabe sobre escanteios?",
+  "Explique o Critério de Kelly",
 ];
 
 interface ChatInputProps {
@@ -23,7 +23,6 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -31,7 +30,6 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }, [text]);
 
-  // Focus on mount
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
@@ -60,7 +58,6 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
 
   return (
     <div className="border-t border-white/[0.06] bg-background px-4 pt-3 pb-4">
-      {/* Suggestion chips — shown when no messages */}
       {empty && (
         <div className="flex flex-wrap gap-2 mb-3">
           {SUGGESTIONS.map((s) => (
@@ -75,7 +72,6 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
         </div>
       )}
 
-      {/* Input row */}
       <div
         className={cn(
           "flex gap-3 items-end rounded-2xl border px-4 py-3 transition-colors",
@@ -88,7 +84,7 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Aurora anything…"
+          placeholder="Pergunte à Aurora..."
           rows={1}
           disabled={disabled}
           className={cn(
@@ -117,7 +113,7 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
       </div>
 
       <p className="text-[10px] text-white/20 text-center mt-2">
-        Enter to send · Shift+Enter for new line
+        Enter para enviar · Shift+Enter para nova linha
       </p>
     </div>
   );

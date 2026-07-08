@@ -12,16 +12,16 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-function timeAgo(iso: string): string {
+function tempoAtras(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return "agora mesmo";
+  if (m < 60) return `há ${m}min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `há ${h}h`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  if (d < 7) return `há ${d}d`;
+  return new Date(iso).toLocaleDateString("pt-BR");
 }
 
 export function Sidebar({
@@ -35,7 +35,6 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-20 md:hidden"
@@ -52,7 +51,7 @@ export function Sidebar({
           "md:relative md:translate-x-0 md:flex-shrink-0"
         )}
       >
-        {/* Header */}
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between px-4 pt-5 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
@@ -68,30 +67,30 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* New Chat Button */}
+        {/* Nova Conversa */}
         <div className="px-3 pb-3">
           <button
             onClick={onNewChat}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/10 text-white/70 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all text-sm font-medium"
           >
             <PlusIcon size={15} />
-            New conversation
+            Nova conversa
           </button>
         </div>
 
         <div className="px-3 pb-1">
           <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest px-1">
-            History
+            Histórico
           </p>
         </div>
 
-        {/* Sessions list */}
+        {/* Lista de conversas */}
         <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
           {sessions.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <MessageSquareIcon size={24} className="text-white/15" />
-              <p className="text-xs text-white/30">No conversations yet</p>
-              <p className="text-[11px] text-white/20">Start by typing a question</p>
+              <p className="text-xs text-white/30">Nenhuma conversa ainda</p>
+              <p className="text-[11px] text-white/20">Comece fazendo uma pergunta</p>
             </div>
           ) : (
             sessions.map((session) => (
@@ -106,10 +105,10 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Rodapé */}
         <div className="px-4 py-3 border-t border-white/[0.05]">
           <p className="text-[10px] text-white/20 leading-relaxed">
-            Aurora Intelligence Engine
+            Aurora — Inteligência Esportiva
             <br />
             <span className="text-emerald-500/50">Copilot v1.0</span>
           </p>
@@ -139,7 +138,7 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
     >
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium leading-snug truncate">{session.title}</p>
-        <p className="text-[10px] text-white/25 mt-0.5">{timeAgo(session.lastActive)}</p>
+        <p className="text-[10px] text-white/25 mt-0.5">{tempoAtras(session.lastActive)}</p>
       </div>
       <button
         onClick={(e) => {
