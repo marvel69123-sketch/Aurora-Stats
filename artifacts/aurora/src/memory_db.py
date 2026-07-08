@@ -62,6 +62,7 @@ COLLECTIONS = [
     "tactical_patterns",
     "lessons_learned",
     "daily_logs",
+    "improvement_history",
 ]
 
 

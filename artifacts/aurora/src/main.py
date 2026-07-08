@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers import fixtures, leagues, teams, players, standings, live, analyze, report, score, brain_router, learning_router, memory_router, decision_router
+from src.routers import fixtures, leagues, teams, players, standings, live, analyze, report, score, brain_router, learning_router, memory_router, decision_router, evolution_router
 from src.brain import get_config as _init_brain
 from src.knowledge_db import init_db as _init_db
 from src.learning_db import init_learning_db as _init_learning
@@ -38,6 +38,7 @@ app.include_router(brain_router.router, prefix="/aurora", tags=["Brain"])
 app.include_router(learning_router.router, prefix="/aurora", tags=["Learning"])
 app.include_router(memory_router.router, prefix="/aurora", tags=["Memory"])
 app.include_router(decision_router.router, prefix="/aurora", tags=["Decision"])
+app.include_router(evolution_router.router, prefix="/aurora", tags=["Evolution"])
 
 
 @app.on_event("startup")

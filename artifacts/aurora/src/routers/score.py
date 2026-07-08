@@ -20,12 +20,17 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from src.core.decision_engine import DecisionResult, run as _decide
+from src.core import confidence_engine, learning_engine, market_engine, methodology_engine
+from src.core.evolution_engine import analyze as _evo_analyze, generate_report as _evo_report
+from src.core.methodology_v1 import run as _mv1_run
+from src.brain import get_config as _get_cfg, get_methodology_config as _get_mcfg
 from src.learning_db import resolve_predictions as _lrn_resolve
 from src.learning_db import save_prediction as _lrn_save
 from src.memory_db import (
     recall_context as _mem_context,
     remember_lesson_from_finished as _mem_lesson,
     remember_recommendation as _mem_rec,
+    remember as _mem_remember,
 )
 from src.routers.analyze import analyze_fixture
 
@@ -257,6 +262,96 @@ def _learning_hook(decision: DecisionResult) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Evolution hook — fires after every FINISHED match, never raises
+# ---------------------------------------------------------------------------
+
+
+def _evolution_hook(decision: DecisionResult, data: dict) -> None:
+    """
+    Auto-run the Evolution Engine after every finished match.
+    Persists the improvement report to improvement_history memory.
+    Never modifies methodology — read + suggest only.
+    """
+    try:
+        m = decision.methodology
+        if not (m.is_finished and m.has_score):
+            return
+
+        cfg  = _get_cfg()
+        mcfg = _get_mcfg()
+        hn   = decision.hn
+        an   = decision.an
+        lg   = decision.league
+
+        meth     = methodology_engine.run(data, cfg)
+        learning = learning_engine.run(league=lg)
+        conf     = confidence_engine.run(meth, cfg)
+        mkts     = market_engine.run(hn, an, data, meth, conf, cfg)
+        mv1      = _mv1_run(
+            data=data, hn=hn, an=an,
+            meth=meth, conf=conf, market=mkts,
+            learning=learning, mcfg=mcfg, brain_cfg=cfg,
+        )
+
+        evolution = _evo_analyze(
+            data=data, hn=hn, an=an,
+            markets=mkts, mv1=mv1, meth=meth,
+            league=lg, cfg=cfg, mcfg=mcfg,
+        )
+        rpt = _evo_report(evolution)
+        a   = rpt.analysis
+
+        _mem_remember(
+            collection="improvement_history",
+            content={
+                "report_id":              rpt.report_id,
+                "fixture_id":             a.fixture_id,
+                "match":                  a.match,
+                "league":                 a.league,
+                "result":                 a.result_str,
+                "methodology_score":      a.methodology_score,
+                "data_richness":          a.data_richness,
+                "brier_score":            a.brier_score,
+                "log_loss":               a.log_loss,
+                "calibration_error":      a.calibration_error,
+                "best_market":            a.best_market_key,
+                "best_market_correct":    a.best_market_correct,
+                "markets_correct":        a.markets_correct,
+                "markets_wrong":          a.markets_wrong,
+                "category_scores":        a.category_scores,
+                "actual_outcomes":        {k: bool(v) for k, v in a.actual_outcomes.items()},
+                "correct_assumptions":    a.correct_assumptions,
+                "wrong_assumptions":      a.wrong_assumptions,
+                "possible_biases":        a.possible_biases,
+                "missing_data":           a.missing_data,
+                "suggested_weight_changes": a.suggested_weight_changes,
+                "suggested_new_rules":    a.suggested_new_rules,
+                "category_verdicts":      {
+                    cv.key: {"verdict": cv.verdict, "score": cv.score}
+                    for cv in a.category_verdicts
+                },
+                "generated_at":           rpt.generated_at,
+                "headline":               rpt.headline,
+            },
+            summary=rpt.headline,
+            key=f"evo_{a.fixture_id}",
+            tags=[a.match, a.league or "", a.best_market_key,
+                  "correct" if a.best_market_correct else "wrong",
+                  f"brier_{a.brier_score:.3f}"],
+            fixture_id=a.fixture_id,
+            league=a.league,
+            confidence=a.methodology_score,
+            importance=8,
+        )
+        logger.info(
+            "Evolution hook: %s [%s] brier=%.4f best_market_correct=%s",
+            a.match, a.result_str, a.brier_score, a.best_market_correct,
+        )
+    except Exception as exc:
+        logger.error("Evolution hook error: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
 
@@ -301,4 +396,5 @@ async def score_fixture(
     result   = _to_score_response(decision)
     _learning_hook(decision)
     _memory_hook(decision)
+    _evolution_hook(decision, data)
     return result
