@@ -15,9 +15,9 @@ app = FastAPI(
     title="Aurora",
     description="Live football match statistics powered by API-Football",
     version="1.0.0",
-    docs_url="/aurora/docs",
-    redoc_url="/aurora/redoc",
-    openapi_url="/aurora/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 app.add_middleware(
@@ -62,6 +62,22 @@ async def _startup():
 async def health():
     from src.brain import get_brain_meta
     return {"status": "ok", "service": "Aurora", "brain": get_brain_meta()}
+
+
+# Backward-compat redirects — keep old /aurora/docs paths working
+@app.get("/aurora/docs", include_in_schema=False)
+async def aurora_docs_redirect():
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/aurora/redoc", include_in_schema=False)
+async def aurora_redoc_redirect():
+    return RedirectResponse(url="/redoc")
+
+
+@app.get("/aurora/openapi.json", include_in_schema=False)
+async def aurora_openapi_redirect():
+    return RedirectResponse(url="/openapi.json")
 
 
 if __name__ == "__main__":
