@@ -426,7 +426,10 @@ def _add_player_markets(
         return sum(
             1 for e in events
             if e.get("type") == "Goal"
-            and name_lower in (e.get("player", {}) or {}).get("name", "").lower()
+            and name_lower in (
+                (e.get("player") if isinstance(e.get("player"), dict) else {})
+                .get("name", "").lower()
+            )
         )
 
     h_scored = _goal_count(h_striker)
