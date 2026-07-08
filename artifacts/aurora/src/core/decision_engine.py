@@ -1,18 +1,18 @@
 """
 Decision Engine — central brain of Aurora.
 
-Orchestrates all seven specialist engines in the order defined by
-the Aurora methodology:
+Orchestrates all engines in the order defined by the Aurora methodology:
 
   1. Collect data          → data dict from analyze_fixture() (caller's job)
-  2. Load brain knowledge  → get_config() from src.brain
-  3. Methodology Engine    → three-layer Poisson model
+  2. Load brain knowledge  → get_config() + get_methodology_config()
+  3. Methodology Engine    → three-layer Poisson model (raw probabilities)
   4. Learning Engine       → historical context from prediction_history
   5. Confidence Engine     → data-richness scoring
-  6. Bankroll Engine       → risk classification + stake sizing
-  7. Market Engine         → rank all seven markets
-  8. Report Engine         → explanations + text report
-  9. Return DecisionResult → single unified output for any endpoint
+  6. Market Engine         → rank and explain all seven markets
+  7. Methodology v1        → 15-category weighted scoring + market gating
+  8. Bankroll Engine       → risk classification + stake sizing
+  9. Report Engine         → text report + summary string
+ 10. Return DecisionResult → single unified output for any endpoint
 
 Both /aurora/score and /aurora/report call this engine.
 The result contains everything both endpoints need — no business logic
@@ -26,13 +26,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.brain import BrainConfig, get_brain_meta, get_config
+from src.brain import BrainConfig, MethodologyConfig, get_brain_meta, get_config, get_methodology_config
 from src.core import (
     bankroll_engine,
     confidence_engine,
     learning_engine,
     market_engine,
     methodology_engine,
+    methodology_v1,
     report_engine,
 )
 from src.core.bankroll_engine import BankrollResult
@@ -40,6 +41,7 @@ from src.core.confidence_engine import ConfidenceResult
 from src.core.learning_engine import LearningContext
 from src.core.market_engine import MarketResult
 from src.core.methodology_engine import MethodologyResult
+from src.core.methodology_v1 import MethodologyV1Result
 
 
 # ---------------------------------------------------------------------------
@@ -66,15 +68,16 @@ class DecisionResult:
     minute:     int | None
 
     # ── Engine outputs ─────────────────────────────────────────────────────
-    methodology: MethodologyResult
-    confidence:  ConfidenceResult
-    learning:    LearningContext
-    bankroll:    BankrollResult
-    markets:     MarketResult
+    methodology:    MethodologyResult
+    confidence:     ConfidenceResult
+    learning:       LearningContext
+    markets:        MarketResult
+    methodology_v1: MethodologyV1Result   # ← Aurora Methodology v1
+    bankroll:       BankrollResult
 
     # ── Report layer ───────────────────────────────────────────────────────
-    summary:     str          # one-line summary for /score
-    report_text: str          # full plain-text report for /report
+    summary:     str
+    report_text: str
 
     # ── Brain metadata ─────────────────────────────────────────────────────
     brain_meta:  dict
@@ -87,15 +90,18 @@ class DecisionResult:
 
     @property
     def best_market_label(self) -> str:
-        return self.markets.best.label
+        """Methodology v1 recommended market if one passed, else probability-best."""
+        return self.methodology_v1.recommended_market or self.markets.best.label
 
     @property
     def risk_level(self) -> str:
-        return self.markets.best.risk
+        return self.methodology_v1.risk
 
     @property
     def recommended_market_labels(self) -> list[str]:
-        return [ms.label for ms in self.markets.recommended]
+        """Markets recommended by Methodology v1 (passes all gates)."""
+        rec = self.methodology_v1.recommended_market
+        return [rec] if rec else []
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +111,7 @@ class DecisionResult:
 
 def run(data: dict) -> DecisionResult:
     """
-    Run all Aurora engines in sequence and return a DecisionResult.
+    Run the full Aurora decision pipeline and return a DecisionResult.
 
     Parameters
     ----------
@@ -115,7 +121,8 @@ def run(data: dict) -> DecisionResult:
     """
 
     # ── Step 2: Load Aurora Brain knowledge ──────────────────────────────────
-    cfg: BrainConfig = get_config()
+    cfg:  BrainConfig      = get_config()
+    mcfg: MethodologyConfig = get_methodology_config()
 
     # ── Extract shared identifiers ───────────────────────────────────────────
     fx     = data["fixture"]
@@ -124,7 +131,7 @@ def run(data: dict) -> DecisionResult:
     hn     = teams["home"]["name"]
     an     = teams["away"]["name"]
 
-    # ── Step 3: Methodology Engine ───────────────────────────────────────────
+    # ── Step 3: Methodology Engine (Poisson math) ────────────────────────────
     meth = methodology_engine.run(data, cfg)
 
     # ── Step 4: Learning Engine ──────────────────────────────────────────────
@@ -133,20 +140,24 @@ def run(data: dict) -> DecisionResult:
     # ── Step 5: Confidence Engine ────────────────────────────────────────────
     conf = confidence_engine.run(meth, cfg)
 
-    # ── Step 6: Bankroll Engine ──────────────────────────────────────────────
-    # (needs market result first for risk classification; bankroll uses market risks)
-    # Build markets first so bankroll can rank by market probability
+    # ── Step 6: Market Engine ────────────────────────────────────────────────
     mkts = market_engine.run(hn, an, data, meth, conf, cfg)
+
+    # ── Step 7: Aurora Methodology v1 ────────────────────────────────────────
+    mv1 = methodology_v1.run(
+        data=data, hn=hn, an=an,
+        meth=meth, conf=conf, market=mkts,
+        learning=learning, mcfg=mcfg, brain_cfg=cfg,
+    )
+
+    # ── Step 8: Bankroll Engine ──────────────────────────────────────────────
     bank = bankroll_engine.run(mkts, learning, cfg)
 
-    # ── Step 7: Markets already ranked above ──────────────────────────────────
-    # (market_engine.run already ranked and identified best / recommended)
-
-    # ── Step 8: Report Engine ────────────────────────────────────────────────
+    # ── Step 9: Report Engine ────────────────────────────────────────────────
     summary     = report_engine.build_summary(hn, an, meth, mkts)
     report_text = report_engine.build_text(data, hn, an, mkts)
 
-    # ── Step 9: Return DecisionResult ────────────────────────────────────────
+    # ── Step 10: Return DecisionResult ───────────────────────────────────────
     return DecisionResult(
         fixture_id=fx["id"],
         date=fx.get("date"),
@@ -158,8 +169,9 @@ def run(data: dict) -> DecisionResult:
         methodology=meth,
         confidence=conf,
         learning=learning,
-        bankroll=bank,
         markets=mkts,
+        methodology_v1=mv1,
+        bankroll=bank,
         summary=summary,
         report_text=report_text,
         brain_meta=get_brain_meta(),

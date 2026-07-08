@@ -5,5 +5,6 @@ from src.core import (  # noqa: F401
     learning_engine,
     market_engine,
     methodology_engine,
+    methodology_v1,
     report_engine,
 )

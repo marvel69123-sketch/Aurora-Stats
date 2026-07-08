@@ -1,7 +1,7 @@
 """
 /aurora/score — Betting-grade probability scores for a fixture.
 
-All business logic has moved to src/core/. This router:
+All business logic lives in src/core/. This router:
   1. Receives the HTTP request
   2. Fetches raw fixture data via analyze_fixture()
   3. Delegates to decision_engine.run()  ← central brain
@@ -29,7 +29,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Response schema  (unchanged — API contract stays stable)
+# Response schema  (API contract — never change field names)
 # ---------------------------------------------------------------------------
 
 
@@ -39,6 +39,26 @@ class MarketScore(BaseModel):
     risk:        str
     actionable:  bool
     explanation: str
+
+
+class CategoryResult(BaseModel):
+    name:         str
+    score:        float
+    weight:       float
+    contribution: float
+    reason:       str
+
+
+class MethodologyV1Response(BaseModel):
+    """Aurora Methodology v1 — 15-category weighted assessment."""
+    overall_score:      float
+    confidence:         float
+    risk:               str
+    recommended_market: str | None
+    blocked_markets:    list[str]
+    reasons:            list[str]
+    passed:             bool
+    categories:         dict[str, CategoryResult]
 
 
 class ScoreResponse(BaseModel):
@@ -62,7 +82,8 @@ class ScoreResponse(BaseModel):
     over_85_corners:  MarketScore
     over_45_cards:    MarketScore
 
-    brain: dict[str, Any]
+    methodology:  MethodologyV1Response
+    brain:        dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +92,6 @@ class ScoreResponse(BaseModel):
 
 
 def _ms(key: str, decision: DecisionResult) -> MarketScore:
-    """Pull a market from the decision and convert to the Pydantic schema."""
     ms = decision.markets.markets[key]
     return MarketScore(
         probability=ms.probability,
@@ -79,6 +99,29 @@ def _ms(key: str, decision: DecisionResult) -> MarketScore:
         risk=ms.risk,
         actionable=ms.actionable,
         explanation=ms.explanation,
+    )
+
+
+def _methodology_response(decision: DecisionResult) -> MethodologyV1Response:
+    mv1 = decision.methodology_v1
+    return MethodologyV1Response(
+        overall_score=mv1.overall_score,
+        confidence=mv1.confidence,
+        risk=mv1.risk,
+        recommended_market=mv1.recommended_market,
+        blocked_markets=mv1.blocked_markets,
+        reasons=mv1.reasons,
+        passed=mv1.passed,
+        categories={
+            key: CategoryResult(
+                name=cs.name,
+                score=cs.score,
+                weight=cs.weight,
+                contribution=cs.contribution,
+                reason=cs.reason,
+            )
+            for key, cs in mv1.categories.items()
+        },
     )
 
 
@@ -101,6 +144,7 @@ def _to_score_response(decision: DecisionResult) -> ScoreResponse:
         over_25_goals=_ms("over_25_goals", decision),
         over_85_corners=_ms("over_85_corners", decision),
         over_45_cards=_ms("over_45_cards", decision),
+        methodology=_methodology_response(decision),
         brain=decision.brain_meta,
     )
 
@@ -110,7 +154,7 @@ def _to_score_response(decision: DecisionResult) -> ScoreResponse:
 # ---------------------------------------------------------------------------
 
 
-def _learning_hook(decision: DecisionResult, data: dict) -> None:
+def _learning_hook(decision: DecisionResult) -> None:
     """
     Save the best-market prediction to the learning engine.
     Auto-resolve if the match is finished.
@@ -161,27 +205,30 @@ async def score_fixture(
     """
     Compute betting-grade probability scores for a fixture.
 
-    **AURORA_BRAIN** operational parameters are loaded before every prediction —
-    thresholds, weights, and baselines are never hardcoded.
+    **AURORA_BRAIN** operational parameters and **Methodology v1** weights are
+    loaded before every prediction — nothing is hardcoded.
 
-    **Decision pipeline (src/core/decision_engine.py):**
+    **Decision pipeline:**
     1. Collect data (analyze_fixture)
-    2. Load Aurora Brain knowledge
+    2. Load Aurora Brain knowledge (version.json + methodology.json)
     3. Methodology Engine — three-layer Poisson model
     4. Learning Engine   — historical accuracy context
     5. Confidence Engine — data-richness scoring
-    6. Bankroll Engine   — risk classification + stake sizing
-    7. Market Engine     — rank all seven markets
-    8. Report Engine     — explanations + summary
-    9. Return recommendation
+    6. Market Engine     — rank all seven markets
+    7. **Methodology v1** — 15-category weighted gate (blocks low-quality bets)
+    8. Bankroll Engine   — stake sizing
+    9. Report Engine     — explanations + summary
+
+    The `methodology` field in the response shows all 15 category scores,
+    the overall weighted score, and which markets passed or were blocked.
 
     **Automatic learning:**
     Every call saves the best-market prediction to the learning engine.
-    Finished matches are auto-resolved and update learning statistics
+    Finished matches are auto-resolved and update accuracy statistics
     visible at `GET /aurora/learning/stats`.
     """
     data     = await analyze_fixture(home=home, away=away)
     decision = _decide(data)
     result   = _to_score_response(decision)
-    _learning_hook(decision, data)
+    _learning_hook(decision)
     return result
