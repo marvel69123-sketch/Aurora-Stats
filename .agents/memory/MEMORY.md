@@ -1,0 +1,2 @@
+- [Aurora NLP architecture](aurora-nlp.md) — copilot_engine.py intent rules, alias table, and command-strip pattern; easy to break if order changes.
+- [Aurora service routing](aurora-routing.md) — Aurora FastAPI runs on :8080, proxied at /aurora/*; paths never rewritten; docs at /aurora/docs.

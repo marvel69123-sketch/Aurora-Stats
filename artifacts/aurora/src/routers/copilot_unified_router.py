@@ -143,7 +143,13 @@ def _parse_stake(stake_text: str) -> tuple[float, dict[str, float], str]:
     Parse the recommended_stake NL string into (pct, examples_dict, reasoning).
     Returns (0.0, {}, stake_text) when no bet is recommended.
     """
-    if "No stake recommended" in stake_text:
+    # Accept both English and Portuguese "no bet" signals
+    _NO_BET_PHRASES = (
+        "No stake recommended", "no stake", "no bet",
+        "Nenhuma stake", "sem stake", "não aposte", "não há aposta",
+        "High risk", "Alto risco", "stake 0%", "0% stake",
+    )
+    if any(phrase.lower() in stake_text.lower() for phrase in _NO_BET_PHRASES):
         return 0.0, {}, stake_text
 
     pct = 0.0
@@ -173,17 +179,29 @@ def _parse_stake(stake_text: str) -> tuple[float, dict[str, float], str]:
 
 def _extract_data_sources(conf_text: str) -> list[str]:
     sources: list[str] = []
+    text_lower = conf_text.lower()
     pairs = [
-        ("xG",          "Live expected-goals (xG)"),
-        ("standings",   "League standings"),
-        ("referee",     "Referee profile"),
-        ("head-to-head","Head-to-head history"),
-        ("form",        "Recent form data"),
+        ("xg",           "Expected Goals (xG)"),
+        ("expected_goal","Expected Goals (xG)"),
+        ("standings",    "Classificação da liga"),
+        ("tabela",       "Classificação da liga"),
+        ("referee",      "Perfil do árbitro"),
+        ("árbitro",      "Perfil do árbitro"),
+        ("arbitro",      "Perfil do árbitro"),
+        ("head-to-head", "Histórico de confrontos"),
+        ("h2h",          "Histórico de confrontos"),
+        ("confronto",    "Histórico de confrontos"),
+        ("form",         "Forma recente"),
+        ("forma",        "Forma recente"),
+        ("lineup",       "Escalação confirmada"),
+        ("escala",       "Escalação confirmada"),
     ]
+    seen: set[str] = set()
     for keyword, label in pairs:
-        if keyword.lower() in conf_text.lower() and "✓" in conf_text:
+        if keyword in text_lower and label not in seen:
             sources.append(label)
-    return sources or ["Season averages (GPG)"]
+            seen.add(label)
+    return sources or ["Médias da temporada (GPG)"]
 
 
 def _compose_final(
@@ -749,20 +767,34 @@ def _run_help() -> dict:
 
 def _run_fallback(message: str, intent: str) -> dict:
     from src.brain import get_brain_meta
+    # Try to give a useful clue based on the message content
+    msg_lower = message.lower()
+    if any(w in msg_lower for w in ("como", "what", "tell", "quero", "preciso")):
+        tip = (
+            "Parece que você quer analisar uma partida ou buscar informações. "
+            "Aqui estão alguns exemplos do que posso fazer:\n\n"
+        )
+    else:
+        tip = "Não entendi completamente. Aqui está o que posso fazer por você:\n\n"
+
+    summary = (
+        tip +
+        "• **Analisar Arsenal x Chelsea** — análise completa de uma partida\n"
+        "• **Melhores oportunidades ao vivo** — partidas em andamento\n"
+        "• **Revisar banca** — seu histórico e desempenho\n"
+        "• **O que a Aurora aprendeu hoje?** — resumo de aprendizado\n"
+        "• **O que você sabe sobre BTTS?** — busca na base de conhecimento\n\n"
+        "Também entendo linguagem natural — basta perguntar normalmente."
+    )
     return {
-        "intent":   intent,
+        "intent":   "unknown",
         "entities": {},
         "match":   None, "status": None, "is_live": False, "minute": None,
-
-        "executive_summary": (
-            f"Intenção detectada: {intent}. "
-            "Para uma análise completa, pergunte: \"Analisar [Casa] x [Fora]\", "
-            "\"Melhores oportunidades ao vivo\", \"Revisar banca\", ou \"O que a Aurora aprendeu?\"."
-        ),
+        "executive_summary": summary,
         "best_markets":      [],
         "confidence": {
             "score": 0.0, "label": "insufficient",
-            "explanation": "Nenhum pipeline de análise executado para esta intenção.",
+            "explanation": "Nenhuma análise executada.",
             "data_sources": [],
         },
         "risk": {
@@ -777,10 +809,15 @@ def _run_fallback(message: str, intent: str) -> dict:
         "positive_factors":      [],
         "negative_factors":      [],
         "historical_references": [],
-        "knowledge_notes":       [],
-        "final_recommendation":  (
-            "Por favor, informe uma partida ou intenção específica. Exemplos: "
-            "\"Analisar Arsenal x Chelsea\", \"Melhores oportunidades ao vivo\"."
+        "knowledge_notes": [
+            "Analisar partida → \"Analisar Palmeiras x Flamengo\"",
+            "Ao vivo → \"Melhores oportunidades ao vivo\"",
+            "Banca → \"Revisar banca\" ou \"Como está minha banca?\"",
+            "Aprendizado → \"O que a Aurora aprendeu hoje?\"",
+            "Conhecimento → \"O que você sabe sobre BTTS?\"",
+        ],
+        "final_recommendation": (
+            "Digite o nome de dois times para começar: **\"Analisar [Time da Casa] x [Time Visitante]\"**"
         ),
         "aurora_version": "Copilot v1.0",
         "brain":          get_brain_meta(),
@@ -870,19 +907,53 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     except Exception as exc:
         logger.error("Copilot unified error [%s]: %s", intent, exc, exc_info=True)
+        from fastapi import HTTPException as _HTTPExc
         from src.brain import get_brain_meta
+
+        # Friendly handling for 404 (team/fixture not found)
+        is_404 = isinstance(exc, _HTTPExc) and exc.status_code == 404
+        home_q = entities.get("home", "")
+        away_q = entities.get("away", "")
+
+        if is_404:
+            if home_q and away_q:
+                summary = (
+                    f"Não consegui localizar a partida **{home_q} x {away_q}**.\n\n"
+                    f"Isso pode acontecer porque:\n"
+                    f"• o jogo ainda não foi cadastrado na API\n"
+                    f"• o nome do time está diferente do nome oficial\n"
+                    f"• a competição não está disponível na temporada atual\n\n"
+                    f"**Sugestões:** tente o nome oficial completo — por exemplo, "
+                    f"*\"Atletico Mineiro\"* em vez de *\"Atlético-MG\"*, ou "
+                    f"*\"Paris Saint-Germain\"* em vez de *\"PSG\"*."
+                )
+                final = "Tente novamente com o nome oficial do time. Digite o nome completo sem abreviações."
+            else:
+                summary = (
+                    "Não consegui localizar esse time ou partida na API.\n\n"
+                    "Verifique o nome oficial e tente novamente.\n"
+                    "Exemplo: *\"Analisar Real Madrid x Barcelona\"*"
+                )
+                final = "Use o nome oficial completo do time para uma busca bem-sucedida."
+        else:
+            summary = (
+                "A Aurora encontrou um problema ao processar sua solicitação. "
+                "Por favor, tente novamente ou reformule a pergunta."
+            )
+            final = "Tente novamente. Se o problema persistir, verifique o nome da partida."
+
         payload = {
             "intent":   intent,
             "entities": entities,
             "match":   None, "status": None, "is_live": False, "minute": None,
-            "executive_summary": f"A Aurora encontrou um erro: {exc}. Verifique o nome da partida ou tente novamente.",
+            "executive_summary": summary,
             "best_markets":      [],
-            "confidence": {"score": 0.0, "label": "insufficient", "explanation": str(exc), "data_sources": []},
-            "risk": {"level": "Unknown", "flags": [str(exc)], "invalidation_conditions": []},
-            "bankroll_recommendation": {"recommended_stake_pct": 0.0, "method": "quarter-Kelly", "examples": {}, "reasoning": "Error state.", "no_bet": True},
+            "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Erro de processamento.", "data_sources": []},
+            "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+            "bankroll_recommendation": {"recommended_stake_pct": 0.0, "method": "quarter-Kelly", "examples": {}, "reasoning": "Nenhuma aposta disponível.", "no_bet": True},
             "positive_factors": [], "negative_factors": [],
             "historical_references": [], "knowledge_notes": [],
-            "final_recommendation": "Erro — nenhuma recomendação disponível.",
+            "final_recommendation": final,
             "aurora_version": "Copilot v1.0",
             "brain": get_brain_meta(),
         }

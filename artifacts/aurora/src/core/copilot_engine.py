@@ -30,7 +30,193 @@ logger = logging.getLogger(__name__)
 # Intent detection — regex patterns, priority ordered
 # ---------------------------------------------------------------------------
 
-_SEP = r"(?:vs\.?|versus|v\.?(?!\w)|\bx\b)"
+# Separator: "vs", "versus", "v", "x", "contra", "×"
+_SEP = r"(?:vs\.?|versus|v\.?(?!\w)|\bx\b|\bcontra\b|\×)"
+
+# ---------------------------------------------------------------------------
+# Team alias map — normalise common aliases before sending to API-Football
+# ---------------------------------------------------------------------------
+_TEAM_ALIASES: dict[str, str] = {
+    # European clubs
+    "psg": "Paris Saint-Germain",
+    "paris sg": "Paris Saint-Germain",
+    "paris saint germain": "Paris Saint-Germain",
+    "man united": "Manchester United",
+    "man utd": "Manchester United",
+    "manchester utd": "Manchester United",
+    "man u": "Manchester United",
+    "man city": "Manchester City",
+    "atletico madrid": "Atletico Madrid",
+    "atm": "Atletico Madrid",
+    "atletico": "Atletico Madrid",
+    "real": "Real Madrid",
+    "barca": "Barcelona",
+    "barca": "Barcelona",
+    "fcb": "Barcelona",
+    "spurs": "Tottenham",
+    "tottenham hotspur": "Tottenham",
+    "dortmund": "Borussia Dortmund",
+    "bvb": "Borussia Dortmund",
+    "bayern": "Bayern Munich",
+    "juve": "Juventus",
+    "juventus fc": "Juventus",
+    "milan": "AC Milan",
+    "ac milan": "AC Milan",
+    "inter milan": "Inter Milan",
+    "internazionale": "Inter Milan",
+    "galatasaray": "Galatasaray",
+    "besiktas": "Besiktas",
+    "fenerbahce": "Fenerbahce",
+    "ajax": "Ajax",
+    "psv": "PSV",
+    "porto fc": "Porto",
+    "sporting cp": "Sporting CP",
+    "sporting": "Sporting CP",
+    "benfica": "Benfica",
+    # Brazilian clubs
+    "fla": "Flamengo",
+    "flamengo": "Flamengo",
+    "palmeiras": "Palmeiras",
+    "sao paulo": "Sao Paulo",
+    "são paulo": "Sao Paulo",
+    "corinthians": "Corinthians",
+    "timao": "Corinthians",
+    "fluminense": "Fluminense",
+    "flu": "Fluminense",
+    "vasco": "Vasco",
+    "botafogo": "Botafogo",
+    "atletico-mg": "Atletico Mineiro",
+    "atlético-mg": "Atletico Mineiro",
+    "atletico mineiro": "Atletico Mineiro",
+    "atlético mineiro": "Atletico Mineiro",
+    "galo": "Atletico Mineiro",
+    "cruzeiro": "Cruzeiro",
+    "gremio": "Gremio",
+    "grêmio": "Gremio",
+    "internacional": "Internacional",
+    "inter de porto alegre": "Internacional",
+    "bragantino": "Bragantino",
+    "fortaleza": "Fortaleza",
+    "bahia": "Bahia",
+    "sport": "Sport Recife",
+    "ceara": "Ceara",
+    "ceará": "Ceara",
+    # National teams (PT → EN)
+    "brasil": "Brazil",
+    "selecao": "Brazil",
+    "seleção": "Brazil",
+    "franca": "France",
+    "frança": "France",
+    "alemanha": "Germany",
+    "espanha": "Spain",
+    "italia": "Italy",
+    "itália": "Italy",
+    "holanda": "Netherlands",
+    "belgica": "Belgium",
+    "bélgica": "Belgium",
+    "croacia": "Croatia",
+    "croácia": "Croatia",
+    "polonia": "Poland",
+    "polônia": "Poland",
+    "suica": "Switzerland",
+    "suíça": "Switzerland",
+    "dinamarca": "Denmark",
+    "suecia": "Sweden",
+    "suécia": "Sweden",
+    "noruega": "Norway",
+    "marrocos": "Morocco",
+    "nigeria": "Nigeria",
+    "nigéria": "Nigeria",
+    "egito": "Egypt",
+    "arabia saudita": "Saudi Arabia",
+    "arabia saudita": "Saudi Arabia",
+    "japao": "Japan",
+    "japão": "Japan",
+    "coreia do sul": "South Korea",
+    "coreia": "South Korea",
+    "australia": "Australia",
+    "austrália": "Australia",
+    "estados unidos": "USA",
+    "eua": "USA",
+    "argentina": "Argentina",
+    "uruguai": "Uruguay",
+    "chile": "Chile",
+    "colombia": "Colombia",
+    "colômbia": "Colombia",
+    "mexico": "Mexico",
+    "méxico": "Mexico",
+    "senegal": "Senegal",
+    "ghana": "Ghana",
+    "gana": "Ghana",
+    "egito": "Egypt",
+    "russia": "Russia",
+    "rússia": "Russia",
+    "turquia": "Turkey",
+    "ucrania": "Ukraine",
+    "ucrânia": "Ukraine",
+    "austria": "Austria",
+    "áustria": "Austria",
+    "hungria": "Hungary",
+    "escocia": "Scotland",
+    "escócia": "Scotland",
+    "wales": "Wales",
+    "pais de gales": "Wales",
+    "país de gales": "Wales",
+    "irlanda": "Ireland",
+    "republica tcheca": "Czech Republic",
+    "republica checa": "Czech Republic",
+    "eslováquia": "Slovakia",
+    "eslovaquia": "Slovakia",
+    "eslovenia": "Slovenia",
+    "eslovênia": "Slovenia",
+    "romenia": "Romania",
+    "romênia": "Romania",
+    "servia": "Serbia",
+    "sérvia": "Serbia",
+}
+
+
+def normalize_team_name(name: str) -> str:
+    """Resolve common aliases and accented variants to their API-Football canonical name."""
+    key = name.lower().strip()
+    # Direct alias lookup
+    if key in _TEAM_ALIASES:
+        return _TEAM_ALIASES[key]
+    # Try removing accents via transliteration for ASCII fallback
+    import unicodedata
+    ascii_key = unicodedata.normalize("NFKD", key).encode("ascii", "ignore").decode()
+    if ascii_key in _TEAM_ALIASES:
+        return _TEAM_ALIASES[ascii_key]
+    return name  # return unchanged if no alias found
+
+
+# ---------------------------------------------------------------------------
+# Command-prefix stripper — removes "Analisar / Veja / Quero ver" etc.
+# from the beginning of a team-name capture group.
+# ---------------------------------------------------------------------------
+_CMD_PREFIX_RE = re.compile(
+    r"^(?:"
+    r"analis[ae]r?|analise|analisa|analyz[ei](?:ng|e\s+me)?|"
+    r"veja|mostre?|mostra|avalie?|avalia|"
+    r"preveja?|prever|previs[aã]o\s+(?:de\s+)?|"
+    r"quero\s+(?:ver|analisar|analisa)|"
+    r"me\s+(?:d[eê]|mostr[ae]|fale\s+(?:sobre\s+)?|analise)|"
+    r"pode(?:ria)?\s+analisar|"
+    r"what\s+about|show\s+me|give\s+me|run|check|forecast|predict|analyse?|"
+    r"intelligence|report|assess(?:ment)?|"
+    r"como\s+est[aá]\s+"
+    r")\s*",
+    re.IGNORECASE,
+)
+
+
+def _clean_team(name: str) -> str:
+    """Strip trailing punctuation and leading command words."""
+    name = re.sub(r"[?.!,;:]+$", "", name).strip()
+    name = _CMD_PREFIX_RE.sub("", name).strip()
+    name = re.sub(r"[?.!,;:]+$", "", name).strip()
+    return name
+
 
 _GREETING_RE = re.compile(
     r"^(?:hi|hello|hey|oi|ol[aá]|bom\s+(?:dia|tarde|noite)|good\s+(?:morning|afternoon|evening|day)|howdy|yo|e\s+a[íi])(?:\s+aurora)?\W*$",
@@ -47,9 +233,11 @@ _LIVE_RE = re.compile(
     r"live\s+right\s+now|"
     r"^live\??$|"
     r"any(?:thing)?\s+live|"
+    r"tem\s+(?:algo|alguma\s+coisa|oportunidades?)\s+ao\s+vivo|"
     r"(?:melhores\s+)?oportunidades?\s+ao\s+vivo|"
     r"partidas?\s+ao\s+vivo|"
-    r"o\s+que\s+(?:est[aá]|tem)\s+ao\s+vivo|"
+    r"jogos?\s+ao\s+vivo|"
+    r"o\s+que\s+(?:est[aá]|tem)\s+(?:rolando\s+)?ao\s+vivo|"
     r"^ao\s+vivo\??$",
     re.IGNORECASE,
 )
@@ -58,8 +246,8 @@ _BANKROLL_RE = re.compile(
     r"bankroll\s+(?:status|review|health|summary|check)|"
     r"how\s+am\s+i\s+doing|"
     r"my\s+performance|"
-    r"roi|"
-    r"profit|"
+    r"\broi\b|"
+    r"\bprofit\b|"
     r"results\s+(?:so\s+far|today)?|"
     r"(?:revisar?|ver|checar|como\s+est[aá])\s+(?:minha\s+)?banca|"
     r"(?:minha\s+)?banca\s+(?:atual|hoje|status|resumo)|"
@@ -85,7 +273,11 @@ _EXPLAIN_RE = re.compile(
     r"why\s+(?:did\s+you|aurora)\s+(?:recommend|suggest|pick)|"
     r"explain\s+(?:the\s+)?confidence|"
     r"tell\s+me\s+(?:more|why)|"
-    r"more\s+details?",
+    r"more\s+details?|"
+    r"explique\s+(?:a\s+)?(?:recomenda[cç][aã]o|an[aá]lise|confian[cç]a)|"
+    r"por\s+que\s+(?:voc[eê]\s+)?recomendou|"
+    r"me\s+explique\s+(?:mais|isso|a\s+recomenda[cç][aã]o)|"
+    r"mais\s+detalhes",
     re.IGNORECASE,
 )
 _KNOWLEDGE_RE = re.compile(
@@ -95,30 +287,40 @@ _KNOWLEDGE_RE = re.compile(
     r"knowledge\s+(?:about|on)\s+(.+)|"
     r"aurora(?:'s)?\s+rule\s+(?:on|for|about)\s+(.+)|"
     r"o\s+que\s+voc[eê]\s+sabe\s+sobre\s+(.+)|"
-    r"me\s+(?:fale|conte|explique)\s+(?:sobre\s+)?(.+?)\s*\??$|"
-    r"como\s+funciona\s+(.+?)\s*\??$",
+    r"me\s+(?:fale|conte)\s+(?:sobre\s+)?(.+?)\s*\??$|"
+    r"explique\s+(?:o\s+que\s+[eé]\s+|o\s+)?(.+?)\s*\??$|"
+    r"como\s+funciona\s+(?:o\s+|a\s+)?(.+?)\s*\??$",
     re.IGNORECASE,
 )
+
+# Match patterns — ordered from most specific to least specific.
+# Groups 1 and 2 must always be home and away team names.
+# _clean_team will strip any leaked command prefix words.
 _MATCH_PATTERNS = [
-    re.compile(rf"analyz(?:e|ing|e\s+me)\s+(.+?)\s+{_SEP}\s+(.+)", re.IGNORECASE),
+    # PT command verbs: Analise/Analisar + TeamA SEP TeamB
+    re.compile(rf"analis[ae]r?\s+(.+?)\s+{_SEP}\s+(.+)", re.IGNORECASE),
+    # EN command verbs: Analyze/Analyse + TeamA SEP TeamB
+    re.compile(rf"analyz[ei](?:ng|e\s+me)?\s+(.+?)\s+{_SEP}\s+(.+)", re.IGNORECASE),
+    # PT/EN veja / show me / what about + TeamA SEP TeamB
+    re.compile(
+        rf"(?:veja|mostre?|mostra|avalie?|avalia|preveja?|prever|"
+        rf"what\s+about|show\s+me|give\s+me)\s+(.+?)\s+{_SEP}\s+(.+)",
+        re.IGNORECASE,
+    ),
+    # EN intelligence/report/assess/predict etc.
     re.compile(
         rf"(?:intelligence|report|assess(?:ment)?|predict(?:ion)?|check|forecast|score)\s+(.+?)\s+{_SEP}\s+(.+)",
         re.IGNORECASE,
     ),
+    # TeamA SEP TeamB + trailing keyword (PT + EN)
     re.compile(
-        rf"(?:what\s+about|show\s+me|give\s+me|run)\s+(.+?)\s+{_SEP}\s+(.+)",
+        rf"(.+?)\s+{_SEP}\s+(.+?)\s+(?:an[aá]lise|analis[ae]|analysis|analyz[ei]|"
+        rf"intelligence|prediction|previs[aã]o|forecast|report)\W*$",
         re.IGNORECASE,
     ),
-    re.compile(
-        rf"(.+?)\s+{_SEP}\s+(.+?)\s+(?:analysis|analyze|intelligence|prediction|forecast|report)\W*$",
-        re.IGNORECASE,
-    ),
+    # Bare "TeamA x/vs/contra TeamB" — must come last; _clean_team strips stray prefixes
     re.compile(rf"^(.+?)\s+{_SEP}\s+(.+)$", re.IGNORECASE),
 ]
-
-
-def _clean_team(name: str) -> str:
-    return re.sub(r"[?.!,]+$", "", name).strip()
 
 
 def _extract_knowledge_query(message: str) -> str:
@@ -126,10 +328,13 @@ def _extract_knowledge_query(message: str) -> str:
     if m:
         for g in m.groups():
             if g:
-                return _clean_team(g)
+                return _clean_team(g).strip("?")
     # fallback: strip common prefixes
-    cleaned = re.sub(r"^(?:what|how|tell|explain|knowledge)\s+\w+\s+", "", message, flags=re.IGNORECASE)
-    return cleaned.strip() or message.strip()
+    cleaned = re.sub(
+        r"^(?:what|how|tell|explain|me\s+(?:fale|conte|explique)|o\s+que|como)\s+\w+\s+",
+        "", message, flags=re.IGNORECASE,
+    )
+    return cleaned.strip("?").strip() or message.strip()
 
 
 def detect_intent(message: str) -> tuple[str, dict]:
@@ -137,7 +342,10 @@ def detect_intent(message: str) -> tuple[str, dict]:
     Parse a natural-language message and return (intent_name, entities_dict).
 
     Priority: greeting → help → explain_last → live → bankroll → learning
-              → knowledge → match_patterns → unknown
+              → match_patterns → knowledge → unknown
+
+    NOTE: match_patterns now runs BEFORE knowledge so that
+    "Explique Arsenal x Chelsea" is treated as a match query, not a knowledge query.
     """
     msg = message.strip()
 
@@ -159,16 +367,19 @@ def detect_intent(message: str) -> tuple[str, dict]:
     if _LEARNING_RE.search(msg):
         return "learning_recap", {}
 
-    if _KNOWLEDGE_RE.search(msg):
-        return "knowledge_search", {"query": _extract_knowledge_query(msg)}
-
+    # Match patterns run BEFORE knowledge so "explique Arsenal x Chelsea" is a match,
+    # not a knowledge query.
     for pat in _MATCH_PATTERNS:
         m = pat.search(msg)
         if m:
-            home = _clean_team(m.group(1))
-            away = _clean_team(m.group(2))
-            if home and away and home.lower() != away.lower():
+            home = normalize_team_name(_clean_team(m.group(1)))
+            away = normalize_team_name(_clean_team(m.group(2)))
+            # Sanity check: both extracted, non-empty, and different
+            if home and away and home.lower() != away.lower() and len(home) >= 2 and len(away) >= 2:
                 return "analyze_match", {"home": home, "away": away}
+
+    if _KNOWLEDGE_RE.search(msg):
+        return "knowledge_search", {"query": _extract_knowledge_query(msg)}
 
     return "unknown", {}
 
