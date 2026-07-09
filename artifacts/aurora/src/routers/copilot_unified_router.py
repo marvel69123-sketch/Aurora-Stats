@@ -93,10 +93,11 @@ class BankrollSection(BaseModel):
 
 class CopilotResponse(BaseModel):
     # ── Metadata ────────────────────────────────────────────────────────────
-    intent:       str
-    entities:     dict
-    request_id:   str
-    generated_at: str
+    intent:             str
+    entities:           dict
+    request_id:         str
+    generated_at:       str
+    routing_confidence: float = Field(0.0, description="NL router confidence 0.0–1.0")
 
     # ── Match context (populated for analyze_match; null otherwise) ─────────
     match:    str | None = None
@@ -765,6 +766,104 @@ def _run_help() -> dict:
     }
 
 
+def _run_identity() -> dict:
+    from src.brain import get_brain_meta
+    return {
+        "intent":   "identity",
+        "entities": {},
+        "match":   None, "status": None, "is_live": False, "minute": None,
+        "executive_summary": (
+            "Sou a **Aurora** — uma assistente de inteligência esportiva de nível profissional.\n\n"
+            "Fui construída para analistas e apostadores sérios que precisam de dados concretos, "
+            "não de palpites. Combino múltiplas fontes em tempo real:\n\n"
+            "• **Dados ao vivo** — fixtures, escalações, eventos e estatísticas de partidas\n"
+            "• **Gols esperados (xG)** — qualidade de chutes além do placar\n"
+            "• **Histórico de confrontos** — padrões de h2h e forma recente\n"
+            "• **Base de conhecimento** — 40 regras metodológicas de apostas\n"
+            "• **Gestão de banca** — dimensionamento de stake pelo Critério de Kelly\n"
+            "• **Motor de aprendizado** — aprendo com cada previsão e ajusto os pesos\n\n"
+            "Entendo português natural. Não precisa de comandos exatos."
+        ),
+        "best_markets": [],
+        "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Apresentação da Aurora.", "data_sources": []},
+        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+        "bankroll_recommendation": {
+            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+            "examples": {}, "no_bet": True,
+            "reasoning": "Analise uma partida para receber uma recomendação de stake.",
+        },
+        "positive_factors":      [],
+        "negative_factors":      [],
+        "historical_references": [],
+        "knowledge_notes": [
+            "Aurora = Inteligência Esportiva Profissional",
+            "Dados: API-Football + xG + H2H + 40 regras metodológicas",
+            "Banca: dimensionamento pelo Critério de Kelly",
+            "Aprendizado: precisão rastreada por mercado, risco ajustado automaticamente",
+        ],
+        "final_recommendation": (
+            "Pronto para ajudar! Tente: **\"Analisar [Time da Casa] x [Time Visitante]\"** "
+            "para uma análise completa de inteligência."
+        ),
+        "aurora_version": "Copilot v1.0",
+        "brain":          get_brain_meta(),
+    }
+
+
+def _run_capabilities() -> dict:
+    from src.brain import get_brain_meta
+    return {
+        "intent":   "capabilities",
+        "entities": {},
+        "match":   None, "status": None, "is_live": False, "minute": None,
+        "executive_summary": (
+            "Aqui está o que posso fazer por você:\n\n"
+            "**Análise de partidas**\n"
+            "→ *\"Analisar Arsenal x Chelsea\"* ou *\"PSG contra Bayern\"*\n"
+            "Entrego: recomendação principal, probabilidades dos mercados, valor esperado (EV), "
+            "risco, fatores positivos/negativos, stake pelo Kelly e condições de invalidação.\n\n"
+            "**Oportunidades ao vivo**\n"
+            "→ *\"Melhores oportunidades ao vivo\"* ou *\"Jogos ao vivo\"*\n"
+            "Vejo todas as partidas em andamento e destaco as melhores apostas em tempo real.\n\n"
+            "**Revisão de banca**\n"
+            "→ *\"Como está minha banca?\"* ou *\"ROI atual\"*\n"
+            "Mostro desempenho histórico, acertos, ROI e ajustes de risco por mercado.\n\n"
+            "**Aprendizado**\n"
+            "→ *\"O que a Aurora aprendeu hoje?\"* ou *\"Mostrar histórico\"*\n"
+            "Resumo de precisão e lições dos resultados recentes.\n\n"
+            "**Base de conhecimento**\n"
+            "→ *\"O que você sabe sobre BTTS?\"* ou *\"Explique escanteios\"*\n"
+            "Consulta às 40 regras metodológicas de apostas da Aurora.\n\n"
+            "**Linguagem natural** — fala comigo normalmente, sem comandos exatos."
+        ),
+        "best_markets": [],
+        "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Lista de capacidades.", "data_sources": []},
+        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+        "bankroll_recommendation": {
+            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+            "examples": {}, "no_bet": True,
+            "reasoning": "Nenhuma aposta recomendada em consulta de capacidades.",
+        },
+        "positive_factors":      [],
+        "negative_factors":      [],
+        "historical_references": [],
+        "knowledge_notes": [
+            "Análise → \"Analisar [Casa] x [Fora]\"",
+            "Ao vivo → \"Melhores oportunidades ao vivo\"",
+            "Banca → \"Como está minha banca?\" / \"ROI atual\"",
+            "Aprendizado → \"O que a Aurora aprendeu hoje?\"",
+            "Conhecimento → \"O que você sabe sobre [mercado]?\"",
+            "Identidade → \"Quem é você?\" / \"O que é a Aurora?\"",
+        ],
+        "final_recommendation": (
+            "Escolha qualquer um dos recursos acima. Para começar: "
+            "**\"Analisar [Time da Casa] x [Time Visitante]\"**"
+        ),
+        "aurora_version": "Copilot v1.0",
+        "brain":          get_brain_meta(),
+    }
+
+
 def _run_fallback(message: str, intent: str) -> dict:
     from src.brain import get_brain_meta
     # Try to give a useful clue based on the message content
@@ -840,19 +939,22 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     and automation pipelines.
 
     Send any natural-language request. Aurora:
-    1. Detects intent automatically
+    1. Detects intent automatically via the Natural Language Router
     2. Calls all required internal engines
     3. Merges outputs into one structured response
 
     **Supported intents (automatic detection):**
     | Example Input | Intent |
     |---|---|
-    | *"Analyze Palmeiras vs Flamengo"* | `analyze_match` |
+    | *"Analisar Palmeiras x Flamengo"* | `analyze_match` |
+    | *"PSG contra Bayern"* | `analyze_match` |
     | *"Man City x Arsenal"* | `analyze_match` |
-    | *"Best live opportunities"* | `live_opportunities` |
-    | *"Review bankroll"* | `bankroll_review` |
-    | *"What did Aurora learn today?"* | `learning_recap` |
-    | *"What do you know about BTTS?"* | `knowledge_search` |
+    | *"Melhores oportunidades ao vivo"* | `live_opportunities` |
+    | *"Como está minha banca?"* | `bankroll_review` |
+    | *"O que a Aurora aprendeu?"* | `learning_recap` |
+    | *"O que você sabe sobre BTTS?"* | `knowledge_search` |
+    | *"Quem é você?"* | `identity` |
+    | *"O que você faz?"* | `capabilities` |
 
     **Response sections** (always present, populated based on intent):
     - `executive_summary` — one-paragraph situation overview
@@ -865,15 +967,22 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     - `historical_references` — past match lessons and learning accuracy
     - `knowledge_notes` — applied Aurora knowledge rules (from 39-rule KB)
     - `final_recommendation` — one-sentence synthesis for direct LLM consumption
+    - `routing_confidence` — NL router confidence score (0.0–1.0)
 
     All numerical fields are machine-readable. All string fields are human-readable.
     Designed for direct integration with GPT-4, Claude, Gemini, and custom agents.
     """
-    from src.core.copilot_engine import detect_intent
+    from src.core.nl_router import route as _nl_route
 
     message = body.message.strip()
-    intent, entities = detect_intent(message)
+    _route  = _nl_route(message)
+    intent, entities, routing_confidence = _route.intent, _route.entities, _route.confidence
     request_id = secrets.token_hex(4)
+
+    logger.info(
+        "copilot request_id=%s intent=%s conf=%.3f entities=%s message=%r",
+        request_id, intent, routing_confidence, entities, message,
+    )
 
     try:
         if intent == "analyze_match":
@@ -898,6 +1007,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
         elif intent == "greeting":
             payload = _run_greeting()
+
+        elif intent == "identity":
+            payload = _run_identity()
+
+        elif intent == "capabilities":
+            payload = _run_capabilities()
 
         elif intent == "help":
             payload = _run_help()
@@ -959,14 +1074,15 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         }
 
     return CopilotResponse(
-        intent       = payload["intent"],
-        entities     = payload.get("entities", entities),
-        request_id   = request_id,
-        generated_at = _now_iso(),
-        match        = payload.get("match"),
-        status       = payload.get("status"),
-        is_live      = payload.get("is_live", False),
-        minute       = payload.get("minute"),
+        intent              = payload["intent"],
+        entities            = payload.get("entities", entities),
+        request_id          = request_id,
+        generated_at        = _now_iso(),
+        routing_confidence  = routing_confidence,
+        match               = payload.get("match"),
+        status              = payload.get("status"),
+        is_live             = payload.get("is_live", False),
+        minute              = payload.get("minute"),
 
         executive_summary = payload["executive_summary"],
         best_markets      = [MarketEntry(**m) for m in payload.get("best_markets", [])],
