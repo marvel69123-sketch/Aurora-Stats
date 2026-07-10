@@ -1,0 +1,12 @@
+kind = "api"
+previewPath = "/aurora"
+title = "Aurora"
+version = "1.0.0"
+
+[[services]]
+localPort = 8000
+name = "Aurora"
+paths = ["/aurora"]
+
+[services.development]
+run = "cd artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000"

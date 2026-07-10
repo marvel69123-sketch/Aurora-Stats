@@ -1,4 +1,4 @@
 - [Aurora NLP architecture](aurora-nlp.md) — nl_router.py is the primary intent router (Phase 1); copilot_engine.py alias/strip helpers remain; easy to break if order changes.
 - [Aurora service routing](aurora-routing.md) — Aurora FastAPI runs on :8080, proxied at /aurora/*; paths never rewritten; docs at /aurora/docs.
----
 - [Aurora Copilot Architecture](aurora-copilot-architecture.md) — routing priority, live fixtures key, session_id flow, context_json migration
+- [Aurora LLM Layer](aurora-llm-layer.md) — OpenAI as narrative-only layer; never touches numbers; restart workflow after provisioning env vars

@@ -1098,6 +1098,29 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             "brain": brain,
         }
 
+    # ── LLM Conversational Layer (Phases 1–9) ────────────────────────────
+    # Called ONLY when the LLM router decides it adds value.
+    # Aurora's calculations are never replaced — only the narrative is enhanced.
+    try:
+        from src.core.conversation_llm import chat as _llm_chat
+        from src.core.conversation_llm import enhance as _llm_enhance
+        from src.core.conversation_llm import needs_llm as _needs_llm
+
+        if _needs_llm(intent, message, ctx):
+            has_structure = bool(payload.get("best_markets") or payload.get("positive_factors"))
+            if has_structure:
+                # Enhance the narrative of a structured Aurora payload
+                payload = _llm_enhance(payload, message, ctx, intent)
+            else:
+                # Pure conversational — replace entirely with LLM response
+                llm_payload = _llm_chat(message, ctx, intent, brain)
+                if llm_payload.get("executive_summary"):
+                    # Merge: keep any structured fields from the rule engine
+                    for k in ("executive_summary", "final_recommendation", "aurora_version"):
+                        payload[k] = llm_payload[k]
+    except Exception as _llm_exc:
+        logger.warning("copilot: LLM layer skipped (%s) — using Aurora rule engine response", _llm_exc)
+
     # Persist Aurora response turn
     try:
         _db_save_msg(
