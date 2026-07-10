@@ -1121,6 +1121,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _llm_exc:
         logger.warning("copilot: LLM layer skipped (%s) — using Aurora rule engine response", _llm_exc)
 
+    # ── i18n: translate presentation layer to Brazilian Portuguese ───────
+    # Pure presentation pass — translates labels/prose only. Numbers, odds,
+    # probabilities, EV, Kelly sizing and all engine math are untouched.
+    try:
+        from src.core.i18n_pt import translate_report as _translate_pt
+
+        payload = _translate_pt(payload)
+    except Exception as _i18n_exc:
+        logger.warning("copilot: i18n translation skipped (%s)", _i18n_exc)
+
     # Persist Aurora response turn
     try:
         _db_save_msg(

@@ -68,13 +68,24 @@ class KnowledgeContext:
         return len(self.golden_rules) + len(self.red_flags) + len(self.relevant_items)
 
     def to_notes(self) -> list[str]:
+        # Localise the human-readable title/description of each knowledge note
+        # to Brazilian Portuguese *before* truncation so the visible prefix is
+        # clean, natural PT rather than a truncated English fragment. This is a
+        # pure presentation step — the raw DB descriptions used by red-flag
+        # triggering (see consult()) are untouched, and no numbers change.
+        from src.core.i18n_pt import translate_text
+
         notes = []
         for rule in self.golden_rules:
-            notes.append(f"[GOLDEN RULE] {rule.title}: {rule.description[:120]}")
+            title = translate_text(rule.title)
+            desc = translate_text(rule.description)[:120]
+            notes.append(f"[GOLDEN RULE] {title}: {desc}")
         for flag in self.red_flags_triggered:
             notes.append(f"[RED FLAG] {flag}")
         for item in self.relevant_items[:5]:
-            notes.append(f"[{item.category.upper().replace('_', ' ')}] {item.title}: {item.description[:100]}")
+            title = translate_text(item.title)
+            desc = translate_text(item.description)[:100]
+            notes.append(f"[{item.category.upper().replace('_', ' ')}] {title}: {desc}")
         return notes
 
 

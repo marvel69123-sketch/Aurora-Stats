@@ -2,3 +2,4 @@
 - [Aurora service routing](aurora-routing.md) — Aurora FastAPI runs on :8080, proxied at /aurora/*; paths never rewritten; docs at /aurora/docs.
 - [Aurora Copilot Architecture](aurora-copilot-architecture.md) — routing priority, live fixtures key, session_id flow, context_json migration
 - [Aurora LLM Layer](aurora-llm-layer.md) — OpenAI as narrative-only layer; never touches numbers; restart workflow after provisioning env vars
+- [Aurora PT i18n](aurora-i18n.md) — output-boundary translation in i18n_pt.py; pass order (phrases before case-sensitive embedded) matters; don't translate knowledge_db (red-flag triggers match English)
