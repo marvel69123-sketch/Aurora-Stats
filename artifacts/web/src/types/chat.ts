@@ -13,6 +13,8 @@ export interface CopilotResponse {
   entities: Record<string, unknown>;
   request_id: string;
   generated_at: string;
+  session_id?: string;
+  routing_confidence?: number;
   match: string | null;
   status: string | null;
   is_live: boolean;
@@ -62,4 +64,5 @@ export interface Session {
   messages: Message[];
   createdAt: string;
   lastActive: string;
+  backendSessionId?: string;
 }

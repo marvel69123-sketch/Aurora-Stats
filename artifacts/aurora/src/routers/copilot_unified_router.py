@@ -51,6 +51,14 @@ class CopilotRequest(BaseModel):
             "\"What did Aurora learn today?\""
         ),
     )
+    session_id: str | None = Field(
+        None,
+        description=(
+            "Continue an existing conversation session. "
+            "Omit or send null to start a new session. "
+            "The session_id returned in each response should be sent back in the next request."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +124,9 @@ class CopilotResponse(BaseModel):
     historical_references:   list[str]
     knowledge_notes:         list[str]
     final_recommendation:    str
+
+    # ── Session ─────────────────────────────────────────────────────────────
+    session_id: str = Field("", description="Persist this and send it back in the next request to maintain conversation context.")
 
     # ── System ──────────────────────────────────────────────────────────────
     aurora_version: str
@@ -394,80 +405,14 @@ async def _run_analyze(home: str, away: str) -> dict:
 
 
 async def _run_live() -> dict:
+    """Live opportunities — powered by Live Intelligence Engine v1.0."""
     from src.brain import get_brain_meta
+    from src.core.live_intelligence_engine import build_live_payload
     from src.routers.live import _build_live_response
 
-    live = await _build_live_response()
-    fixtures = live.get("live_matches", [])
-    count = len(fixtures)
-
-    markets: list[dict] = []
-    for i, fx in enumerate(fixtures[:5], 1):
-        hn = (fx.get("teams", {}).get("home") or {}).get("name", "Home")
-        an = (fx.get("teams", {}).get("away") or {}).get("name", "Away")
-        minute = (fx.get("status") or {}).get("minute", "?")
-        score_h = (fx.get("score", {}).get("current") or {}).get("home", 0)
-        score_a = (fx.get("score", {}).get("current") or {}).get("away", 0)
-        league  = (fx.get("league") or {}).get("name", "")
-        markets.append({
-            "rank":           i,
-            "market":         f"{hn} x {an}",
-            "probability":    0.0,
-            "expected_value": 0.0,
-            "confidence":     0.0,
-            "risk":           "Unknown",
-            "rationale":      (
-                f"{hn} {score_h}–{score_a} {an} · Minuto {minute}"
-                + (f" · {league}" if league else "")
-                + ". Peça à Aurora para \"Analisar [Casa] x [Fora]\" para uma avaliação completa."
-            ),
-        })
-
-    summary = (
-        f"{count} partida{'s' if count != 1 else ''} ao vivo agora."
-        if count else "Nenhuma partida ao vivo no momento."
-    )
-    final = (
-        f"Execute \"Analisar [Casa] x [Fora]\" em qualquer partida ao vivo para um relatório completo de inteligência."
-        if count else "Nenhuma oportunidade ao vivo no momento. Volte mais tarde."
-    )
-
-    return {
-        "intent":    "live_opportunities",
-        "entities":  {"live_count": count},
-        "match":     None,
-        "status":    "Live",
-        "is_live":   True,
-        "minute":    None,
-
-        "executive_summary": summary,
-        "best_markets":      markets,
-        "confidence": {
-            "score":        0.0,
-            "label":        "insufficient",
-            "explanation":  "Apenas lista de partidas ao vivo. Análise completa requer uma partida específica.",
-            "data_sources": ["Feed ao vivo API-Football"],
-        },
-        "risk": {
-            "level":                  "Unknown",
-            "flags":                  [],
-            "invalidation_conditions": [],
-        },
-        "bankroll_recommendation": {
-            "recommended_stake_pct": 0.0,
-            "method":                "quarter-Kelly",
-            "examples":              {},
-            "reasoning":             "Nenhuma stake recomendada sem análise completa da partida.",
-            "no_bet":                True,
-        },
-        "positive_factors":       [],
-        "negative_factors":       [],
-        "historical_references":  [],
-        "knowledge_notes":        [],
-        "final_recommendation":   final,
-        "aurora_version": "Copilot v1.0",
-        "brain":          get_brain_meta(),
-    }
+    live     = await _build_live_response()
+    fixtures = live.get("matches", [])   # processed format from live.py
+    return build_live_payload(fixtures, get_brain_meta())
 
 
 def _run_bankroll() -> dict:
@@ -924,6 +869,25 @@ def _run_fallback(message: str, intent: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Context helper
+# ---------------------------------------------------------------------------
+
+
+def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> None:
+    """
+    Persist the analysis result into the conversation context dict *in-place*.
+
+    The 'brain' and 'aurora_version' keys are excluded to keep the blob small.
+    """
+    analysis = {k: v for k, v in payload.items() if k not in ("brain", "aurora_version")}
+    ctx["last_home"]     = home
+    ctx["last_away"]     = away
+    ctx["last_match"]    = payload.get("match") or f"{home} x {away}"
+    ctx["last_intent"]   = "analyze_match"
+    ctx["last_analysis"] = analysis
+
+
+# ---------------------------------------------------------------------------
 # POST /aurora/copilot
 # ---------------------------------------------------------------------------
 
@@ -972,60 +936,117 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     All numerical fields are machine-readable. All string fields are human-readable.
     Designed for direct integration with GPT-4, Claude, Gemini, and custom agents.
     """
+    from src.brain import get_brain_meta
+    from src.chat_db import (
+        create_session      as _db_create,
+        get_conversation_context  as _db_get_ctx,
+        save_conversation_context as _db_save_ctx,
+        save_message        as _db_save_msg,
+        update_session_context    as _db_upd_session,
+    )
+    from src.core.conversation_engine import (
+        detect                  as _conv_detect,
+        extract_user_profile_info as _extract_profile,
+        respond                 as _conv_respond,
+    )
+    from src.core.follow_up_engine import (
+        is_followup  as _is_followup,
+        resolve      as _fu_resolve,
+    )
     from src.core.nl_router import route as _nl_route
 
     message = body.message.strip()
-    _route  = _nl_route(message)
+
+    # ── Session management ────────────────────────────────────────────────
+    session_id = body.session_id or secrets.token_hex(8)
+    _db_create(session_id)
+    ctx   = _db_get_ctx(session_id) or {}
+    brain = get_brain_meta()
+
+    # Silently extract + update user profile from this message
+    old_profile = ctx.get("user_profile", {})
+    new_profile = _extract_profile(message, old_profile)
+    if new_profile != old_profile:
+        ctx["user_profile"] = new_profile
+
+    # ── NL Routing ────────────────────────────────────────────────────────
+    _route = _nl_route(message)
     intent, entities, routing_confidence = _route.intent, _route.entities, _route.confidence
     request_id = secrets.token_hex(4)
 
     logger.info(
-        "copilot request_id=%s intent=%s conf=%.3f entities=%s message=%r",
-        request_id, intent, routing_confidence, entities, message,
+        "copilot request_id=%s session=%s intent=%s conf=%.3f entities=%s message=%r",
+        request_id, session_id, intent, routing_confidence, entities, message,
     )
 
+    # Persist user turn
+    _db_save_msg(session_id=session_id, role="user", content=message,
+                 intent=intent, entities=entities)
+
     try:
-        if intent == "analyze_match":
-            home = entities.get("home", "")
-            away = entities.get("away", "")
-            if not home or not away:
-                payload = _run_fallback(message, intent)
+        payload: dict | None = None
+
+        # ── 1. Emotional / conversational (when router is uncertain) ──────
+        if intent == "unknown":
+            em = _conv_detect(message)
+            if em and em[1] >= 0.80:
+                emotional_intent, em_conf = em
+                payload = _conv_respond(emotional_intent, ctx, brain)
+                intent = emotional_intent
+                routing_confidence = em_conf
+
+        # ── 2. Follow-up (context-aware, also on unknown) ─────────────────
+        if payload is None and intent == "unknown" and ctx.get("last_match"):
+            if _is_followup(message):
+                fu_payload = _fu_resolve(message, ctx, brain)
+                if fu_payload:
+                    payload = fu_payload
+                    intent = "follow_up"
+                    routing_confidence = 0.88
+
+        # ── 3. Normal routing ─────────────────────────────────────────────
+        if payload is None:
+            if intent == "analyze_match":
+                home = entities.get("home", "")
+                away = entities.get("away", "")
+                if not home or not away:
+                    payload = _run_fallback(message, intent)
+                else:
+                    payload = await _run_analyze(home, away)
+                    _save_analysis_context(ctx, payload, home, away)
+                    _db_upd_session(session_id, home=home, away=away, intent=intent)
+
+            elif intent == "live_opportunities":
+                payload = await _run_live()
+
+            elif intent == "bankroll_review":
+                payload = _run_bankroll()
+
+            elif intent == "learning_recap":
+                payload = _run_learning()
+
+            elif intent == "knowledge_search":
+                payload = _run_knowledge(entities.get("query", message))
+
+            elif intent == "greeting":
+                payload = _run_greeting()
+
+            elif intent == "identity":
+                payload = _run_identity()
+
+            elif intent == "capabilities":
+                payload = _run_capabilities()
+
+            elif intent == "help":
+                payload = _run_help()
+
             else:
-                payload = await _run_analyze(home, away)
-
-        elif intent == "live_opportunities":
-            payload = await _run_live()
-
-        elif intent == "bankroll_review":
-            payload = _run_bankroll()
-
-        elif intent == "learning_recap":
-            payload = _run_learning()
-
-        elif intent == "knowledge_search":
-            payload = _run_knowledge(entities.get("query", message))
-
-        elif intent == "greeting":
-            payload = _run_greeting()
-
-        elif intent == "identity":
-            payload = _run_identity()
-
-        elif intent == "capabilities":
-            payload = _run_capabilities()
-
-        elif intent == "help":
-            payload = _run_help()
-
-        else:
-            payload = _run_fallback(message, intent)
+                payload = _run_fallback(message, intent)
 
     except Exception as exc:
         logger.error("Copilot unified error [%s]: %s", intent, exc, exc_info=True)
         from fastapi import HTTPException as _HTTPExc
-        from src.brain import get_brain_meta
 
-        # Friendly handling for 404 (team/fixture not found)
         is_404 = isinstance(exc, _HTTPExc) and exc.status_code == 404
         home_q = entities.get("home", "")
         away_q = entities.get("away", "")
@@ -1063,31 +1084,54 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             "match":   None, "status": None, "is_live": False, "minute": None,
             "executive_summary": summary,
             "best_markets":      [],
-            "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Erro de processamento.", "data_sources": []},
+            "confidence": {"score": 0.0, "label": "insufficient",
+                           "explanation": "Erro de processamento.", "data_sources": []},
             "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
-            "bankroll_recommendation": {"recommended_stake_pct": 0.0, "method": "quarter-Kelly", "examples": {}, "reasoning": "Nenhuma aposta disponível.", "no_bet": True},
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                "examples": {}, "reasoning": "Nenhuma aposta disponível.", "no_bet": True,
+            },
             "positive_factors": [], "negative_factors": [],
             "historical_references": [], "knowledge_notes": [],
             "final_recommendation": final,
             "aurora_version": "Copilot v1.0",
-            "brain": get_brain_meta(),
+            "brain": brain,
         }
 
-    return CopilotResponse(
-        intent              = payload["intent"],
-        entities            = payload.get("entities", entities),
-        request_id          = request_id,
-        generated_at        = _now_iso(),
-        routing_confidence  = routing_confidence,
-        match               = payload.get("match"),
-        status              = payload.get("status"),
-        is_live             = payload.get("is_live", False),
-        minute              = payload.get("minute"),
+    # Persist Aurora response turn
+    try:
+        _db_save_msg(
+            session_id=session_id,
+            role="aurora",
+            content=(payload.get("executive_summary") or "")[:2000],
+            intent=payload.get("intent", intent),
+            entities={},
+        )
+    except Exception as _save_exc:
+        logger.warning("copilot: failed to save aurora msg: %s", _save_exc)
 
-        executive_summary = payload["executive_summary"],
-        best_markets      = [MarketEntry(**m) for m in payload.get("best_markets", [])],
-        confidence        = ConfidenceSection(**payload["confidence"]),
-        risk              = RiskSection(**payload["risk"]),
+    # Persist updated conversation context
+    try:
+        _db_save_ctx(session_id, ctx)
+    except Exception as _ctx_exc:
+        logger.warning("copilot: failed to save context: %s", _ctx_exc)
+
+    return CopilotResponse(
+        intent             = payload["intent"],
+        entities           = payload.get("entities", entities),
+        request_id         = request_id,
+        generated_at       = _now_iso(),
+        session_id         = session_id,
+        routing_confidence = routing_confidence,
+        match              = payload.get("match"),
+        status             = payload.get("status"),
+        is_live            = payload.get("is_live", False),
+        minute             = payload.get("minute"),
+
+        executive_summary       = payload["executive_summary"],
+        best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],
+        confidence              = ConfidenceSection(**payload["confidence"]),
+        risk                    = RiskSection(**payload["risk"]),
         bankroll_recommendation = BankrollSection(**payload["bankroll_recommendation"]),
         positive_factors        = payload.get("positive_factors", []),
         negative_factors        = payload.get("negative_factors", []),

@@ -30,11 +30,17 @@ function saveSessions(sessions: Session[]): void {
   }
 }
 
-async function callCopilot(message: string): Promise<CopilotResponse> {
+async function callCopilot(
+  message: string,
+  backendSessionId?: string,
+): Promise<CopilotResponse> {
   const res = await fetch(`${BASE}/aurora/copilot`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      ...(backendSessionId ? { session_id: backendSessionId } : {}),
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
@@ -148,8 +154,11 @@ export function useChat() {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
 
+      // Grab the backend session id for the session we're sending from
+      const currentBackendId = sessions.find((s) => s.id === sessionId)?.backendSessionId;
+
       try {
-        const response = await callCopilot(text);
+        const response = await callCopilot(text, currentBackendId);
 
         setSessions((prev) =>
           prev.map((s) => {
@@ -157,6 +166,8 @@ export function useChat() {
             return {
               ...s,
               lastActive: now(),
+              // Persist the backend session_id so follow-up messages keep context
+              ...(response.session_id ? { backendSessionId: response.session_id } : {}),
               messages: s.messages.map((m) =>
                 m.id === auroraPlaceholderId
                   ? { ...m, loading: false, response }

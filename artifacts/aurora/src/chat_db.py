@@ -75,10 +75,21 @@ CREATE INDEX IF NOT EXISTS idx_cm_created   ON chat_messages(created_at DESC);
 """
 
 
+def _migrate_add_context_columns() -> None:
+    """Safe migration — adds context_json column if not already present."""
+    with _conn() as conn:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(chat_sessions)")}
+        if "context_json" not in cols:
+            conn.execute("ALTER TABLE chat_sessions ADD COLUMN context_json TEXT DEFAULT '{}'")
+            logger.info("chat_db: added context_json column to chat_sessions")
+        conn.commit()
+
+
 def init_chat_db() -> None:
     with _conn() as conn:
         conn.executescript(_CREATE_SQL)
         conn.commit()
+    _migrate_add_context_columns()
     logger.info("Aurora Chat DB ready")
 
 
@@ -233,3 +244,56 @@ def count_sessions() -> int:
 def count_messages() -> int:
     with _conn() as conn:
         return conn.execute("SELECT COUNT(*) FROM chat_messages").fetchone()[0]
+
+
+# ---------------------------------------------------------------------------
+# Conversation context helpers (Phase 2 — ConversationContext)
+# ---------------------------------------------------------------------------
+
+def get_conversation_context(session_id: str) -> dict:
+    """
+    Return the ConversationContext dict stored for *session_id*.
+
+    Shape:
+      {
+        "last_match":    str | None,
+        "last_home":     str | None,
+        "last_away":     str | None,
+        "last_intent":   str | None,
+        "last_analysis": dict | None,   # full analysis payload minus 'brain'
+        "user_profile":  {
+            "experience_level":  str | None,
+            "risk_preference":   str | None,
+            "bankroll":          float | None,
+            "preferred_markets": list[str],
+        }
+      }
+
+    Returns {} when session doesn't exist or context_json is empty/invalid.
+    """
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT context_json FROM chat_sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+    if not row:
+        return {}
+    try:
+        return json.loads(row[0] or "{}") or {}
+    except Exception:
+        return {}
+
+
+def save_conversation_context(session_id: str, context: dict) -> None:
+    """Persist *context* dict as JSON for *session_id*."""
+    try:
+        ctx_json = json.dumps(context, ensure_ascii=False)
+    except Exception as exc:
+        logger.warning("save_conversation_context: serialisation error: %s", exc)
+        return
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE chat_sessions SET context_json = ?, last_active = ? WHERE session_id = ?",
+            (ctx_json, _now(), session_id),
+        )
+        conn.commit()
