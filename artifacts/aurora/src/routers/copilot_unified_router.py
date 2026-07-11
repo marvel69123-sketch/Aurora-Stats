@@ -132,6 +132,15 @@ class CopilotResponse(BaseModel):
     aurora_version: str
     brain:          dict
 
+    # ── Conversational guidance ──────────────────────────────────────────────
+    suggested_follow_ups: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Contextual follow-up suggestions in Brazilian Portuguese. "
+            "Display as quick-reply chips or a bulleted list after the main response."
+        ),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -809,6 +818,119 @@ def _run_capabilities() -> dict:
     }
 
 
+def _suggest_follow_ups(intent: str, ctx: dict, payload: dict) -> list[str]:
+    """
+    Return 3–5 contextual follow-up suggestions in Brazilian Portuguese.
+
+    For analyze_match: standard exploration prompts (corners, stake, risk, etc.)
+    For follow_up:     complementary prompts not yet explored (inferred from
+                       the executive_summary topic of the current response).
+    For other intents: lightweight navigation suggestions.
+    """
+    last_match  = ctx.get("last_match", "")
+    last_anal   = ctx.get("last_analysis") or {}
+
+    # ── analyze_match ────────────────────────────────────────────────────────
+    if intent == "analyze_match":
+        return [
+            "E os escanteios?",
+            "Quanto apostar?",
+            "Qual o risco?",
+            "Existe opção mais segura?",
+            "Quais fatores positivos?",
+        ]
+
+    # ── follow_up — suggest complementary topics ─────────────────────────────
+    if intent == "follow_up":
+        # Infer what was just covered from the executive_summary topic keyword.
+        # Build a candidate pool and exclude the one that matches.
+        exec_s = (payload.get("executive_summary") or "").lower()
+        _pool: list[tuple[str, str]] = [
+            ("escanteio",  "E os escanteios?"),
+            ("gol",        "E os gols? Over/Under?"),
+            ("cart",       "E os cartões?"),
+            ("resultado",  "Qual o resultado mais provável?"),
+            ("quanto",     "Quanto apostar?"),
+            ("stake",      "Quanto apostar?"),
+            ("risco",      "Qual o risco?"),
+            ("segur",      "Existe opção mais segura?"),
+            ("melhor",     "Quem está melhor?"),
+            ("favorit",    "Quem está melhor?"),
+            ("positiv",    "Quais fatores positivos?"),
+            ("negativ",    "Quais fatores negativos?"),
+            ("todos",      "Quais todos os mercados?"),
+            ("mercado",    "Quais todos os mercados?"),
+            ("ao vivo",    "Está ao vivo?"),
+        ]
+        seen_labels: set[str] = set()
+        covered: set[str] = set()
+        for kw, label in _pool:
+            if kw in exec_s:
+                covered.add(label)
+
+        suggestions: list[str] = []
+        # Standard pool to offer next — ordered by typical usage
+        _standard = [
+            "E os escanteios?",
+            "E os gols? Over/Under?",
+            "E os cartões?",
+            "Quanto apostar?",
+            "Qual o risco?",
+            "Existe opção mais segura?",
+            "Quais fatores positivos?",
+            "Quais fatores negativos?",
+            "Quem está melhor?",
+            "Quais todos os mercados?",
+        ]
+        for s in _standard:
+            if s not in covered and s not in seen_labels:
+                suggestions.append(s)
+                seen_labels.add(s)
+            if len(suggestions) == 4:
+                break
+        return suggestions
+
+    # ── live_opportunities ───────────────────────────────────────────────────
+    if intent == "live_opportunities":
+        live_matches = payload.get("live_matches") or []
+        if live_matches:
+            first = live_matches[0]
+            hn = ((first.get("teams") or {}).get("home") or {}).get("name", "")
+            an = ((first.get("teams") or {}).get("away") or {}).get("name", "")
+            if hn and an:
+                return [f"Analisar {hn} x {an}", "Revisar banca"]
+        if last_match:
+            return [f"Analisar {last_match}", "Revisar banca"]
+        return ["Revisar banca", "O que a Aurora aprendeu?"]
+
+    # ── bankroll_review ──────────────────────────────────────────────────────
+    if intent == "bankroll_review":
+        suggestions = ["O que a Aurora aprendeu?"]
+        if last_match:
+            suggestions.append(f"Analisar {last_match}")
+        return suggestions
+
+    # ── learning_recap ───────────────────────────────────────────────────────
+    if intent == "learning_recap":
+        suggestions = ["Revisar banca"]
+        if last_match:
+            suggestions.append(f"Analisar {last_match}")
+        return suggestions
+
+    # ── knowledge_search ─────────────────────────────────────────────────────
+    if intent == "knowledge_search":
+        if last_match:
+            return [f"Analisar {last_match}", "Revisar banca"]
+        return ["Analisar [Time A] x [Time B]", "Melhores oportunidades ao vivo"]
+
+    # ── greeting / help / identity / capabilities / unknown / fallback ───────
+    return [
+        "Analisar [Time A] x [Time B]",
+        "Melhores oportunidades ao vivo",
+        "Revisar banca",
+    ]
+
+
 def _run_fallback(message: str, intent: str) -> dict:
     from src.brain import get_brain_meta
     # Try to give a useful clue based on the message content
@@ -986,23 +1108,25 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     try:
         payload: dict | None = None
 
-        # ── 1. Emotional / conversational (when router is uncertain) ──────
-        if intent == "unknown":
-            em = _conv_detect(message)
-            if em and em[1] >= 0.80:
-                emotional_intent, em_conf = em
-                payload = _conv_respond(emotional_intent, ctx, brain)
-                intent = emotional_intent
-                routing_confidence = em_conf
+        # ── 1. Emotional / conversational (any intent) ────────────────────
+        # Runs first regardless of NL router outcome — emotional patterns
+        # are specific enough not to collide with match/live/bankroll queries.
+        em = _conv_detect(message)
+        if em and em[1] >= 0.80:
+            emotional_intent, em_conf = em
+            payload = _conv_respond(emotional_intent, ctx, brain)
+            intent = emotional_intent
+            routing_confidence = em_conf
 
-        # ── 2. Follow-up (context-aware, also on unknown) ─────────────────
-        if payload is None and intent == "unknown" and ctx.get("last_match"):
-            if _is_followup(message):
-                fu_payload = _fu_resolve(message, ctx, brain)
-                if fu_payload:
-                    payload = fu_payload
-                    intent = "follow_up"
-                    routing_confidence = 0.88
+        # ── 2. Follow-up (context-aware, any intent when last_match exists) ─
+        # Runs for *any* NL-router intent so phrases like "E os escanteios?"
+        # are handled even when the router misclassifies them as knowledge_search.
+        if payload is None and ctx.get("last_match") and _is_followup(message):
+            fu_payload = _fu_resolve(message, ctx, brain)
+            if fu_payload:
+                payload = fu_payload
+                intent = "follow_up"
+                routing_confidence = 0.88
 
         # ── 3. Normal routing ─────────────────────────────────────────────
         if payload is None:
@@ -1149,6 +1273,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _ctx_exc:
         logger.warning("copilot: failed to save context: %s", _ctx_exc)
 
+    # Contextual follow-up suggestions (pure function, never raises)
+    try:
+        suggested_follow_ups = _suggest_follow_ups(intent, ctx, payload)
+    except Exception:
+        suggested_follow_ups = []
+
     return CopilotResponse(
         intent             = payload["intent"],
         entities           = payload.get("entities", entities),
@@ -1173,4 +1303,5 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         final_recommendation    = payload["final_recommendation"],
         aurora_version          = payload.get("aurora_version", "Copilot v1.0"),
         brain                   = payload.get("brain", {}),
+        suggested_follow_ups    = suggested_follow_ups,
     )
