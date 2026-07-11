@@ -489,11 +489,15 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     # "noruega ao vivo" resolves to "noruega" → alias "Norway", not "Noruega Ao Vivo".
     is_live_request = False
     if _LIVE_SUFFIX_RE.search(right_raw):
+        original_right = right_raw
         right_raw = _LIVE_SUFFIX_RE.sub("", right_raw).strip()
         is_live_request = True
+        logger.warning("[AUDIT] _clf_match: stripped live suffix from away: %r → %r", original_right, right_raw)
     if _LIVE_PREFIX_RE.match(left_raw):
+        original_left = left_raw
         left_raw = _LIVE_PREFIX_RE.sub("", left_raw).strip()
         is_live_request = True
+        logger.warning("[AUDIT] _clf_match: stripped live prefix from home: %r → %r", original_left, left_raw)
 
     logger.debug("      _clf_match: sep=%r left=%r right=%r is_live=%s",
                  sep_m.group(), left_raw, right_raw, is_live_request)
@@ -529,6 +533,8 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     # Resolve to canonical names
     home = _resolve_team(left)
     away = _resolve_team(right_raw)
+    logger.warning("[AUDIT] _clf_match: raw_home=%r → %r | raw_away=%r → %r | is_live=%s",
+                   left, home, right_raw, away, is_live_request)
 
     if home.lower() == away.lower():
         logger.debug("      _clf_match: home == away after alias resolution (%r)", home)

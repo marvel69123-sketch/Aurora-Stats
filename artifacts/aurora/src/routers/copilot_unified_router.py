@@ -1133,12 +1133,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             if intent == "analyze_match":
                 home = entities.get("home", "")
                 away = entities.get("away", "")
+                logger.warning(
+                    "[AUDIT] copilot dispatch: intent=%r home=%r away=%r is_live=%r",
+                    intent, home, away, entities.get("is_live"),
+                )
                 if not home or not away:
+                    logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — missing home or away entity")
                     payload = _run_fallback(message, intent)
                 else:
-                    payload = await _run_analyze(home, away)
-                    _save_analysis_context(ctx, payload, home, away)
-                    _db_upd_session(session_id, home=home, away=away, intent=intent)
+                    try:
+                        payload = await _run_analyze(home, away)
+                        _save_analysis_context(ctx, payload, home, away)
+                        _db_upd_session(session_id, home=home, away=away, intent=intent)
+                        logger.warning("[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r", payload.get("match"))
+                    except Exception as _analyze_exc:
+                        logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — _run_analyze raised %s: %s",
+                                       type(_analyze_exc).__name__, _analyze_exc)
+                        raise
 
             elif intent == "live_opportunities":
                 payload = await _run_live()

@@ -222,15 +222,20 @@ _TEAM_ALIASES: dict[str, str] = {
 
 def normalize_team_name(name: str) -> str:
     """Resolve common aliases and accented variants to their API-Football canonical name."""
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
     key = name.lower().strip()
     # Direct alias lookup
     if key in _TEAM_ALIASES:
+        _log.warning("[AUDIT] normalize_team_name: %r → %r (direct alias)", name, _TEAM_ALIASES[key])
         return _TEAM_ALIASES[key]
     # Try removing accents via transliteration for ASCII fallback
     import unicodedata
     ascii_key = unicodedata.normalize("NFKD", key).encode("ascii", "ignore").decode()
     if ascii_key in _TEAM_ALIASES:
+        _log.warning("[AUDIT] normalize_team_name: %r → %r (ascii alias, key=%r)", name, _TEAM_ALIASES[ascii_key], ascii_key)
         return _TEAM_ALIASES[ascii_key]
+    _log.warning("[AUDIT] normalize_team_name: %r → NO ALIAS, title-cased → %r", name, name)
     return name  # return unchanged if no alias found
 
 
