@@ -10,7 +10,22 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 def _name_match(api_name: str, query: str) -> bool:
-    return query.strip().lower() in api_name.strip().lower()
+    """
+    Return True when *query* (a resolved team name) matches *api_name*.
+
+    Strategy:
+      1. Fast substring check — "england" in "England" → True.
+      2. Word-level fallback — every significant word of query (>2 chars)
+         appears somewhere in api_name.  Handles "Borussia Dortmund" ↔
+         "Dortmund" and multi-word national team variants.
+    """
+    api_lower = api_name.strip().lower()
+    q_lower   = query.strip().lower()
+    if q_lower in api_lower:
+        return True
+    # Word-level fallback (ignore tiny words like "fc", "de")
+    words = [w for w in q_lower.split() if len(w) > 2]
+    return bool(words) and all(w in api_lower for w in words)
 
 
 async def _find_fixture(home: str, away: str) -> dict:

@@ -3,3 +3,4 @@
 - [Aurora Copilot Architecture](aurora-copilot-architecture.md) — routing priority, live fixtures key, session_id flow, context_json migration
 - [Aurora LLM Layer](aurora-llm-layer.md) — OpenAI as narrative-only layer; never touches numbers; restart workflow after provisioning env vars
 - [Aurora PT i18n](aurora-i18n.md) — output-boundary translation in i18n_pt.py; pass order (phrases before case-sensitive embedded) matters; don't translate knowledge_db (red-flag triggers match English)
+- [Aurora live entity resolution](aurora-live-entity-resolution.md) — strip "ao vivo"/"live"/"agora" from right_raw in _clf_match before alias lookup; "inglaterra"→"England" was missing alias; _name_match uses word-level fallback

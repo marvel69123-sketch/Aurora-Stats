@@ -143,6 +143,19 @@ _CMD_STRIP_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Live-request markers that can appear as suffixes on the away-team fragment
+# (e.g. "analise Inglaterra x Noruega ao vivo") or as prefixes on the home
+# fragment (e.g. "ao vivo Arsenal x Chelsea").  Must be stripped before alias
+# resolution so "noruega ao vivo" → "noruega" → "Norway".
+_LIVE_SUFFIX_RE = re.compile(
+    r"\s+(?:ao\s+vivo(?:\s+agora)?|agora|live)\s*$",
+    re.IGNORECASE,
+)
+_LIVE_PREFIX_RE = re.compile(
+    r"^(?:ao\s+vivo(?:\s+agora)?\s+|agora\s+|live\s+)",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # Team alias resolution — thin wrapper around copilot_engine helpers
@@ -472,7 +485,18 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     left_raw  = norm[:sep_start].strip()
     right_raw = norm[sep_end:].strip()
 
-    logger.debug("      _clf_match: sep=%r left=%r right=%r", sep_m.group(), left_raw, right_raw)
+    # Strip "ao vivo" / "live" / "agora" markers from team fragments so
+    # "noruega ao vivo" resolves to "noruega" → alias "Norway", not "Noruega Ao Vivo".
+    is_live_request = False
+    if _LIVE_SUFFIX_RE.search(right_raw):
+        right_raw = _LIVE_SUFFIX_RE.sub("", right_raw).strip()
+        is_live_request = True
+    if _LIVE_PREFIX_RE.match(left_raw):
+        left_raw = _LIVE_PREFIX_RE.sub("", left_raw).strip()
+        is_live_request = True
+
+    logger.debug("      _clf_match: sep=%r left=%r right=%r is_live=%s",
+                 sep_m.group(), left_raw, right_raw, is_live_request)
 
     # Strip command/knowledge prefix from the left side
     stripped_left = _CMD_STRIP_RE.sub("", left_raw, count=1).strip()
@@ -530,7 +554,7 @@ def _clf_match(norm: str) -> tuple[float, dict]:
         home, away, conf, base, alias_boost, had_prefix,
     )
 
-    return conf, {"home": home, "away": away}
+    return conf, {"home": home, "away": away, **({"is_live": True} if is_live_request else {})}
 
 
 # ---------------------------------------------------------------------------
