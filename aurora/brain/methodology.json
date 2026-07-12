@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "description": "Aurora Methodology v1 — 15-category weighted scoring system. All weights and thresholds are read at runtime; no methodology logic is hardcoded.",
+
+  "category_weights": {
+    "match_context":       0.05,
+    "team_strength":       0.10,
+    "current_form":        0.10,
+    "motivation":          0.05,
+    "home_advantage":      0.08,
+    "away_performance":    0.08,
+    "xg_analysis":         0.12,
+    "live_momentum":       0.10,
+    "corners_pattern":     0.06,
+    "cards_pattern":       0.06,
+    "referee_influence":   0.03,
+    "tactical_style":      0.04,
+    "value_bet_detection": 0.08,
+    "bankroll_risk":       0.03,
+    "historical_learning": 0.02
+  },
+
+  "thresholds": {
+    "min_score_to_recommend": 5.5,
+
+    "risk_bands": {
+      "low_above":    7.0,
+      "medium_above": 5.0
+    },
+
+    "blocking_categories": {
+      "bankroll_risk":       2.0,
+      "historical_learning": 2.0
+    },
+
+    "market_gates": {
+      "corners_min_pattern_score": 3.0,
+      "cards_min_pattern_score":   3.0
+    }
+  },
+
+  "scorers": {
+    "form_window": 5,
+    "home_strength_threshold":   0.50,
+    "away_strength_threshold":   0.30,
+    "xg_high_combined":          2.5,
+    "xg_consistency_tolerance":  0.5,
+    "value_min_probability":     60.0,
+    "value_min_confidence":      5.5,
+    "learning_good_accuracy":    60.0,
+    "learning_poor_accuracy":    40.0,
+    "live_momentum_late_minute": 70,
+    "corners_high_pace":         11.0,
+    "corners_low_pace":           8.0,
+    "cards_high_fouls_per_min":   0.40,
+    "cards_low_fouls_per_min":    0.20
+  },
+
+  "notes": [
+    "Weights must sum to 1.0 — verify when editing.",
+    "blocking_categories: if a category scores below the threshold, ALL markets are blocked.",
+    "market_gates: if corners_pattern < gate score, over_85_corners market is blocked.",
+    "To add a new category: add weight here, add scorer function in methodology_v1.py.",
+    "Reload without restart: POST /aurora/brain/reload"
+  ]
+}

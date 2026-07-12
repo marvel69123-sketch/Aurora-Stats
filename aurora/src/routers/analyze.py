@@ -5,64 +5,22 @@ from src.client import api_football_get
 router = APIRouter()
 
 
+def _map_api_status(api_status: dict) -> dict:
+    """Map API-Football status → Aurora canonical schema (minute, not elapsed)."""
+    return {
+        "long":       api_status["long"],
+        "short":      api_status["short"],
+        "minute":     int(api_status.get("elapsed") or 0),
+        "extra_time": api_status.get("extra"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Team / fixture discovery
 # ---------------------------------------------------------------------------
 
-TEAM_ALIASES = {
-    "suica": "switzerland",
-    "suíça": "switzerland",
-
-    "inglaterra": "england",
-    "brasil": "brazil",
-    "holanda": "netherlands",
-
-    "eua": "united states",
-    "estados unidos": "united states"
-}
-
-
-def _normalize_team(name: str):
-
-    name = unidecode(
-        name.lower().strip()
-    )
-
-    return TEAM_ALIASES.get(name, name)
-
-
 def _name_match(api_name: str, query: str) -> bool:
-    """
-    Match a query team name against an API-Football team name.
-
-    Strategy:
-      1. Fast substring check -- "england" in "England" -> True.
-      2. Word-level fallback -- every significant word of query (>2 chars)
-         appears somewhere in api_name.  Handles "Borussia Dortmund" <->
-         "Dortmund" and multi-word national team variants.
-    """
-    api_lower = api_name.strip().lower()
-    q_lower   = query.strip().lower()
-    if q_lower in api_lower:
-        return True
-    # Word-level fallback (ignore tiny words like "fc", "de")
-    words = [w for w in q_lower.split() if len(w) > 2]
-    return bool(words) and all(w in api_lower for w in words)
-
-
-def _pick_best_team(teams: list[dict], query: str) -> dict | None:
-    """
-    From an API-Football /teams search result, prefer the entry whose
-    team name exactly matches *query* (case-insensitive) over the first
-    result.  This prevents `/teams?search=Norway` from returning a
-    Norwegian club (e.g. Brann) instead of the national team "Norway".
-    Falls back to the first entry when no exact match exists.
-    """
-    q_lower = query.strip().lower()
-    for t in teams:
-        if t["team"]["name"].strip().lower() == q_lower:
-            return t
-    return teams[0] if teams else None
+    return query.strip().lower() in api_name.strip().lower()
 
 
 async def _find_fixture(home: str, away: str) -> dict:
@@ -74,71 +32,46 @@ async def _find_fixture(home: str, away: str) -> dict:
       3. Pull last 5 + next 5 fixtures for the home team and find the one
          that also involves the away team.
     """
-    import logging as _logging
-    _log = _logging.getLogger(__name__)
-
     # 1. Live sweep
-    _log.warning("[AUDIT] _find_fixture: STEP 1 — live sweep | searching home=%r away=%r", home, away)
     live_data = await api_football_get("/fixtures", {"live": "all"})
-    live_fixtures = live_data.get("response", [])
-    _log.warning("[AUDIT] _find_fixture: STEP 1 — live sweep returned %d fixture(s)", len(live_fixtures))
-    for f in live_fixtures:
-        api_h = f["teams"]["home"]["name"]
-        api_a = f["teams"]["away"]["name"]
-        hit = _name_match(api_h, home) and _name_match(api_a, away)
-        _log.warning("[AUDIT] _find_fixture: STEP 1 — checking %r vs %r → match=%s", api_h, api_a, hit)
-        if hit:
-            _log.warning("[AUDIT] _find_fixture: STEP 1 — FOUND live fixture id=%s", f["fixture"]["id"])
+    for f in live_data.get("response", []):
+        if (
+            _name_match(f["teams"]["home"]["name"], home)
+            and _name_match(f["teams"]["away"]["name"], away)
+        ):
             return f
 
     # 2. Resolve team IDs in parallel
-    _log.warning("[AUDIT] _find_fixture: STEP 2 — team search | /teams?search=%r | /teams?search=%r", home, away)
     home_res, away_res = await asyncio.gather(
         api_football_get("/teams", {"search": home}),
         api_football_get("/teams", {"search": away}),
     )
     home_teams = home_res.get("response", [])
     away_teams = away_res.get("response", [])
-    _log.warning("[AUDIT] _find_fixture: STEP 2 — home search returned %d result(s): %s",
-                 len(home_teams), [t["team"]["name"] for t in home_teams[:3]])
-    _log.warning("[AUDIT] _find_fixture: STEP 2 — away search returned %d result(s): %s",
-                 len(away_teams), [t["team"]["name"] for t in away_teams[:3]])
 
     if not home_teams:
-        _log.warning("[AUDIT] _find_fixture: FALLBACK REASON — no team found for home=%r", home)
         raise HTTPException(status_code=404, detail=f"No team found matching '{home}'")
     if not away_teams:
-        _log.warning("[AUDIT] _find_fixture: FALLBACK REASON — no team found for away=%r", away)
         raise HTTPException(status_code=404, detail=f"No team found matching '{away}'")
 
-    home_pick = _pick_best_team(home_teams, home)
-    away_pick = _pick_best_team(away_teams, away)
-    home_id   = home_pick["team"]["id"]
-    away_id   = away_pick["team"]["id"]
-    home_name = home_pick["team"]["name"]
-    away_name = away_pick["team"]["name"]
-    _log.warning("[AUDIT] _find_fixture: STEP 2 — resolved home=%r (id=%s) away=%r (id=%s)",
-                 home_name, home_id, away_name, away_id)
+    home_id = home_teams[0]["team"]["id"]
+    away_id = away_teams[0]["team"]["id"]
+    home_name = home_teams[0]["team"]["name"]
+    away_name = away_teams[0]["team"]["name"]
 
     # 3. Fetch recent + upcoming fixtures for the home team in parallel
-    _log.warning("[AUDIT] _find_fixture: STEP 3 — fixture scan | team=%s last=10 next=5", home_id)
     last_res, next_res = await asyncio.gather(
         api_football_get("/fixtures", {"team": home_id, "last": 10}),
         api_football_get("/fixtures", {"team": home_id, "next": 5}),
     )
     candidates = last_res.get("response", []) + next_res.get("response", [])
-    _log.warning("[AUDIT] _find_fixture: STEP 3 — %d candidate fixture(s), looking for away_id=%s",
-                 len(candidates), away_id)
 
     for f in candidates:
         fh_id = f["teams"]["home"]["id"]
         fa_id = f["teams"]["away"]["id"]
         if fh_id == home_id and fa_id == away_id:
-            _log.warning("[AUDIT] _find_fixture: STEP 3 — FOUND fixture id=%s", f["fixture"]["id"])
             return f
 
-    _log.warning("[AUDIT] _find_fixture: FALLBACK REASON — no fixture between %r (id=%s) and %r (id=%s)"
-                 " in last 10 + next 5", home_name, home_id, away_name, away_id)
     raise HTTPException(
         status_code=404,
         detail=f"No fixture found between '{home_name}' and '{away_name}'"
@@ -198,7 +131,7 @@ def _build_team_stats(raw_stats: list, team_index: int, events: list, team_id: i
 def _build_events(raw_events: list) -> list:
     return [
         {
-            "minute": e.get("time", {}).get("elapsed"),
+            "minute": e.get("time", {}).get("elapsed"),  # API event time — ingestion only
             "extra_minute": e.get("time", {}).get("extra"),
             "team": e.get("team", {}).get("name"),
             "team_id": e.get("team", {}).get("id"),
@@ -349,12 +282,7 @@ async def analyze_fixture(
                 "name": fixture["fixture"].get("venue", {}).get("name"),
                 "city": fixture["fixture"].get("venue", {}).get("city"),
             },
-            "status": {
-                "long": fixture["fixture"]["status"]["long"],
-                "short": fixture["fixture"]["status"]["short"],
-                "minute": fixture["fixture"]["status"].get("elapsed"),
-                "extra_time": fixture["fixture"]["status"].get("extra"),
-            },
+            "status": _map_api_status(fixture["fixture"]["status"]),
         },
         "league": {
             "id": league_id,
