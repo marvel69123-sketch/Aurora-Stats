@@ -156,6 +156,17 @@ _LIVE_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Regex for "analise jogo do/da [team]" — single-team requests without a separator.
+# Applied on normalised text (lowercase, no accents, no punctuation except hyphens).
+_SINGLE_TEAM_RE = re.compile(
+    r"^(?:quero\s+(?:analisar\s+)?|analis[ae]r?\s+|analise\s+|analisa\s+)"
+    r"(?:o\s+|a\s+)?"
+    r"(?:jogo|partida|match)\s+"
+    r"(?:do|da|dos|das|de)\s+"
+    r"(.+?)(?:\s+ao\s+vivo(?:\s+agora)?|\s+agora|\s+live)?\s*$",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # Team alias resolution — thin wrapper around copilot_engine helpers
@@ -563,19 +574,42 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     return conf, {"home": home, "away": away, **({"is_live": True} if is_live_request else {})}
 
 
+# ── Single-team live match ────────────────────────────────────────────────────
+
+def _clf_single_team(norm: str) -> tuple[float, dict]:
+    """
+    Detect "analise jogo do [team]" style requests (single team, no separator).
+
+    Scores 0.90 when the pattern matches. Does NOT fire when a separator
+    (x / vs / contra / versus) is already present — _clf_match handles those.
+    """
+    if _SEP_RE.search(norm):
+        return 0.0, {}
+    m = _SINGLE_TEAM_RE.match(norm)
+    if not m:
+        return 0.0, {}
+    raw_team = m.group(1).strip()
+    if not raw_team or len(raw_team) < 2:
+        return 0.0, {}
+    team = _resolve_team(raw_team)
+    logger.warning("[AUDIT] _clf_single_team: raw=%r → resolved=%r", raw_team, team)
+    return 0.90, {"team": team, "is_live": True}
+
+
 # ---------------------------------------------------------------------------
 # Priority tie-breaker order when confidences are equal
 # ---------------------------------------------------------------------------
 
 _PRIORITY: dict[str, int] = {
-    "analyze_match":    100,
-    "knowledge_search": 90,
-    "greeting":         80,
-    "identity":         75,
-    "capabilities":     70,
-    "live_opportunities": 65,
-    "bankroll_review":  60,
-    "learning_recap":   55,
+    "analyze_match":      100,
+    "live_team_analysis":  95,
+    "knowledge_search":    90,
+    "greeting":            80,
+    "identity":            75,
+    "capabilities":        70,
+    "live_opportunities":  65,
+    "bankroll_review":     60,
+    "learning_recap":      55,
 }
 
 
@@ -614,6 +648,7 @@ def route(message: str) -> RouteResult:
         ("live_opportunities",  _clf_live(norm)),
         ("knowledge_search",    _clf_knowledge(norm, original)),
         ("analyze_match",       _clf_match(norm)),
+        ("live_team_analysis",  _clf_single_team(norm)),
     ]
 
     candidates: list[tuple[float, int, str, dict]] = []

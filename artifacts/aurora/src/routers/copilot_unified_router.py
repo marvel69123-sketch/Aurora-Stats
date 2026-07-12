@@ -1161,34 +1161,127 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     payload = _run_fallback(message, intent)
                 else:
                     try:
+                        logger.warning(
+                            "[AUDIT] ctx_before: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
                         payload = await _run_analyze(home, away)
                         _save_analysis_context(ctx, payload, home, away)
                         _db_upd_session(session_id, home=home, away=away, intent=intent)
                         logger.warning("[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r", payload.get("match"))
+                        logger.warning(
+                            "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
                     except Exception as _analyze_exc:
                         logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — _run_analyze raised %s: %s",
                                        type(_analyze_exc).__name__, _analyze_exc)
                         raise
 
-            elif intent == "live_opportunities":
-                payload = await _run_live()
-                # Seed ctx.last_match with the top live opportunity so
-                # follow-up questions like "e cartões?" have a match to reference.
-                _live_ents = payload.get("entities", {})
-                _hn = _live_ents.get("live_home", "")
-                _an = _live_ents.get("live_away", "")
-                if _hn and _an:
-                    _live_match_str = f"{_hn} x {_an}"
-                    ctx["last_match"]  = _live_match_str
-                    ctx["last_home"]   = _hn
-                    ctx["last_away"]   = _an
-                    ctx["last_intent"] = "live_opportunities"
+            elif intent == "live_team_analysis":
+                # FIX 1 — "analise jogo do [team]" → search live for that team
+                # then call full _run_analyze pipeline with the found match.
+                from src.routers.live import _build_live_response as _lbr_single
+                _lt_team = entities.get("team", "")
+                logger.warning(
+                    "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
+                    _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
+                )
+                _lt_live  = await _lbr_single()
+                _lt_list  = _lt_live.get("matches", [])
+                logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
+                _lt_q     = _lt_team.lower()
+                _lt_words = _lt_q.split()
+                _lt_home, _lt_away = "", ""
+                for _lt_fx in _lt_list:
+                    _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
+                    _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
+                    if (all(w in _lt_h.lower() for w in _lt_words) or
+                            all(w in _lt_a.lower() for w in _lt_words)):
+                        _lt_home, _lt_away = _lt_h, _lt_a
+                        logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
+                        break
+                if _lt_home and _lt_away:
+                    payload = await _run_analyze(_lt_home, _lt_away)
+                    _save_analysis_context(ctx, payload, _lt_home, _lt_away)
                     logger.warning(
-                        "[AUDIT] live_opportunities: seeded ctx.last_match=%r from top opportunity",
-                        _live_match_str,
+                        "[AUDIT] live_team_analysis: _run_analyze succeeded match=%r", payload.get("match")
                     )
                 else:
-                    logger.warning("[AUDIT] live_opportunities: no live matches — ctx.last_match NOT seeded")
+                    logger.warning(
+                        "[AUDIT] live_team_analysis: %r not found in %d live matches",
+                        _lt_team, len(_lt_list),
+                    )
+                    from src.brain import get_brain_meta as _gbm_lt
+                    payload = {
+                        "intent": "live_team_analysis",
+                        "match": None, "is_live": False, "status": "NotFound", "minute": None,
+                        "executive_summary": (
+                            f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
+                            f"Se souber o adversário, diga:\n"
+                            f"\"Analisar {_lt_team} x [adversário]\""
+                        ),
+                        "best_markets": [],
+                        "confidence": {
+                            "score": 0.0, "label": "insufficient",
+                            "explanation": "Time não encontrado ao vivo.",
+                            "data_sources": ["Feed ao vivo API-Football"],
+                        },
+                        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+                        "bankroll_recommendation": {
+                            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                            "examples": {}, "no_bet": True,
+                            "reasoning": "Sem partida ao vivo identificada.",
+                        },
+                        "positive_factors": [], "negative_factors": [],
+                        "historical_references": [], "knowledge_notes": [],
+                        "final_recommendation": (
+                            f"Não encontrei {_lt_team} ao vivo. "
+                            f"Tente: \"Analisar {_lt_team} x [adversário]\""
+                        ),
+                        "aurora_version": "Copilot v1.0",
+                        "brain": _gbm_lt(),
+                    }
+                logger.warning(
+                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                    ctx.get("last_match"), ctx.get("last_intent"),
+                )
+
+            elif intent == "live_opportunities":
+                # FIX 2 — preserve existing ctx when user already has an active match.
+                # Only seed ctx from the live list when no prior analysis is in session.
+                _preserve_context = bool(ctx.get("last_match"))
+                logger.warning(
+                    "[AUDIT] live_opportunities: ctx_before=last_match=%r last_intent=%r"
+                    " preserve_context=%s",
+                    ctx.get("last_match"), ctx.get("last_intent"), _preserve_context,
+                )
+                payload = await _run_live()
+                if not _preserve_context:
+                    _live_ents = payload.get("entities", {})
+                    _hn = _live_ents.get("live_home", "")
+                    _an = _live_ents.get("live_away", "")
+                    if _hn and _an:
+                        _live_match_str = f"{_hn} x {_an}"
+                        ctx["last_match"]  = _live_match_str
+                        ctx["last_home"]   = _hn
+                        ctx["last_away"]   = _an
+                        ctx["last_intent"] = "live_opportunities"
+                        logger.warning(
+                            "[AUDIT] live_opportunities: seeded ctx.last_match=%r from top opportunity",
+                            _live_match_str,
+                        )
+                    else:
+                        logger.warning("[AUDIT] live_opportunities: no live matches — ctx.last_match NOT seeded")
+                else:
+                    logger.warning(
+                        "[AUDIT] live_opportunities: ctx PRESERVED (last_match=%r last_intent=%r)",
+                        ctx.get("last_match"), ctx.get("last_intent"),
+                    )
+                logger.warning(
+                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                    ctx.get("last_match"), ctx.get("last_intent"),
+                )
 
             elif intent == "bankroll_review":
                 payload = _run_bankroll()
