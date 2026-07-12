@@ -1121,12 +1121,31 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         # ── 2. Follow-up (context-aware, any intent when last_match exists) ─
         # Runs for *any* NL-router intent so phrases like "E os escanteios?"
         # are handled even when the router misclassifies them as knowledge_search.
-        if payload is None and ctx.get("last_match") and _is_followup(message):
+        _ctx_last_match  = ctx.get("last_match")
+        _ctx_last_intent = ctx.get("last_intent")
+        _followup_check  = _is_followup(message)
+        logger.warning(
+            "[AUDIT] follow-up gate: nl_intent=%r | ctx.last_match=%r | ctx.last_intent=%r"
+            " | follow_up_detected=%s",
+            intent, _ctx_last_match, _ctx_last_intent, _followup_check,
+        )
+        if payload is None and _ctx_last_match and _followup_check:
+            logger.warning(
+                "[AUDIT] follow-up gate: ENTERING follow-up engine "
+                "(has_last_match=True, follow_up_detected=True)"
+            )
             fu_payload = _fu_resolve(message, ctx, brain)
             if fu_payload:
                 payload = fu_payload
                 intent = "follow_up"
                 routing_confidence = 0.88
+                logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
+            else:
+                logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
+        elif payload is None and not _ctx_last_match:
+            logger.warning("[AUDIT] follow-up gate: SKIPPED — ctx.last_match is empty (no prior analysis in session)")
+        elif payload is None and not _followup_check:
+            logger.warning("[AUDIT] follow-up gate: SKIPPED — message not recognised as follow-up pattern")
 
         # ── 3. Normal routing ─────────────────────────────────────────────
         if payload is None:
@@ -1153,6 +1172,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
             elif intent == "live_opportunities":
                 payload = await _run_live()
+                # Seed ctx.last_match with the top live opportunity so
+                # follow-up questions like "e cartões?" have a match to reference.
+                _live_ents = payload.get("entities", {})
+                _hn = _live_ents.get("live_home", "")
+                _an = _live_ents.get("live_away", "")
+                if _hn and _an:
+                    _live_match_str = f"{_hn} x {_an}"
+                    ctx["last_match"]  = _live_match_str
+                    ctx["last_home"]   = _hn
+                    ctx["last_away"]   = _an
+                    ctx["last_intent"] = "live_opportunities"
+                    logger.warning(
+                        "[AUDIT] live_opportunities: seeded ctx.last_match=%r from top opportunity",
+                        _live_match_str,
+                    )
+                else:
+                    logger.warning("[AUDIT] live_opportunities: no live matches — ctx.last_match NOT seeded")
 
             elif intent == "bankroll_review":
                 payload = _run_bankroll()

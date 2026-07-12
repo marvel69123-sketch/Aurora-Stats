@@ -296,7 +296,12 @@ def build_live_payload(fixtures: list[dict], brain_meta: dict) -> dict:
 
     return {
         "intent":   "live_opportunities",
-        "entities": {"live_count": count, "top_opportunity": f"{best.home} x {best.away}"},
+        "entities": {
+            "live_count":      count,
+            "top_opportunity": f"{best.home} x {best.away}",
+            "live_home":       best.home,
+            "live_away":       best.away,
+        },
         "match":    None, "status": "Live", "is_live": True, "minute": None,
         "executive_summary":  summary,
         "best_markets":       markets,
