@@ -64,3 +64,8 @@ reload.txt
 # Scratch experiments at repo root (moved under tools/scratch)
 /aurora_nlp.py
 /test_openai.py
+
+# Local Aurora runtime logs
+artifacts/aurora/*.log
+artifacts/aurora/uvicorn-*.log
+
