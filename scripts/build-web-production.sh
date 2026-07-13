@@ -17,6 +17,10 @@ echo "cleared $DIST"
 
 export CI="${CI:-true}"
 export NODE_ENV=production
+# Never let Corepack/pnpm self-install pnpm@9.x during Replit publish (SIGABRT).
+export COREPACK_ENABLE_STRICT="${COREPACK_ENABLE_STRICT:-0}"
+export COREPACK_ENABLE_AUTO_PIN="${COREPACK_ENABLE_AUTO_PIN:-0}"
+export COREPACK_ENABLE_DOWNLOAD_PROMPT="${COREPACK_ENABLE_DOWNLOAD_PROMPT:-0}"
 # MSYS/Git-Bash on Windows rewrites BASE_PATH=/ into the Git install path.
 # Force a clean root base for Aurora web unless an explicit app path is set.
 if [ -z "${BASE_PATH:-}" ] || [ "${BASE_PATH}" = "/" ] || [[ "${BASE_PATH}" == *Program\ Files* ]]; then

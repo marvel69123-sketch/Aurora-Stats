@@ -23,9 +23,10 @@ path = "/aurora-ui-build.txt"
 name = "Cache-Control"
 value = "no-cache, no-store, must-revalidate"
 
+# Use Replit-bundled pnpm only — never Corepack/pnpm self-download of pnpm@9.x
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+env = { "CI" = "true", "COREPACK_ENABLE_STRICT" = "0", "COREPACK_ENABLE_AUTO_PIN" = "0", "COREPACK_ENABLE_DOWNLOAD_PROMPT" = "0" }
 
 [workflows]
 runButton = "Project"

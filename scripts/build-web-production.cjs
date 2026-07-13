@@ -48,6 +48,11 @@ const env = {
   BASE_PATH: basePath,
   AURORA_UI_BUILD: buildId,
   MSYS2_ARG_CONV_EXCL: "*",
+  // Prevent Corepack/pnpm from downloading a pinned pnpm@9.x during Replit publish
+  COREPACK_ENABLE_STRICT: process.env.COREPACK_ENABLE_STRICT || "0",
+  COREPACK_ENABLE_AUTO_PIN: process.env.COREPACK_ENABLE_AUTO_PIN || "0",
+  COREPACK_ENABLE_DOWNLOAD_PROMPT:
+    process.env.COREPACK_ENABLE_DOWNLOAD_PROMPT || "0",
 };
 
 execSync("pnpm --filter @workspace/web run build", {

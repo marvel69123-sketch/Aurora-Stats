@@ -27,6 +27,13 @@
 # ============================================================================
 minimumReleaseAge: 1440
 
+# CRITICAL (Replit publish): never auto-download another pnpm binary.
+# A pinned packageManager like pnpm@9.15.0 caused deploy to run
+# `pnpm add pnpm@9.15.0` and die with SIGABRT. Use the Replit-bundled pnpm 10+.
+managePackageManagerVersions: false
+packageManagerStrict: false
+packageManagerStrictVersion: false
+
 minimumReleaseAgeExclude:
   # Exclude @replit scoped packages from the minimum release age check.
   # These are published by Replit and trusted — the supply-chain attack vector

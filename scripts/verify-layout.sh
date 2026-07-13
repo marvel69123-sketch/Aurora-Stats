@@ -14,6 +14,14 @@ test -f pnpm-workspace.yaml || fail "Missing pnpm-workspace.yaml"
 test -f tsconfig.base.json || fail "Missing tsconfig.base.json"
 test -f tsconfig.json || fail "Missing tsconfig.json"
 
+# ── Deploy guard: never pin pnpm 9 (Replit SIGABRT on `pnpm add pnpm@9.x`) ───
+if grep -E '"packageManager"[[:space:]]*:[[:space:]]*"pnpm@9' package.json >/dev/null 2>&1; then
+  fail "package.json pins pnpm@9.x — remove packageManager (use Replit pnpm 10+). Republish was killed by pnpm add pnpm@9.15.0 / SIGABRT."
+fi
+if ! grep -q 'managePackageManagerVersions:[[:space:]]*false' pnpm-workspace.yaml; then
+  fail "pnpm-workspace.yaml must set managePackageManagerVersions: false (permanent Replit publish fix)"
+fi
+
 # Guard: frontend files must NOT be at workspace root
 for bad in vite.config.ts vite.config.js index.html; do
   if [ -f "$bad" ]; then
