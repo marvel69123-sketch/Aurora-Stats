@@ -52,17 +52,20 @@ function Details({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-white/[0.07] pt-3">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between py-1.5 text-left text-sm text-white/50 transition-colors hover:text-white/80"
-        onClick={() => setOpen(!open)}
-      >
+    <details
+      className="border-t border-white/[0.07] pt-3"
+      open={open}
+      onToggle={(e) => {
+        const next = e.currentTarget.open;
+        if (next !== open) setOpen(next);
+      }}
+    >
+      <summary className="flex w-full cursor-pointer list-none items-center justify-between py-1.5 text-left text-sm text-white/50 transition-colors hover:text-white/80 [&::-webkit-details-marker]:hidden">
         <span className="font-medium tracking-wide">{title}</span>
         {open ? <ChevronUpIcon size={15} /> : <ChevronDownIcon size={15} />}
-      </button>
+      </summary>
       {open && <div className="mt-3 space-y-4">{children}</div>}
-    </div>
+    </details>
   );
 }
 
@@ -147,29 +150,34 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
   }
 
   return (
-    <div className="w-full max-w-none space-y-4">
+    <article className="w-full max-w-none space-y-4">
       <InsightBadgeRow kinds={badges} />
 
       {metaBits.length > 0 && (
-        <p className="text-[0.8125rem] tracking-wide text-white/40">
-          {metaBits.join(" · ")}
-        </p>
+        <header>
+          <p className="text-[0.8125rem] tracking-wide text-white/40">
+            {metaBits.join(" · ")}
+          </p>
+        </header>
       )}
 
       {showRec && (
-        <div
+        <section
           className={cn(
             "rounded-2xl px-4 py-3 text-[15px] leading-7",
             response.bankroll_recommendation.no_bet
               ? "border border-amber-400/20 bg-amber-400/[0.06] text-amber-100/90"
               : "border border-white/[0.06] bg-white/[0.03] font-medium text-white/[0.92]",
           )}
+          aria-label="Recomendação"
         >
           <MarkdownInline text={response.final_recommendation} />
-        </div>
+        </section>
       )}
 
-      <Markdown text={response.executive_summary} />
+      <section aria-label="Resumo">
+        <Markdown text={response.executive_summary} />
+      </section>
 
       {(response.confidence.score > 0 ||
         !response.bankroll_recommendation.no_bet ||
@@ -205,14 +213,16 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
           )}
 
           {hasMarkets && (
-            <MarketsTable
-              markets={response.best_markets}
-              isLiveList={response.intent === "live_opportunities"}
-            />
+            <section aria-label="Mercados">
+              <MarketsTable
+                markets={response.best_markets}
+                isLiveList={response.intent === "live_opportunities"}
+              />
+            </section>
           )}
 
           {hasFactors && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <section className="grid gap-4 sm:grid-cols-2" aria-label="Fatores">
               {response.positive_factors.length > 0 && (
                 <ul className="space-y-2">
                   <li className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-400/70">
@@ -237,30 +247,34 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
                   ))}
                 </ul>
               )}
-            </div>
+            </section>
           )}
 
           {hasNotes && (
-            <ul className="space-y-2">
-              {response.knowledge_notes.map((n, i) => (
-                <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
-                  <MarkdownInline text={n} />
-                </li>
-              ))}
-            </ul>
+            <section aria-label="Notas">
+              <ul className="space-y-2">
+                {response.knowledge_notes.map((n, i) => (
+                  <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
+                    <MarkdownInline text={n} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {hasHistory && (
-            <ul className="space-y-2">
-              {response.historical_references.map((r, i) => (
-                <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
-                  <MarkdownInline text={r} />
-                </li>
-              ))}
-            </ul>
+            <section aria-label="Histórico">
+              <ul className="space-y-2">
+                {response.historical_references.map((r, i) => (
+                  <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
+                    <MarkdownInline text={r} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </Details>
       )}
-    </div>
+    </article>
   );
 }

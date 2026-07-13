@@ -38,7 +38,7 @@ export function ConversationItem({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <>
+    <li>
       <div
         className={cn(
           "group relative flex h-10 items-center rounded-lg px-2.5 text-[0.875rem] transition-colors",
@@ -111,6 +111,6 @@ export function ConversationItem({
         onClose={() => setRenameOpen(false)}
         onConfirm={(title) => onRename(session.id, title)}
       />
-    </>
+    </li>
   );
 }

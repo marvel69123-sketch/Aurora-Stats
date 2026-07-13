@@ -26,7 +26,10 @@ function EmptyState({
   avatarUrl: string | null;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 text-center">
+    <section
+      className="flex flex-1 flex-col items-center justify-center px-6 pb-8 text-center"
+      aria-label="Início"
+    >
       <AuroraAvatar url={avatarUrl} size="xl" className="mb-7" />
       <h1 className="mb-3 font-display text-[1.75rem] font-semibold tracking-[-0.03em] text-white/[0.94] md:text-[2rem]">
         Aurora
@@ -34,7 +37,10 @@ function EmptyState({
       <p className="mb-10 max-w-md text-[0.9375rem] leading-relaxed text-white/45">
         Como posso ajudar nas análises de hoje?
       </p>
-      <div className="grid w-full max-w-[42rem] grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <nav
+        className="grid w-full max-w-[42rem] grid-cols-1 gap-2.5 sm:grid-cols-2"
+        aria-label="Sugestões"
+      >
         {STARTERS.map((p) => (
           <button
             key={p.text}
@@ -46,8 +52,8 @@ function EmptyState({
             <p className="mt-1 text-[0.8125rem] text-white/35">{p.text}</p>
           </button>
         ))}
-      </div>
-    </div>
+      </nav>
+    </section>
   );
 }
 
@@ -57,7 +63,7 @@ export function ChatWindow({
   avatarUrl,
   onSend,
 }: ChatWindowProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
   const messages = session?.messages ?? [];
   const isEmpty = messages.length === 0;
 
@@ -68,22 +74,29 @@ export function ChatWindow({
   }, [messages.length, loading]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[#0a0a0a]">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+    <section
+      className="flex min-h-0 flex-1 flex-col bg-[#0a0a0a]"
+      aria-label="Conversa"
+    >
+      <section
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto"
+        aria-label={isEmpty ? undefined : "Mensagens"}
+      >
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <div className="aurora-chat-column mx-auto w-full space-y-9 px-4 py-8 md:px-6 md:py-10">
+          <section className="aurora-chat-column mx-auto w-full space-y-9 px-4 py-8 md:px-6 md:py-10">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} avatarUrl={avatarUrl} />
             ))}
-          </div>
+          </section>
         )}
-      </div>
+      </section>
 
-      <div className="bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent">
+      <footer className="bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent">
         <ChatInput onSend={onSend} disabled={loading} />
-      </div>
-    </div>
+      </footer>
+    </section>
   );
 }

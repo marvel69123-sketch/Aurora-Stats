@@ -75,6 +75,7 @@ export function Sidebar({
         <div
           className="fixed inset-0 z-20 bg-black/55 backdrop-blur-[2px] md:hidden"
           onClick={onClose}
+          aria-hidden
         />
       )}
 
@@ -88,8 +89,9 @@ export function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full",
           "md:relative md:translate-x-0 md:shrink-0",
         )}
+        aria-label="Histórico de conversas"
       >
-        <div className={cn("flex items-center gap-1 p-2.5", collapsed && "md:flex-col")}>
+        <header className={cn("flex items-center gap-1 p-2.5", collapsed && "md:flex-col")}>
           <button
             type="button"
             onClick={onNewChat}
@@ -120,29 +122,31 @@ export function Sidebar({
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] md:hidden"
+            aria-label="Fechar menu"
           >
             <XIcon size={17} />
           </button>
-        </div>
+        </header>
 
-        <div
+        <nav
           className={cn(
             "flex-1 overflow-y-auto px-2 pb-3",
             collapsed && "md:hidden",
           )}
+          aria-label="Conversas"
         >
           {sessions.length === 0 ? (
-            <div className="flex flex-col items-center gap-2.5 px-2 py-12 text-center">
+            <section className="flex flex-col items-center gap-2.5 px-2 py-12 text-center">
               <MessageSquareIcon size={22} className="text-white/18" />
               <p className="text-[0.8125rem] text-white/35">Nenhuma conversa ainda</p>
-            </div>
+            </section>
           ) : (
             groups.map((group) => (
-              <div key={group.key} className="mb-3.5">
-                <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-medium tracking-[0.04em] text-white/32">
+              <section key={group.key} className="mb-3.5" aria-label={group.label}>
+                <h2 className="px-2.5 pb-1.5 pt-2 text-[11px] font-medium tracking-[0.04em] text-white/32">
                   {group.label}
-                </p>
-                <div className="space-y-0.5">
+                </h2>
+                <ul className="space-y-0.5">
                   {group.items.map((session) => (
                     <ConversationItem
                       key={session.id}
@@ -154,13 +158,13 @@ export function Sidebar({
                       onTogglePin={onTogglePin}
                     />
                   ))}
-                </div>
-              </div>
+                </ul>
+              </section>
             ))
           )}
-        </div>
+        </nav>
 
-        <div
+        <footer
           className={cn(
             "border-t border-white/[0.05] p-2.5",
             collapsed && "md:flex md:justify-center",
@@ -194,7 +198,7 @@ export function Sidebar({
               </span>
             )}
           </button>
-        </div>
+        </footer>
       </aside>
 
       <AvatarSettingsDialog

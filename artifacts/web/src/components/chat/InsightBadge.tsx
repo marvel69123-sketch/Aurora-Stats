@@ -51,10 +51,10 @@ interface InsightBadgeRowProps {
 export function InsightBadgeRow({ kinds, className }: InsightBadgeRowProps) {
   if (kinds.length === 0) return null;
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <nav className={cn("flex flex-wrap gap-1.5", className)} aria-label="Insights">
       {kinds.map((kind) => (
         <InsightBadge key={kind} kind={kind} />
       ))}
-    </div>
+    </nav>
   );
 }

@@ -54,7 +54,7 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-3 bg-[#0a0a0a] px-3 md:px-5">
           <button
             type="button"
@@ -79,7 +79,7 @@ export default function App() {
           avatarUrl={avatarUrl}
           onSend={sendMessage}
         />
-      </div>
+      </main>
     </div>
   );
 }

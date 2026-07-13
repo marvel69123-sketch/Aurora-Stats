@@ -38,7 +38,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="px-3 pb-5 pt-2 md:px-6">
+    <section className="px-3 pb-5 pt-2 md:px-6" aria-label="Composer">
       <div
         className={cn(
           "aurora-chat-column mx-auto flex items-end gap-2 rounded-[26px] border border-white/[0.09]",
@@ -54,6 +54,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           placeholder="Pergunte à Aurora…"
           rows={1}
           disabled={disabled}
+          aria-label="Mensagem"
           className={cn(
             "max-h-48 min-h-[28px] flex-1 resize-none bg-transparent py-2",
             "text-[15px] leading-6 tracking-[0.01em] text-white/[0.92] outline-none",
@@ -79,6 +80,6 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       <p className="aurora-chat-column mx-auto mt-2.5 text-center text-[11px] tracking-wide text-white/25">
         Aurora pode errar. Confira dados ao vivo antes de decidir.
       </p>
-    </div>
+    </section>
   );
 }
