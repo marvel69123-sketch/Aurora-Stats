@@ -85,7 +85,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Aurora dark theme — applied to both root and .dark */
+/* Aurora ChatGPT-like dark theme */
 :root,
 .dark {
   --button-outline: rgba(255, 255, 255, 0.1);
@@ -94,67 +94,56 @@
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
-  /* Core backgrounds */
-  --background:    220 25% 8%;
-  --foreground:    210 25% 90%;
-  --border:        220 20% 18%;
-  --input:         220 25% 14%;
-  --ring:          160 70% 42%;
+  /* #0a0a0a / #111 */
+  --background:    0 0% 3.9%;
+  --foreground:    0 0% 93%;
+  --border:        0 0% 14%;
+  --input:         0 0% 10%;
+  --ring:          160 55% 42%;
 
-  /* Cards */
-  --card:          220 25% 11%;
-  --card-foreground: 210 25% 90%;
-  --card-border:   220 20% 18%;
+  --card:          0 0% 6.7%;
+  --card-foreground: 0 0% 93%;
+  --card-border:   0 0% 14%;
 
-  /* Sidebar */
-  --sidebar:       222 28% 7%;
-  --sidebar-foreground: 210 22% 82%;
-  --sidebar-border: 220 20% 15%;
-  --sidebar-primary: 160 70% 42%;
+  --sidebar:       0 0% 6.7%;
+  --sidebar-foreground: 0 0% 85%;
+  --sidebar-border: 0 0% 14%;
+  --sidebar-primary: 160 55% 42%;
   --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 220 25% 13%;
-  --sidebar-accent-foreground: 210 22% 82%;
-  --sidebar-ring:  160 70% 42%;
+  --sidebar-accent: 0 0% 10%;
+  --sidebar-accent-foreground: 0 0% 85%;
+  --sidebar-ring:  160 55% 42%;
 
-  /* Popover */
-  --popover:       220 25% 11%;
-  --popover-foreground: 210 25% 90%;
-  --popover-border: 220 20% 18%;
+  --popover:       0 0% 10%;
+  --popover-foreground: 0 0% 93%;
+  --popover-border: 0 0% 16%;
 
-  /* Primary = emerald */
-  --primary:       160 70% 42%;
+  --primary:       160 55% 42%;
   --primary-foreground: 0 0% 98%;
 
-  /* Secondary */
-  --secondary:     220 25% 16%;
-  --secondary-foreground: 210 22% 82%;
+  --secondary:     0 0% 12%;
+  --secondary-foreground: 0 0% 85%;
 
-  /* Muted */
-  --muted:         220 25% 14%;
-  --muted-foreground: 220 15% 52%;
+  --muted:         0 0% 12%;
+  --muted-foreground: 0 0% 55%;
 
-  /* Accent */
-  --accent:        220 25% 16%;
-  --accent-foreground: 210 22% 82%;
+  --accent:        0 0% 12%;
+  --accent-foreground: 0 0% 85%;
 
-  /* Destructive */
   --destructive:   0 72% 51%;
   --destructive-foreground: 0 0% 98%;
 
-  /* Charts */
-  --chart-1: 160 70% 42%;
+  --chart-1: 160 55% 42%;
   --chart-2: 200 80% 55%;
   --chart-3: 280 65% 60%;
   --chart-4: 40 90% 55%;
   --chart-5: 0 72% 51%;
 
-  /* Font / radius */
-  --app-font-sans: 'Inter', system-ui, sans-serif;
+  --app-font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: 0.5rem;
+  --app-font-mono: ui-monospace, Menlo, monospace;
+  --radius: 0.75rem;
 
-  /* Computed borders */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-accent-border: hsl(var(--sidebar-accent));
   --primary-border: hsl(var(--primary));
@@ -163,7 +152,6 @@
   --accent-border: hsl(var(--accent));
   --destructive-border: hsl(var(--destructive));
 
-  /* Shadows */
   --shadow-2xs: 0px 1px 2px rgba(0,0,0,0.4);
   --shadow-xs:  0px 1px 3px rgba(0,0,0,0.5);
   --shadow-sm:  0px 2px 4px rgba(0,0,0,0.5);
@@ -195,11 +183,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(220 20% 25%);
+    background: hsl(0 0% 22%);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(220 20% 35%);
+    background: hsl(0 0% 32%);
   }
 }
 

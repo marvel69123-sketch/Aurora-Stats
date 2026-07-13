@@ -2,10 +2,13 @@ import { useState } from "react";
 import { MenuIcon } from "lucide-react";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
+import { AuroraAvatar } from "@/components/chat/AuroraAvatar";
 import { useChat } from "@/hooks/useChat";
+import { useAuroraAvatar } from "@/hooks/useAuroraAvatar";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const {
     sessions,
     activeId,
@@ -14,8 +17,11 @@ export default function App() {
     createSession,
     selectSession,
     deleteSession,
+    renameSession,
+    togglePinSession,
     sendMessage,
   } = useChat();
+  const { avatarUrl, setFromFile, clear } = useAuroraAvatar();
 
   const handleNewChat = () => {
     createSession();
@@ -28,47 +34,49 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden bg-[#0a0a0a] text-white">
       <Sidebar
         sessions={sessions}
         activeId={activeId}
+        avatarUrl={avatarUrl}
         onSelect={handleSelect}
         onNewChat={handleNewChat}
         onDelete={deleteSession}
+        onRename={renameSession}
+        onTogglePin={togglePinSession}
+        onAvatarUpload={async (file) => {
+          await setFromFile(file);
+        }}
+        onAvatarClear={clear}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-3 h-14 px-4 border-b border-white/[0.06] bg-background flex-shrink-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#0a0a0a] px-3 md:px-4">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/5 transition-colors"
+            className="rounded-lg p-2 text-white/45 hover:bg-white/5 hover:text-white/80 md:hidden"
+            aria-label="Abrir menu"
           >
             <MenuIcon size={18} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center">
-              <span className="text-white font-bold text-[10px]">A</span>
-            </div>
-            <span className="text-sm font-semibold text-white/80">Aurora</span>
+
+          <div className="flex min-w-0 items-center gap-2">
+            <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
+            <p className="truncate text-sm text-white/70">
+              {activeSession?.title ?? "Aurora"}
+            </p>
           </div>
         </header>
 
-        {/* Desktop header bar */}
-        <header className="hidden md:flex items-center h-12 px-6 border-b border-white/[0.05] bg-background flex-shrink-0">
-          <p className="text-xs text-white/25 truncate">
-            {activeSession?.title ?? "Aurora — Inteligência Esportiva"}
-          </p>
-        </header>
-
-        {/* Chat window */}
         <ChatWindow
           session={activeSession}
           loading={loading}
+          avatarUrl={avatarUrl}
           onSend={sendMessage}
         />
       </div>

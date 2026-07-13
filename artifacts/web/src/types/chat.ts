@@ -61,6 +61,9 @@ export interface Message {
 export interface Session {
   id: string;
   title: string;
+  /** When true, auto-title will not overwrite a manual rename. */
+  titleLocked?: boolean;
+  pinned?: boolean;
   messages: Message[];
   createdAt: string;
   lastActive: string;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { generateConversationTitle } from "@/lib/conversationTitle";
 import type { CopilotResponse, Message, Session } from "@/types/chat";
 
 const STORAGE_KEY = "aurora_chat_sessions";
@@ -12,11 +13,23 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function migrateSession(raw: Session): Session {
+  return {
+    ...raw,
+    pinned: Boolean(raw.pinned),
+    titleLocked: Boolean(raw.titleLocked),
+    title: raw.title || "Nova conversa",
+    messages: Array.isArray(raw.messages) ? raw.messages : [],
+  };
+}
+
 function loadSessions(): Session[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as Session[];
+    const parsed = JSON.parse(raw) as Session[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(migrateSession);
   } catch {
     return [];
   }
@@ -28,6 +41,13 @@ function saveSessions(sessions: Session[]): void {
   } catch {
     // ignore storage errors
   }
+}
+
+function sortSessions(sessions: Session[]): Session[] {
+  return [...sessions].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
+  });
 }
 
 async function callCopilot(
@@ -45,21 +65,22 @@ async function callCopilot(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
     throw new Error(
-      typeof err.detail === "string" ? err.detail : `HTTP ${res.status}`
+      typeof err.detail === "string" ? err.detail : `HTTP ${res.status}`,
     );
   }
   return res.json() as Promise<CopilotResponse>;
 }
 
 export function useChat() {
-  const [sessions, setSessions] = useState<Session[]>(() => loadSessions());
+  const [sessions, setSessions] = useState<Session[]>(() => sortSessions(loadSessions()));
   const [activeId, setActiveId] = useState<string | null>(
-    () => loadSessions()[0]?.id ?? null
+    () => loadSessions()[0]?.id ?? null,
   );
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
 
-  // Persist on every change
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
@@ -71,11 +92,13 @@ export function useChat() {
     const session: Session = {
       id,
       title: "Nova conversa",
+      titleLocked: false,
+      pinned: false,
       messages: [],
       createdAt: now(),
       lastActive: now(),
     };
-    setSessions((prev) => [session, ...prev]);
+    setSessions((prev) => sortSessions([session, ...prev]));
     setActiveId(id);
     return id;
   }, []);
@@ -84,47 +107,69 @@ export function useChat() {
     setActiveId(id);
   }, []);
 
-  const deleteSession = useCallback(
-    (id: string) => {
-      setSessions((prev) => {
-        const next = prev.filter((s) => s.id !== id);
-        if (activeId === id) {
-          setActiveId(next[0]?.id ?? null);
-        }
-        return next;
-      });
-    },
-    [activeId]
-  );
+  const deleteSession = useCallback((id: string) => {
+    setSessions((prev) => {
+      const next = sortSessions(prev.filter((s) => s.id !== id));
+      setActiveId((cur) => (cur === id ? (next[0]?.id ?? null) : cur));
+      return next;
+    });
+  }, []);
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || loading) return;
+  const renameSession = useCallback((id: string, title: string) => {
+    const cleaned = title.trim() || "Nova conversa";
+    setSessions((prev) =>
+      sortSessions(
+        prev.map((s) =>
+          s.id === id
+            ? { ...s, title: cleaned, titleLocked: true, lastActive: now() }
+            : s,
+        ),
+      ),
+    );
+  }, []);
 
-      let sessionId = activeId;
-      if (!sessionId) {
-        sessionId = uid();
-        const newSession: Session = {
-          id: sessionId,
-          title: text.slice(0, 60) + (text.length > 60 ? "…" : ""),
-          messages: [],
-          createdAt: now(),
-          lastActive: now(),
-        };
-        setSessions((prev) => [newSession, ...prev]);
-        setActiveId(sessionId);
-      }
+  const togglePinSession = useCallback((id: string) => {
+    setSessions((prev) =>
+      sortSessions(
+        prev.map((s) =>
+          s.id === id ? { ...s, pinned: !s.pinned, lastActive: now() } : s,
+        ),
+      ),
+    );
+  }, []);
 
-      const userMsgId = uid();
-      const auroraPlaceholderId = uid();
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || loading) return;
 
-      // Add user message + loading aurora placeholder
-      setSessions((prev) =>
+    let sessionId = activeId;
+    if (!sessionId) {
+      sessionId = uid();
+      const newSession: Session = {
+        id: sessionId,
+        title: generateConversationTitle(text),
+        titleLocked: false,
+        pinned: false,
+        messages: [],
+        createdAt: now(),
+        lastActive: now(),
+      };
+      setSessions((prev) => sortSessions([newSession, ...prev]));
+      setActiveId(sessionId);
+    }
+
+    const userMsgId = uid();
+    const auroraPlaceholderId = uid();
+    const currentBackendId = sessionsRef.current.find(
+      (s) => s.id === sessionId,
+    )?.backendSessionId;
+
+    setSessions((prev) =>
+      sortSessions(
         prev.map((s) => {
           if (s.id !== sessionId) return s;
           const title =
-            s.messages.length === 0
-              ? text.slice(0, 60) + (text.length > 60 ? "…" : "")
+            s.messages.length === 0 && !s.titleLocked
+              ? generateConversationTitle(text)
               : s.title;
           return {
             ...s,
@@ -147,39 +192,52 @@ export function useChat() {
               } satisfies Message,
             ],
           };
-        })
-      );
+        }),
+      ),
+    );
 
-      setLoading(true);
-      abortRef.current?.abort();
-      abortRef.current = new AbortController();
+    setLoading(true);
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
 
-      // Grab the backend session id for the session we're sending from
-      const currentBackendId = sessions.find((s) => s.id === sessionId)?.backendSessionId;
+    try {
+      const response = await callCopilot(text, currentBackendId);
 
-      try {
-        const response = await callCopilot(text, currentBackendId);
-
-        setSessions((prev) =>
+      setSessions((prev) =>
+        sortSessions(
           prev.map((s) => {
             if (s.id !== sessionId) return s;
+            // Prefer match name from API for auto title on first reply
+            let title = s.title;
+            if (
+              !s.titleLocked &&
+              s.messages.filter((m) => m.role === "user").length <= 1 &&
+              response.match
+            ) {
+              const live = response.is_live ? " ao vivo" : "";
+              title = generateConversationTitle(`${response.match}${live}`);
+            }
             return {
               ...s,
+              title,
               lastActive: now(),
-              // Persist the backend session_id so follow-up messages keep context
-              ...(response.session_id ? { backendSessionId: response.session_id } : {}),
+              ...(response.session_id
+                ? { backendSessionId: response.session_id }
+                : {}),
               messages: s.messages.map((m) =>
                 m.id === auroraPlaceholderId
                   ? { ...m, loading: false, response }
-                  : m
+                  : m,
               ),
             };
-          })
-        );
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : "Unknown error. Please try again.";
-        setSessions((prev) =>
+          }),
+        ),
+      );
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Unknown error. Please try again.";
+      setSessions((prev) =>
+        sortSessions(
           prev.map((s) => {
             if (s.id !== sessionId) return s;
             return {
@@ -187,17 +245,16 @@ export function useChat() {
               messages: s.messages.map((m) =>
                 m.id === auroraPlaceholderId
                   ? { ...m, loading: false, error: errorMsg }
-                  : m
+                  : m,
               ),
             };
-          })
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activeId, loading]
-  );
+          }),
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [activeId, loading]);
 
   return {
     sessions,
@@ -207,6 +264,8 @@ export function useChat() {
     createSession,
     selectSession,
     deleteSession,
+    renameSession,
+    togglePinSession,
     sendMessage,
   };
 }

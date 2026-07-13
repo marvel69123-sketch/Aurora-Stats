@@ -2,24 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
-  "Analisar Arsenal x Chelsea",
-  "Analisar Manchester City x Liverpool",
-  "Melhores oportunidades ao vivo",
-  "Revisar banca",
-  "O que a Aurora aprendeu hoje?",
-  "O que você sabe sobre BTTS?",
-  "O que você sabe sobre escanteios?",
-  "Explique o Critério de Kelly",
-];
-
 interface ChatInputProps {
   onSend: (text: string) => void;
   disabled: boolean;
-  empty: boolean;
 }
 
-export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
+export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -27,7 +15,7 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [text]);
 
   useEffect(() => {
@@ -39,9 +27,7 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
     if (!trimmed || disabled) return;
     onSend(trimmed);
     setText("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -51,32 +37,13 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
     }
   };
 
-  const handleSuggestion = (s: string) => {
-    setText(s);
-    textareaRef.current?.focus();
-  };
-
   return (
-    <div className="border-t border-white/[0.06] bg-background px-4 pt-3 pb-4">
-      {empty && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => handleSuggestion(s)}
-              className="text-[11px] px-3 py-1.5 rounded-full bg-white/[0.06] text-white/45 border border-white/[0.08] hover:bg-white/10 hover:text-white/70 hover:border-white/20 transition-all"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
+    <div className="px-3 pb-4 pt-2 md:px-4">
       <div
         className={cn(
-          "flex gap-3 items-end rounded-2xl border px-4 py-3 transition-colors",
-          "bg-white/[0.04] border-white/10",
-          "focus-within:border-white/25 focus-within:bg-white/[0.06]"
+          "mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] border border-white/10",
+          "bg-[#1a1a1a] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]",
+          "focus-within:border-white/20",
         )}
       >
         <textarea
@@ -84,36 +51,33 @@ export function ChatInput({ onSend, disabled, empty }: ChatInputProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Pergunte à Aurora..."
+          placeholder="Pergunte à Aurora…"
           rows={1}
           disabled={disabled}
           className={cn(
-            "flex-1 bg-transparent resize-none outline-none",
-            "text-sm text-white/90 placeholder:text-white/25",
-            "leading-relaxed min-h-[20px]",
-            disabled && "opacity-50 cursor-not-allowed"
+            "max-h-40 min-h-[24px] flex-1 resize-none bg-transparent py-1.5",
+            "text-[15px] leading-6 text-white/90 outline-none",
+            "placeholder:text-white/30",
+            disabled && "cursor-not-allowed opacity-50",
           )}
-          style={{ maxHeight: "120px" }}
         />
         <button
+          type="button"
           onClick={handleSend}
           disabled={!text.trim() || disabled}
           className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0",
+            "mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
             text.trim() && !disabled
-              ? "bg-emerald-500 hover:bg-emerald-400 shadow-md shadow-emerald-500/20"
-              : "bg-white/8 cursor-not-allowed"
+              ? "bg-white text-black hover:bg-white/90"
+              : "bg-white/10 text-white/25 cursor-not-allowed",
           )}
+          aria-label="Enviar"
         >
-          <ArrowUpIcon
-            size={15}
-            className={text.trim() && !disabled ? "text-white" : "text-white/20"}
-          />
+          <ArrowUpIcon size={18} />
         </button>
       </div>
-
-      <p className="text-[10px] text-white/20 text-center mt-2">
-        Enter para enviar · Shift+Enter para nova linha
+      <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-white/25">
+        Aurora pode errar. Confira dados ao vivo antes de decidir.
       </p>
     </div>
   );

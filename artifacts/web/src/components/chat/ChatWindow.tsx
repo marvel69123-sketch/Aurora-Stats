@@ -1,52 +1,49 @@
 import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
+import { AuroraAvatar } from "./AuroraAvatar";
 import type { Session } from "@/types/chat";
 
 interface ChatWindowProps {
   session: Session | null;
   loading: boolean;
+  avatarUrl: string | null;
   onSend: (text: string) => void;
 }
 
-const STARTER_PROMPTS = [
-  { label: "Analisar uma partida",        text: "Analisar Arsenal x Chelsea" },
-  { label: "Oportunidades ao vivo",       text: "Melhores oportunidades ao vivo" },
-  { label: "Desempenho da banca",         text: "Revisar banca" },
-  { label: "Resumo de aprendizado",       text: "O que a Aurora aprendeu hoje?" },
-  { label: "Conhecimento — BTTS",         text: "O que você sabe sobre BTTS?" },
-  { label: "Conhecimento — escanteios",   text: "O que você sabe sobre escanteios?" },
+const STARTERS = [
+  { label: "Analisar partida", text: "Analisar Arsenal x Chelsea" },
+  { label: "Ao vivo", text: "Melhores oportunidades ao vivo" },
+  { label: "Banca", text: "Revisar banca" },
+  { label: "Aprendizado", text: "O que a Aurora aprendeu hoje?" },
 ];
 
-function EmptyState({ onSend }: { onSend: (text: string) => void }) {
+function EmptyState({
+  onSend,
+  avatarUrl,
+}: {
+  onSend: (text: string) => void;
+  avatarUrl: string | null;
+}) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 text-center select-none">
-      <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mb-5 shadow-xl shadow-emerald-500/10">
-        <span className="text-3xl font-bold text-emerald-400">A</span>
-      </div>
-
-      <h2 className="text-xl font-semibold text-white/85 mb-2">
-        Aurora — Inteligência Esportiva
-      </h2>
-
-      <p className="text-sm text-white/35 max-w-sm leading-relaxed mb-1">
-        Sua assistente profissional de análise de futebol, gestão de banca e aprendizado contínuo.
+    <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+      <AuroraAvatar url={avatarUrl} size="lg" className="mb-6" />
+      <h1 className="mb-2 text-2xl font-semibold tracking-tight text-white/90 md:text-3xl">
+        Aurora
+      </h1>
+      <p className="mb-10 max-w-md text-sm leading-relaxed text-white/40">
+        Inteligência esportiva — análises, ao vivo e banca.
       </p>
-      <p className="text-xs text-white/20 max-w-xs leading-relaxed mb-8">
-        xG · Modelagem de Poisson · 39 regras metodológicas de apostas
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-        {STARTER_PROMPTS.map((p) => (
+      <div className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
+        {STARTERS.map((p) => (
           <button
             key={p.text}
+            type="button"
             onClick={() => onSend(p.text)}
-            className="text-left px-4 py-3 rounded-xl bg-white/[0.04] border border-white/8 hover:bg-white/8 hover:border-white/15 transition-all group"
+            className="rounded-2xl border border-white/10 bg-transparent px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04]"
           >
-            <p className="text-xs font-medium text-white/60 group-hover:text-white/80 transition-colors">
-              {p.label}
-            </p>
-            <p className="text-[11px] text-white/30 mt-0.5">{p.text}</p>
+            <p className="text-sm text-white/75">{p.label}</p>
+            <p className="mt-0.5 text-xs text-white/35">{p.text}</p>
           </button>
         ))}
       </div>
@@ -54,7 +51,12 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export function ChatWindow({ session, loading, onSend }: ChatWindowProps) {
+export function ChatWindow({
+  session,
+  loading,
+  avatarUrl,
+  onSend,
+}: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messages = session?.messages ?? [];
   const isEmpty = messages.length === 0;
@@ -66,21 +68,21 @@ export function ChatWindow({ session, loading, onSend }: ChatWindowProps) {
   }, [messages.length, loading]);
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col bg-[#0a0a0a]">
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {isEmpty ? (
-          <EmptyState onSend={onSend} />
+          <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+          <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 md:px-6">
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble key={msg.id} message={msg} avatarUrl={avatarUrl} />
             ))}
           </div>
         )}
       </div>
 
-      <div className="max-w-3xl mx-auto w-full">
-        <ChatInput onSend={onSend} disabled={loading} empty={isEmpty} />
+      <div className="bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent">
+        <ChatInput onSend={onSend} disabled={loading} />
       </div>
     </div>
   );

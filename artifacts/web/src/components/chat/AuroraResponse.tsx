@@ -1,24 +1,7 @@
 import { useState } from "react";
-import {
-  TrendingUpIcon,
-  ShieldIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ZapIcon,
-  BookOpenIcon,
-  BarChart3Icon,
-  WalletIcon,
-  AlertTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CopilotResponse, MarketEntry } from "@/types/chat";
-
-// ---------------------------------------------------------------------------
-// Markdown inline renderer
-// ---------------------------------------------------------------------------
 
 function InlineMd({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
@@ -28,11 +11,21 @@ function InlineMd({ text }: { text: string }) {
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
     if (match[1] !== undefined)
-      parts.push(<strong key={match.index} className="font-semibold text-white/95">{match[1]}</strong>);
-    else if (match[2] !== undefined)
-      parts.push(<em key={match.index}>{match[2]}</em>);
+      parts.push(
+        <strong key={match.index} className="font-semibold text-white/95">
+          {match[1]}
+        </strong>,
+      );
+    else if (match[2] !== undefined) parts.push(<em key={match.index}>{match[2]}</em>);
     else if (match[3] !== undefined)
-      parts.push(<code key={match.index} className="bg-white/10 px-1.5 py-0.5 rounded text-[11px] font-mono">{match[3]}</code>);
+      parts.push(
+        <code
+          key={match.index}
+          className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]"
+        >
+          {match[3]}
+        </code>,
+      );
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
@@ -41,12 +34,12 @@ function InlineMd({ text }: { text: string }) {
 
 function MdText({ text, className }: { text: string; className?: string }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2.5", className)}>
       {text.split("\n").map((line, i) => {
-        if (line.trim() === "---") return <hr key={i} className="border-white/10 my-2" />;
+        if (line.trim() === "---") return <hr key={i} className="my-3 border-white/10" />;
         if (!line.trim()) return <div key={i} className="h-1" />;
         return (
-          <p key={i} className="text-sm leading-relaxed text-white/75">
+          <p key={i} className="text-[15px] leading-7 text-white/80">
             <InlineMd text={line} />
           </p>
         );
@@ -55,501 +48,226 @@ function MdText({ text, className }: { text: string; className?: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Mapeamentos de tradução
-// ---------------------------------------------------------------------------
-
-const INTENT_META: Record<string, { label: string; color: string }> = {
-  analyze_match:      { label: "Análise de Partida",    color: "bg-blue-500/15 text-blue-300 border-blue-500/20" },
-  live_opportunities: { label: "Oportunidades ao Vivo", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20" },
-  bankroll_review:    { label: "Revisão de Banca",      color: "bg-amber-500/15 text-amber-300 border-amber-500/20" },
-  learning_recap:     { label: "Aprendizado",           color: "bg-purple-500/15 text-purple-300 border-purple-500/20" },
-  knowledge_search:   { label: "Busca de Conhecimento", color: "bg-teal-500/15 text-teal-300 border-teal-500/20" },
-  greeting:           { label: "Olá",                   color: "bg-white/5 text-white/50 border-white/10" },
-  help:               { label: "Ajuda",                 color: "bg-white/5 text-white/50 border-white/10" },
-  unknown:            { label: "Aurora",                color: "bg-white/5 text-white/50 border-white/10" },
-};
-
 const RISK_PT: Record<string, string> = {
-  Low: "Baixo", Medium: "Médio", High: "Alto", Unknown: "—",
+  Low: "Baixo",
+  Medium: "Médio",
+  High: "Alto",
+  Unknown: "—",
 };
 
 const CONF_PT: Record<string, string> = {
-  strong: "forte", moderate: "moderada", adequate: "adequada",
-  weak: "fraca", insufficient: "insuficiente",
+  strong: "forte",
+  moderate: "moderada",
+  adequate: "adequada",
+  weak: "fraca",
+  insufficient: "insuficiente",
 };
 
-// ---------------------------------------------------------------------------
-// Badge de intenção
-// ---------------------------------------------------------------------------
-
-function IntentBadge({ intent }: { intent: string }) {
-  const meta = INTENT_META[intent] ?? INTENT_META.unknown;
+function Details({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <span className={cn("inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border", meta.color)}>
-      {meta.label}
-    </span>
+    <div className="border-t border-white/[0.06] pt-3">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between py-1 text-left text-sm text-white/55 hover:text-white/80"
+        onClick={() => setOpen(!open)}
+      >
+        <span>{title}</span>
+        {open ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+      </button>
+      {open && <div className="mt-2 space-y-3">{children}</div>}
+    </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Recomendação Final
-// ---------------------------------------------------------------------------
-
-function FinalRec({ text, noBet }: { text: string; noBet: boolean }) {
-  if (!text || text.startsWith("Por favor") || text.startsWith("Please")) return null;
-
-  if (noBet) {
+function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveList: boolean }) {
+  if (isLiveList) {
     return (
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3 flex gap-3 items-start">
-        <AlertTriangleIcon size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-[10px] font-semibold text-amber-400/60 uppercase tracking-wider mb-1">Sem Aposta Recomendada</p>
-          <p className="text-sm text-amber-200/80 leading-relaxed">
-            <InlineMd text={text} />
-          </p>
-        </div>
-      </div>
+      <ul className="space-y-2">
+        {markets.map((m) => (
+          <li key={m.rank} className="text-sm">
+            <p className="font-medium text-white/85">{m.market}</p>
+            {m.rationale && (
+              <p className="mt-0.5 text-xs leading-relaxed text-white/45">{m.rationale}</p>
+            )}
+          </li>
+        ))}
+      </ul>
     );
   }
 
   return (
-    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-4 py-3 flex gap-3 items-start">
-      <TrendingUpIcon size={15} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-      <div>
-        <p className="text-[10px] font-semibold text-emerald-400/60 uppercase tracking-wider mb-1">Recomendação Final</p>
-        <p className="text-sm text-white/90 leading-relaxed font-medium">
-          <InlineMd text={text} />
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Mercados
-// ---------------------------------------------------------------------------
-
-function RiskPill({ risk }: { risk: string }) {
-  const map: Record<string, string> = {
-    Low: "bg-emerald-500/15 text-emerald-300",
-    Medium: "bg-amber-500/15 text-amber-300",
-    High: "bg-red-500/15 text-red-300",
-    Unknown: "bg-white/5 text-white/30",
-  };
-  return (
-    <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", map[risk] ?? map.Unknown)}>
-      {RISK_PT[risk] ?? risk}
-    </span>
-  );
-}
-
-function MarketsSection({ markets, intent }: { markets: MarketEntry[]; intent: string }) {
-  const [expanded, setExpanded] = useState(intent === "analyze_match");
-  if (markets.length === 0) return null;
-  const isFixtureList = intent === "live_opportunities";
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2">
-          <BarChart3Icon size={13} className="text-white/40" />
-          <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">
-            {isFixtureList ? "Partidas ao Vivo" : "Mercados Recomendados"}
-          </span>
-          <span className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">{markets.length}</span>
-        </div>
-        {expanded ? <ChevronUpIcon size={13} className="text-white/30" /> : <ChevronDownIcon size={13} className="text-white/30" />}
-      </button>
-
-      {expanded && (
-        <div className="border-t border-white/8">
-          {isFixtureList ? (
-            <div className="divide-y divide-white/5">
-              {markets.map((m) => (
-                <div key={m.rank} className="px-4 py-3">
-                  <p className="text-sm font-medium text-white/90">{m.market}</p>
-                  <p className="text-xs text-white/40 mt-0.5 leading-relaxed">{m.rationale}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="text-left px-4 py-2.5 text-white/30 font-medium">#</th>
-                    <th className="text-left px-2 py-2.5 text-white/30 font-medium">Mercado</th>
-                    <th className="text-right px-2 py-2.5 text-white/30 font-medium">Prob.</th>
-                    <th className="text-right px-2 py-2.5 text-white/30 font-medium">VE</th>
-                    <th className="text-right px-2 py-2.5 text-white/30 font-medium">Conf.</th>
-                    <th className="text-right px-4 py-2.5 text-white/30 font-medium">Risco</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {markets.map((m) => <MarketRow key={m.rank} market={m} />)}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MarketRow({ market: m }: { market: MarketEntry }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <>
-      <tr
-        className={cn("hover:bg-white/[0.03] transition-colors cursor-pointer", m.rank === 1 && "bg-emerald-500/[0.04]")}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <td className="px-4 py-2.5 text-white/30">{m.rank}</td>
-        <td className="px-2 py-2.5 font-medium text-white/85 max-w-[140px]">
-          <div className="truncate">{m.market}</div>
-        </td>
-        <td className="px-2 py-2.5 text-right text-white/60">{m.probability.toFixed(0)}%</td>
-        <td className={cn("px-2 py-2.5 text-right font-semibold", m.expected_value > 0 ? "text-emerald-400" : "text-red-400")}>
-          {m.expected_value > 0 ? "+" : ""}{m.expected_value.toFixed(1)}%
-        </td>
-        <td className="px-2 py-2.5 text-right text-white/60">{m.confidence.toFixed(1)}</td>
-        <td className="px-4 py-2.5 text-right"><RiskPill risk={m.risk} /></td>
-      </tr>
-      {expanded && m.rationale && (
-        <tr className="bg-white/[0.02]">
-          <td colSpan={6} className="px-4 py-2.5">
-            <p className="text-[11px] text-white/45 leading-relaxed">{m.rationale}</p>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Confiança e Risco
-// ---------------------------------------------------------------------------
-
-function ConfidenceBar({ score }: { score: number }) {
-  const pct = Math.min(100, (score / 10) * 100);
-  const color = score >= 8 ? "bg-emerald-500" : score >= 6 ? "bg-blue-500" : score >= 4 ? "bg-amber-500" : "bg-red-500";
-  return (
-    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-      <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-function ConfidenceCard({ confidence }: { confidence: CopilotResponse["confidence"] }) {
-  const labelPt = CONF_PT[confidence.label] ?? confidence.label;
-  const labelColor =
-    confidence.label === "strong" ? "text-emerald-400" :
-    confidence.label === "moderate" ? "text-blue-400" :
-    confidence.label === "adequate" ? "text-amber-400" : "text-red-400";
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <ShieldIcon size={12} className="text-white/35" />
-        <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Confiança</span>
-      </div>
-      <div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold text-white/90">{confidence.score.toFixed(1)}</span>
-          <span className="text-xs text-white/30">/10</span>
-          <span className={cn("text-xs font-medium ml-1 capitalize", labelColor)}>{labelPt}</span>
-        </div>
-        <ConfidenceBar score={confidence.score} />
-      </div>
-      {confidence.data_sources.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {confidence.data_sources.map((src, i) => (
-            <span key={i} className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded">{src}</span>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-white/[0.06] text-white/35">
+            <th className="px-1 py-2 text-left font-medium">Mercado</th>
+            <th className="px-1 py-2 text-right font-medium">Prob.</th>
+            <th className="px-1 py-2 text-right font-medium">VE</th>
+            <th className="px-1 py-2 text-right font-medium">Risco</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.04]">
+          {markets.map((m) => (
+            <tr key={m.rank}>
+              <td className="max-w-[180px] truncate px-1 py-2 text-white/80">{m.market}</td>
+              <td className="px-1 py-2 text-right text-white/55">{m.probability.toFixed(0)}%</td>
+              <td
+                className={cn(
+                  "px-1 py-2 text-right font-medium",
+                  m.expected_value > 0 ? "text-emerald-400" : "text-red-400",
+                )}
+              >
+                {m.expected_value > 0 ? "+" : ""}
+                {m.expected_value.toFixed(1)}%
+              </td>
+              <td className="px-1 py-2 text-right text-white/45">
+                {RISK_PT[m.risk] ?? m.risk}
+              </td>
+            </tr>
           ))}
-        </div>
-      )}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function RiskCard({ risk }: { risk: CopilotResponse["risk"] }) {
-  const levelPt = RISK_PT[risk.level] ?? risk.level;
-  const riskColor =
-    risk.level === "Low" ? "text-emerald-400" :
-    risk.level === "Medium" ? "text-amber-400" :
-    risk.level === "High" ? "text-red-400" : "text-white/40";
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <AlertTriangleIcon size={12} className="text-white/35" />
-        <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Risco</span>
-      </div>
-      <span className={cn("text-xl font-bold block", riskColor)}>{levelPt}</span>
-      {risk.flags.length > 0 ? (
-        <div className="space-y-1">
-          {risk.flags.slice(0, 2).map((flag, i) => (
-            <p key={i} className="text-[11px] text-white/40 leading-snug line-clamp-2">
-              <InlineMd text={flag} />
-            </p>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[11px] text-white/30">Nenhuma bandeira de risco crítica.</p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Stake / Banca
-// ---------------------------------------------------------------------------
-
-function BankrollCard({ br }: { br: CopilotResponse["bankroll_recommendation"] }) {
-  const examples = Object.entries(br.examples);
-  return (
-    <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.05] px-4 py-3 space-y-2.5">
-      <div className="flex items-center gap-2">
-        <WalletIcon size={12} className="text-blue-400/70" />
-        <span className="text-[10px] font-semibold text-blue-400/60 uppercase tracking-wider">Stake Recomendada</span>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold text-white/90">{br.recommended_stake_pct.toFixed(1)}%</span>
-        <span className="text-xs text-white/40">da banca</span>
-        <span className="text-[10px] text-blue-400/50 ml-1">({br.method})</span>
-      </div>
-      {examples.length > 0 && (
-        <div className="flex gap-3 flex-wrap">
-          {examples.map(([bankroll, stake]) => (
-            <div key={bankroll} className="text-[11px]">
-              <span className="text-white/30">R${parseInt(bankroll).toLocaleString("pt-BR")} →</span>{" "}
-              <span className="font-semibold text-white/70">R${stake}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Fatores Positivos e Negativos
-// ---------------------------------------------------------------------------
-
-function FactorsSection({ pos, neg }: { pos: string[]; neg: string[] }) {
-  const [open, setOpen] = useState(false);
-  if (pos.length === 0 && neg.length === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex items-center gap-2">
-          <ZapIcon size={13} className="text-white/40" />
-          <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Fatores</span>
-          <span className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">
-            {pos.length}+ / {neg.length}-
-          </span>
-        </div>
-        {open ? <ChevronUpIcon size={13} className="text-white/30" /> : <ChevronDownIcon size={13} className="text-white/30" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-white/8 grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
-          {pos.length > 0 && (
-            <div className="px-4 py-3 space-y-1.5">
-              <p className="text-[10px] font-semibold text-emerald-400/60 uppercase tracking-wider mb-2">Positivos</p>
-              {pos.map((f, i) => (
-                <div key={i} className="flex gap-1.5">
-                  <CheckCircleIcon size={11} className="text-emerald-500/50 flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-white/55 leading-snug"><InlineMd text={f} /></p>
-                </div>
-              ))}
-            </div>
-          )}
-          {neg.length > 0 && (
-            <div className="px-4 py-3 space-y-1.5">
-              <p className="text-[10px] font-semibold text-amber-400/60 uppercase tracking-wider mb-2">Atenção</p>
-              {neg.map((f, i) => (
-                <div key={i} className="flex gap-1.5">
-                  <XCircleIcon size={11} className="text-amber-500/40 flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-white/55 leading-snug"><InlineMd text={f} /></p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Regras de Conhecimento
-// ---------------------------------------------------------------------------
-
-function KnowledgeNotes({ notes }: { notes: string[] }) {
-  const [open, setOpen] = useState(false);
-  if (notes.length === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex items-center gap-2">
-          <BookOpenIcon size={13} className="text-white/40" />
-          <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Regras de Conhecimento</span>
-          <span className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">{notes.length}</span>
-        </div>
-        {open ? <ChevronUpIcon size={13} className="text-white/30" /> : <ChevronDownIcon size={13} className="text-white/30" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-white/8 px-4 py-3 space-y-2.5 max-h-64 overflow-y-auto">
-          {notes.map((note, i) => (
-            <p key={i} className="text-[11px] text-white/45 leading-snug"><InlineMd text={note} /></p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Referências Históricas
-// ---------------------------------------------------------------------------
-
-function HistoricalSection({ refs }: { refs: string[] }) {
-  const [open, setOpen] = useState(false);
-  if (refs.length === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex items-center gap-2">
-          <ClockIcon size={13} className="text-white/40" />
-          <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Referências Históricas</span>
-          <span className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">{refs.length}</span>
-        </div>
-        {open ? <ChevronUpIcon size={13} className="text-white/30" /> : <ChevronDownIcon size={13} className="text-white/30" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-white/8 px-4 py-3 space-y-2 max-h-48 overflow-y-auto">
-          {refs.map((ref, i) => (
-            <p key={i} className="text-[11px] text-white/45 leading-snug"><InlineMd text={ref} /></p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Estatísticas de banca (bankroll_review / learning_recap)
-// ---------------------------------------------------------------------------
-
-function EntityStats({ entities }: { entities: Record<string, unknown> }) {
-  const stats: Array<{ key: string; label: string; format: (v: unknown) => string }> = [
-    { key: "total_predictions", label: "Previsões",  format: (v) => String(v) },
-    { key: "wins",              label: "Vitórias",   format: (v) => String(v) },
-    { key: "losses",            label: "Derrotas",   format: (v) => String(v) },
-    { key: "accuracy_pct",      label: "Precisão",   format: (v) => `${Number(v).toFixed(1)}%` },
-    { key: "roi_pct",           label: "ROI",        format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)}%` },
-  ];
-  const available = stats.filter((s) => entities[s.key] !== undefined && entities[s.key] !== null);
-  if (available.length === 0) return null;
-
-  return (
-    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-      {available.map(({ key, label, format }) => (
-        <div key={key} className="rounded-lg bg-white/[0.04] px-3 py-2.5 text-center">
-          <p className="text-[10px] text-white/30 mb-0.5">{label}</p>
-          <p className="text-sm font-semibold text-white/80">{format(entities[key])}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Componente principal AuroraResponse
-// ---------------------------------------------------------------------------
-
+/** Clean ChatGPT-style Aurora reply — prose first, details collapsed. */
 export function AuroraResponse({ response }: { response: CopilotResponse }) {
-  const isAnalyze = response.intent === "analyze_match";
   const hasMarkets = response.best_markets.length > 0;
-  const hasConfidence = response.confidence.score > 0;
-  const hasBankroll = !response.bankroll_recommendation.no_bet;
-  const hasFactors = response.positive_factors.length > 0 || response.negative_factors.length > 0;
-  const hasStats = ["bankroll_review", "learning_recap"].includes(response.intent);
+  const hasFactors =
+    response.positive_factors.length > 0 || response.negative_factors.length > 0;
+  const hasNotes = response.knowledge_notes.length > 0;
+  const hasHistory = response.historical_references.length > 0;
+  const showRec =
+    response.final_recommendation &&
+    !response.final_recommendation.startsWith("Por favor") &&
+    !response.final_recommendation.startsWith("Please");
+
+  const metaBits: string[] = [];
+  if (response.match) metaBits.push(response.match);
+  if (response.is_live) {
+    metaBits.push(
+      response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
+    );
+  } else if (response.status) {
+    metaBits.push(response.status);
+  }
 
   return (
-    <div className="space-y-3 w-full">
-      {/* Intenção + contexto da partida */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <IntentBadge intent={response.intent} />
-        {response.match && (
-          <span className="text-sm font-semibold text-white/80">{response.match}</span>
-        )}
-        {response.status && (
-          <span className="text-xs text-white/30">{response.status}</span>
-        )}
-        {response.is_live && response.minute && (
-          <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-            AO VIVO {response.minute}'
-          </span>
-        )}
-      </div>
+    <div className="w-full max-w-none space-y-4">
+      {metaBits.length > 0 && (
+        <p className="text-xs text-white/40">{metaBits.join(" · ")}</p>
+      )}
 
-      {/* Recomendação Final — mais proeminente */}
-      <FinalRec text={response.final_recommendation} noBet={response.bankroll_recommendation.no_bet} />
+      {showRec && (
+        <p
+          className={cn(
+            "text-[15px] leading-7",
+            response.bankroll_recommendation.no_bet
+              ? "text-amber-200/85"
+              : "font-medium text-white/90",
+          )}
+        >
+          <InlineMd text={response.final_recommendation} />
+        </p>
+      )}
 
-      {/* Estatísticas de entidade (banca/aprendizado) */}
-      {hasStats && <EntityStats entities={response.entities} />}
-
-      {/* Resumo Executivo */}
       <MdText text={response.executive_summary} />
 
-      {/* Mercados Recomendados */}
-      {hasMarkets && <MarketsSection markets={response.best_markets} intent={response.intent} />}
+      {(response.confidence.score > 0 ||
+        !response.bankroll_recommendation.no_bet ||
+        hasMarkets ||
+        hasFactors ||
+        hasNotes ||
+        hasHistory) && (
+        <Details title="Detalhes da análise" defaultOpen={hasMarkets && response.intent === "analyze_match"}>
+          {response.confidence.score > 0 && (
+            <p className="text-sm text-white/55">
+              Confiança{" "}
+              <span className="text-white/85">{response.confidence.score.toFixed(1)}/10</span>
+              {" · "}
+              {CONF_PT[response.confidence.label] ?? response.confidence.label}
+              {" · Risco "}
+              {RISK_PT[response.risk.level] ?? response.risk.level}
+            </p>
+          )}
 
-      {/* Confiança + Risco — lado a lado */}
-      {(isAnalyze || hasConfidence) && (
-        <div className="grid grid-cols-2 gap-2">
-          <ConfidenceCard confidence={response.confidence} />
-          <RiskCard risk={response.risk} />
-        </div>
+          {!response.bankroll_recommendation.no_bet && (
+            <p className="text-sm text-white/55">
+              Stake sugerida:{" "}
+              <span className="text-white/85">
+                {response.bankroll_recommendation.recommended_stake_pct.toFixed(1)}%
+              </span>{" "}
+              da banca ({response.bankroll_recommendation.method})
+            </p>
+          )}
+
+          {hasMarkets && (
+            <MarketsTable
+              markets={response.best_markets}
+              isLiveList={response.intent === "live_opportunities"}
+            />
+          )}
+
+          {hasFactors && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {response.positive_factors.length > 0 && (
+                <ul className="space-y-1.5">
+                  <li className="text-[11px] font-medium uppercase tracking-wide text-white/35">
+                    A favor
+                  </li>
+                  {response.positive_factors.map((f, i) => (
+                    <li key={i} className="text-xs leading-relaxed text-white/60">
+                      <InlineMd text={f} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {response.negative_factors.length > 0 && (
+                <ul className="space-y-1.5">
+                  <li className="text-[11px] font-medium uppercase tracking-wide text-white/35">
+                    Atenção
+                  </li>
+                  {response.negative_factors.map((f, i) => (
+                    <li key={i} className="text-xs leading-relaxed text-white/60">
+                      <InlineMd text={f} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {hasNotes && (
+            <ul className="space-y-1.5">
+              {response.knowledge_notes.map((n, i) => (
+                <li key={i} className="text-xs leading-relaxed text-white/50">
+                  <InlineMd text={n} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {hasHistory && (
+            <ul className="space-y-1.5">
+              {response.historical_references.map((r, i) => (
+                <li key={i} className="text-xs leading-relaxed text-white/50">
+                  <InlineMd text={r} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Details>
       )}
-
-      {/* Stake Recomendada */}
-      {hasBankroll && <BankrollCard br={response.bankroll_recommendation} />}
-
-      {/* Fatores */}
-      {hasFactors && <FactorsSection pos={response.positive_factors} neg={response.negative_factors} />}
-
-      {/* Regras de Conhecimento */}
-      {response.knowledge_notes.length > 0 && <KnowledgeNotes notes={response.knowledge_notes} />}
-
-      {/* Referências Históricas */}
-      {response.historical_references.length > 0 && <HistoricalSection refs={response.historical_references} />}
-
-      {/* Rodapé */}
-      <p className="text-[10px] text-white/15 pt-1">
-        {response.aurora_version} · {new Date(response.generated_at).toLocaleTimeString("pt-BR")}
-      </p>
     </div>
   );
 }

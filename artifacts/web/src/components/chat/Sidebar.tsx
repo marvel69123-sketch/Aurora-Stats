@@ -1,154 +1,209 @@
-import { PlusIcon, Trash2Icon, MessageSquareIcon, XIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  MessageSquareIcon,
+  PanelLeftCloseIcon,
+  PanelLeftIcon,
+  PlusIcon,
+  Settings2Icon,
+  XIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DATE_GROUP_LABELS,
+  conversationDateGroup,
+  type DateGroup,
+} from "@/lib/conversationTitle";
 import type { Session } from "@/types/chat";
+import { AuroraAvatar } from "./AuroraAvatar";
+import { AvatarSettingsDialog } from "./AvatarSettingsDialog";
+import { ConversationItem } from "./ConversationItem";
 
 interface SidebarProps {
   sessions: Session[];
   activeId: string | null;
+  avatarUrl: string | null;
   onSelect: (id: string) => void;
   onNewChat: () => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
+  onTogglePin: (id: string) => void;
+  onAvatarUpload: (file: File) => Promise<void>;
+  onAvatarClear: () => void;
   isOpen: boolean;
   onClose: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-function tempoAtras(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "agora mesmo";
-  if (m < 60) return `há ${m}min`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `há ${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `há ${d}d`;
-  return new Date(iso).toLocaleDateString("pt-BR");
-}
+const GROUP_ORDER: DateGroup[] = ["pinned", "today", "yesterday", "week", "older"];
 
 export function Sidebar({
   sessions,
   activeId,
+  avatarUrl,
   onSelect,
   onNewChat,
   onDelete,
+  onRename,
+  onTogglePin,
+  onAvatarUpload,
+  onAvatarClear,
   isOpen,
   onClose,
+  collapsed = false,
+  onToggleCollapse,
 }: SidebarProps) {
+  const [avatarOpen, setAvatarOpen] = useState(false);
+
+  const groups = useMemo(() => {
+    const map = new Map<DateGroup, Session[]>();
+    for (const g of GROUP_ORDER) map.set(g, []);
+    for (const s of sessions) {
+      const g = conversationDateGroup(s.lastActive, s.pinned);
+      map.get(g)!.push(s);
+    }
+    return GROUP_ORDER.map((key) => ({
+      key,
+      label: DATE_GROUP_LABELS[key],
+      items: map.get(key) ?? [],
+    })).filter((g) => g.items.length > 0);
+  }, [sessions]);
+
   return (
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-20 md:hidden"
+          className="fixed inset-0 z-20 bg-black/60 md:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 w-64 flex flex-col",
-          "bg-[hsl(222,28%,7%)] border-r border-white/[0.06]",
-          "transition-transform duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-white/[0.06] bg-[#111]",
+          "transition-[transform,width] duration-200 ease-out",
+          collapsed ? "md:w-[52px]" : "md:w-[260px]",
+          "w-[260px]",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          "md:relative md:translate-x-0 md:flex-shrink-0"
+          "md:relative md:translate-x-0 md:shrink-0",
         )}
       >
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between px-4 pt-5 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs tracking-wide">A</span>
-            </div>
-            <span className="font-semibold text-white text-sm tracking-wide">Aurora</span>
-          </div>
+        {/* Top actions */}
+        <div className={cn("flex items-center gap-1 p-2", collapsed && "md:flex-col")}>
           <button
-            onClick={onClose}
-            className="md:hidden p-1.5 rounded-md text-white/40 hover:text-white/80 hover:bg-white/5 transition-colors"
-          >
-            <XIcon size={15} />
-          </button>
-        </div>
-
-        {/* Nova Conversa */}
-        <div className="px-3 pb-3">
-          <button
+            type="button"
             onClick={onNewChat}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/10 text-white/70 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all text-sm font-medium"
+            className={cn(
+              "flex h-10 items-center gap-2 rounded-lg px-3 text-sm text-white/85",
+              "hover:bg-white/[0.06] transition-colors",
+              collapsed ? "md:w-10 md:justify-center md:px-0" : "flex-1",
+            )}
+            title="Nova conversa"
           >
-            <PlusIcon size={15} />
-            Nova conversa
+            <PlusIcon size={18} className="shrink-0" />
+            {!collapsed && <span className="font-medium">Nova conversa</span>}
+            {collapsed && <span className="md:hidden font-medium">Nova conversa</span>}
+          </button>
+
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/45 hover:bg-white/[0.06] hover:text-white/80 md:flex"
+              title={collapsed ? "Expandir" : "Recolher"}
+            >
+              {collapsed ? <PanelLeftIcon size={18} /> : <PanelLeftCloseIcon size={18} />}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/45 hover:bg-white/[0.06] md:hidden"
+          >
+            <XIcon size={18} />
           </button>
         </div>
 
-        <div className="px-3 pb-1">
-          <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest px-1">
-            Histórico
-          </p>
-        </div>
-
-        {/* Lista de conversas */}
-        <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
+        {/* History */}
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto px-2 pb-3",
+            collapsed && "md:hidden",
+          )}
+        >
           {sessions.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <MessageSquareIcon size={24} className="text-white/15" />
-              <p className="text-xs text-white/30">Nenhuma conversa ainda</p>
-              <p className="text-[11px] text-white/20">Comece fazendo uma pergunta</p>
+            <div className="flex flex-col items-center gap-2 px-2 py-10 text-center">
+              <MessageSquareIcon size={22} className="text-white/20" />
+              <p className="text-xs text-white/35">Nenhuma conversa ainda</p>
             </div>
           ) : (
-            sessions.map((session) => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                active={session.id === activeId}
-                onSelect={onSelect}
-                onDelete={onDelete}
-              />
+            groups.map((group) => (
+              <div key={group.key} className="mb-3">
+                <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-white/35">
+                  {group.label}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((session) => (
+                    <ConversationItem
+                      key={session.id}
+                      session={session}
+                      active={session.id === activeId}
+                      onSelect={onSelect}
+                      onRename={onRename}
+                      onDelete={onDelete}
+                      onTogglePin={onTogglePin}
+                    />
+                  ))}
+                </div>
+              </div>
             ))
           )}
         </div>
 
-        {/* Rodapé */}
-        <div className="px-4 py-3 border-t border-white/[0.05]">
-          <p className="text-[10px] text-white/20 leading-relaxed">
-            Aurora — Inteligência Esportiva
-            <br />
-            <span className="text-emerald-500/50">Copilot v1.0</span>
-          </p>
+        {/* Footer — avatar settings */}
+        <div
+          className={cn(
+            "border-t border-white/[0.06] p-2",
+            collapsed && "md:flex md:justify-center",
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setAvatarOpen(true)}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
+              "text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors",
+              collapsed && "md:w-10 md:justify-center md:px-0",
+            )}
+            title="Avatar da Aurora"
+          >
+            <AuroraAvatar url={avatarUrl} size="sm" />
+            {!collapsed && (
+              <div className="min-w-0 flex-1 md:block">
+                <p className="truncate text-sm font-medium">Aurora</p>
+                <p className="flex items-center gap-1 text-[11px] text-white/35">
+                  <Settings2Icon size={11} />
+                  Personalizar avatar
+                </p>
+              </div>
+            )}
+            {collapsed && (
+              <span className="md:hidden min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">Aurora</p>
+              </span>
+            )}
+          </button>
         </div>
       </aside>
+
+      <AvatarSettingsDialog
+        open={avatarOpen}
+        avatarUrl={avatarUrl}
+        onClose={() => setAvatarOpen(false)}
+        onUpload={onAvatarUpload}
+        onClear={onAvatarClear}
+      />
     </>
-  );
-}
-
-interface SessionItemProps {
-  session: Session;
-  active: boolean;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-}
-
-function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) {
-  return (
-    <div
-      className={cn(
-        "group relative flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
-        active
-          ? "bg-white/10 text-white"
-          : "text-white/50 hover:text-white/80 hover:bg-white/5"
-      )}
-      onClick={() => onSelect(session.id)}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium leading-snug truncate">{session.title}</p>
-        <p className="text-[10px] text-white/25 mt-0.5">{tempoAtras(session.lastActive)}</p>
-      </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(session.id);
-        }}
-        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-white/30 hover:text-red-400 hover:bg-red-400/10 transition-all flex-shrink-0"
-      >
-        <Trash2Icon size={12} />
-      </button>
-    </div>
   );
 }
