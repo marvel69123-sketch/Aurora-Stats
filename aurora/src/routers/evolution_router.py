@@ -341,7 +341,7 @@ async def evolution_report(
 async def evolution_history(
     limit:  int = Query(50, ge=1, le=200),
     offset: int = Query(0,  ge=0),
-    league: str = Query(None, description="Filter by league"),
+    league: str | None = Query(None, description="Filter by league"),
 ) -> dict:
     """
     Return paginated history of all Aurora evolution reports.

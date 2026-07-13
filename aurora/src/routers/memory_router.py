@@ -87,12 +87,12 @@ async def memory_overview():
 
 @router.get("/memory/search", tags=["Memory"], summary="Search Memory")
 async def memory_search(
-    q:          str   = Query(..., min_length=1, description="Search query (searches summary, content, tags)"),
-    collection: str   = Query(None, description="Limit search to one collection"),
-    league:     str   = Query(None, description="Filter by league"),
-    team:       str   = Query(None, description="Filter by team"),
-    limit:      int   = Query(20, ge=1, le=100),
-    offset:     int   = Query(0,  ge=0),
+    q:          str = Query(..., min_length=1, description="Search query (searches summary, content, tags)"),
+    collection: str | None = Query(None, description="Limit search to one collection"),
+    league:     str | None = Query(None, description="Filter by league"),
+    team:       str | None = Query(None, description="Filter by team"),
+    limit:      int = Query(20, ge=1, le=100),
+    offset:     int = Query(0,  ge=0),
 ):
     """
     Full-text search across Aurora's memory.
@@ -188,7 +188,7 @@ async def memory_history(
 async def memory_context(
     home:   str = Query(..., description="Home team name"),
     away:   str = Query(..., description="Away team name"),
-    league: str = Query(None, description="League name"),
+    league: str | None = Query(None, description="League name"),
 ):
     """
     Retrieve Aurora's memory context for a given fixture.

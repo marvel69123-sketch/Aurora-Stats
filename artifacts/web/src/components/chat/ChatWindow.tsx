@@ -18,6 +18,9 @@ const STARTERS = [
   { label: "Aprendizado", text: "O que a Aurora aprendeu hoje?" },
 ];
 
+const UI_BUILD =
+  typeof __AURORA_UI_BUILD__ !== "undefined" ? __AURORA_UI_BUILD__ : "chatgpt-dev";
+
 function EmptyState({
   onSend,
   avatarUrl,
@@ -31,8 +34,11 @@ function EmptyState({
       <h1 className="mb-2 text-2xl font-semibold tracking-tight text-white/90 md:text-3xl">
         Aurora
       </h1>
-      <p className="mb-10 max-w-md text-sm leading-relaxed text-white/40">
-        Inteligência esportiva — análises, ao vivo e banca.
+      <p className="mb-2 max-w-md text-sm leading-relaxed text-white/40">
+        Como posso ajudar nas análises de hoje?
+      </p>
+      <p className="mb-10 text-[11px] text-white/20" data-aurora-ui={UI_BUILD}>
+        UI {UI_BUILD}
       </p>
       <div className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
         {STARTERS.map((p) => (

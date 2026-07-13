@@ -12,7 +12,20 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH || "/";
+const basePathRaw = process.env.BASE_PATH || "/";
+// Guard: Git Bash/MSYS rewrites "/" → "C:/Program Files/Git/" on Windows.
+const basePath =
+  !basePathRaw ||
+  basePathRaw.includes("Program Files") ||
+  /^[A-Za-z]:/.test(basePathRaw) ||
+  !basePathRaw.startsWith("/")
+    ? "/"
+    : basePathRaw.endsWith("/")
+      ? basePathRaw
+      : `${basePathRaw}/`;
+const auroraUiBuild =
+  process.env.AURORA_UI_BUILD ||
+  `chatgpt-${new Date().toISOString().replace(/[:.]/g, "").slice(0, 15)}`;
 
 // Workspace root = artifacts/web/../..
 const workspaceRoot = path.resolve(import.meta.dirname, "..", "..");
@@ -23,6 +36,9 @@ if (!fs.existsSync(attachedAssets)) {
 
 export default defineConfig({
   base: basePath,
+  define: {
+    __AURORA_UI_BUILD__: JSON.stringify(auroraUiBuild),
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Aurora"
-version = "1.0.0"
+version = "1.1.0"
 id = "artifacts/web"
 router = "path"
 
@@ -18,7 +18,8 @@ localPort = 22333
 run = "pnpm --filter @workspace/web run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/web", "run", "build" ]
+# Force clean rebuild — never republish a stale artifacts/web/dist from a previous run
+build = [ "node", "scripts/build-web-production.cjs" ]
 publicDir = "artifacts/web/dist/public"
 serve = "static"
 

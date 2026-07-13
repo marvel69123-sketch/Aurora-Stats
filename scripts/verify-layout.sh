@@ -70,9 +70,16 @@ if [ -d aurora/src ]; then
   echo "OK aurora/ mirror matches artifacts/aurora for critical files"
 fi
 
+# Production web artifact must force clean build (stale dist was serving old UI)
+grep -q 'build-web-production' artifacts/web/.replit-artifact/artifact.toml \
+  || fail "web artifact.toml must use scripts/build-web-production.sh (clean rebuild)"
+grep -q 'artifacts/web/dist/public' artifacts/web/.replit-artifact/artifact.toml \
+  || fail "web publicDir must be artifacts/web/dist/public"
+
 echo "OK monorepo layout verified"
-echo "  frontend SoT:  artifacts/web"
+echo "  frontend SoT:  artifacts/web  (ONLY product UI)"
 echo "  backend SoT:   artifacts/aurora"
 echo "  api scaffold:  artifacts/api-server"
 echo "  libs:          lib/*"
 echo "  local mirror:  aurora/ (optional; sync FROM artifacts/aurora)"
+echo "  mockup:        artifacts/mockup-sandbox (excluded from workspace + deploy)"

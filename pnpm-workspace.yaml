@@ -35,7 +35,9 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 packages:
-  - artifacts/*
+  # Single product frontend — do NOT include mockup-sandbox (legacy design preview)
+  - artifacts/web
+  - artifacts/api-server
   - lib/*
   - lib/integrations/*
   - scripts

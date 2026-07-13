@@ -7,6 +7,22 @@ channel = "stable-25_05"
 router = "application"
 deploymentTarget = "autoscale"
 
+# Prevent browsers/CDNs from keeping a stale SPA shell that points at old hashed assets
+[[deployment.responseHeaders]]
+path = "/index.html"
+name = "Cache-Control"
+value = "no-cache, no-store, must-revalidate"
+
+[[deployment.responseHeaders]]
+path = "/"
+name = "Cache-Control"
+value = "no-cache, no-store, must-revalidate"
+
+[[deployment.responseHeaders]]
+path = "/aurora-ui-build.txt"
+name = "Cache-Control"
+value = "no-cache, no-store, must-revalidate"
+
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }

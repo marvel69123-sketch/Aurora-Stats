@@ -57,14 +57,28 @@ bash scripts/verify-layout.sh
 # 2) Instalar deps
 pnpm install
 
-# 3) Typecheck + build de todos os packages
+# 3) Typecheck + build de produção (apaga dist antigo e valida UI nova)
 pnpm build
+# equivalente frontend:
+# bash scripts/build-web-production.sh
 
-# 4) Build só do frontend (static)
-pnpm --filter @workspace/web run build
+# 4) Confirme o shell servido
+grep aurora-ui-build artifacts/web/dist/public/index.html
+cat artifacts/web/dist/public/aurora-ui-build.txt
+# NÃO deve conter "Analisar uma partida" no JS:
+! grep -R "Analisar uma partida" artifacts/web/dist/public/assets || echo "OK sem UI legada"
 
 # 5) Backend Aurora
 pip install -r artifacts/aurora/requirements.txt
+
+# Smoke (sem porta):
+cd artifacts/aurora && python tests/smoke_health.py
+# Esperado: SMOKE OK — /aurora/healthz /docs /redoc /openapi.json = 200
+
+# 6) Smoke API ao vivo
+uvicorn main:app --host 0.0.0.0 --port 8080 --workers 1
+# curl http://127.0.0.1:8080/aurora/healthz
+# curl -I http://127.0.0.1:8080/docs
 
 # 6) Smoke NLP (sem API key)
 cd artifacts/aurora
@@ -95,15 +109,32 @@ Env frontend (defaults no vite.config):
 
 ---
 
-## Republish
+## Republish (obrigatório para UI)
 
-1. `bash scripts/verify-layout.sh`
-2. `pnpm install && pnpm build`
-3. Confirme `artifacts/web/dist/public`
-4. Confirme `artifacts/aurora/start.sh`
-5. **Republish** no Replit
-6. Health: `GET /aurora/healthz`
-7. Teste: `POST /aurora/copilot` com as 3 mensagens acima — intent deve ser `analyze_match`
+O source no Git **não** publica sozinho o frontend. Replit serve
+`artifacts/web/dist/public` gerado no build de produção.
+
+1. Push deste commit
+2. No Replit Shell:
+
+```bash
+cd ~/workspace
+bash scripts/verify-layout.sh
+bash scripts/build-web-production.sh
+cat artifacts/web/dist/public/aurora-ui-build.txt
+grep aurora-ui-build artifacts/web/dist/public/index.html
+```
+
+3. Clique **Republish**
+4. Hard refresh no browser (`Ctrl+Shift+R`)
+5. Confirme:
+   - empty state: título **Aurora** + "Como posso ajudar nas análises de hoje?"
+   - sidebar: **Personalizar avatar**
+   - `GET /aurora-ui-build.txt` retorna `chatgpt-...`
+   - View Source: `<meta name="aurora-ui" content="chatgpt-v2" />`
+
+Se ainda aparecer "Analisar uma partida" / "Oportunidades ao vivo", o browser
+ou o CDN ainda está com o shell antigo — o bundle novo **não** contém essas strings.
 
 ## Preciso reenviar arquivos?
 

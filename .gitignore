@@ -10,6 +10,8 @@ out-tsc
 __pycache__/
 *.py[cod]
 *.pyo
+.venv/
+artifacts/aurora/.venv/
 .expo
 .expo-shared
 

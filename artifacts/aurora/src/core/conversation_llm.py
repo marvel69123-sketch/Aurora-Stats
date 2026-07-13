@@ -252,7 +252,7 @@ def _call_llm(system: str, messages: list[dict]) -> str:
     client = _get_client()
     response = client.chat.completions.create(
         model=MODEL,
-        max_completion_tokens=MAX_TOKENS,
+        max_tokens=MAX_TOKENS,
         messages=[{"role": "system", "content": system}] + messages,
     )
     return (response.choices[0].message.content or "").strip()

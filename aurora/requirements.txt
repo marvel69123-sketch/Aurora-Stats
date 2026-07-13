@@ -1,5 +1,7 @@
-fastapi
-uvicorn[standard]
-httpx
-python-dotenv
-openai
+# Pinned for Replit Python 3.12 — avoid floating to Starlette 1.x / FastAPI 0.139
+# which caused flaky OpenAPI/docs 500s under Autoscale.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+httpx==0.28.1
+python-dotenv==1.1.1
+openai==1.82.0
