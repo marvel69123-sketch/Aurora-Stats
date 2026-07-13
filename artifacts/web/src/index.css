@@ -145,7 +145,7 @@
   --app-font-serif: Georgia, serif;
   --app-font-mono: ui-monospace, Menlo, monospace;
   --radius: 0.75rem;
-  --chat-max-width: 68.75rem; /* ~1100px */
+  --chat-max-width: min(1100px, 90vw);
   --aurora-text: #ececec;
   --aurora-text-muted: #a0a0a0;
   --aurora-surface: #212121;
@@ -212,9 +212,11 @@
 .aurora-dot:nth-child(2) { animation-delay: 0.2s; }
 .aurora-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* ChatGPT-like content column — ~1000–1100px */
+/* Chat column — ChatGPT-like width: min(1100px, 90vw) */
 .aurora-chat-column {
-  max-width: var(--chat-max-width, 68.75rem);
+  width: 100%;
+  max-width: min(1100px, 90vw);
+  margin-inline: auto;
 }
 
 .font-display {

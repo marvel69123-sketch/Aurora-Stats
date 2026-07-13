@@ -38,11 +38,11 @@ function EmptyState({
       <h1 className="mb-3.5 font-display text-[1.75rem] font-semibold tracking-[-0.03em] text-[#ECECEC] md:text-[2rem]">
         Aurora
       </h1>
-      <p className="mb-11 max-w-md text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
+      <p className="mb-11 max-w-xl text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
         Como posso ajudar nas análises de hoje?
       </p>
       <nav
-        className="grid w-full max-w-[44rem] grid-cols-1 gap-3 sm:grid-cols-2"
+        className="aurora-chat-column grid w-full grid-cols-1 gap-3 px-0 sm:grid-cols-2"
         aria-label="Sugestões"
       >
         {STARTERS.map((p) => (
@@ -99,7 +99,7 @@ export function ChatWindow({
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <section className="aurora-chat-column mx-auto w-full space-y-10 px-4 py-9 md:px-8 md:py-11">
+          <section className="aurora-chat-column space-y-10 px-4 py-9 md:px-6 md:py-11">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} avatarUrl={avatarUrl} />
             ))}

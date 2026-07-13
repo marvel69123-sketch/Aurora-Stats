@@ -38,10 +38,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <section className="px-3 pb-5 pt-2 md:px-8" aria-label="Composer">
+    <section className="px-3 pb-5 pt-2 md:px-4" aria-label="Composer">
       <div
         className={cn(
-          "aurora-chat-column mx-auto flex items-end gap-2 rounded-[26px] border border-white/[0.1]",
+          "aurora-chat-column flex items-end gap-2 rounded-[26px] border border-white/[0.1]",
           "bg-[#2f2f2f] px-3.5 py-2.5",
           "focus-within:border-white/20 focus-within:bg-[#333333]",
         )}
@@ -77,7 +77,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           <ArrowUpIcon size={18} />
         </button>
       </div>
-      <p className="aurora-chat-column mx-auto mt-3 text-center text-[11px] leading-relaxed tracking-wide text-[#A0A0A0]/70">
+      <p className="aurora-chat-column mt-3 text-center text-[11px] leading-relaxed tracking-wide text-[#A0A0A0]/70">
         Aurora pode errar. Confira dados ao vivo antes de decidir.
       </p>
     </section>
