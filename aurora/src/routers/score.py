@@ -392,15 +392,16 @@ async def score_fixture(
     data   = await analyze_fixture(home=home, away=away)
     league = data.get("league", {}).get("name")
 
+    # Step 0: Consult memory + knowledge before generating any recommendation
     _mem_context(hn=home, an=away, league=league)
-    decision = _decide(data)
     knowledge = _knowledge_consult(
         hn=home, an=away, league=league,
-        is_live=decision.methodology.is_live,
-        has_xg=decision.methodology.has_xg,
+        is_live=bool(data.get("fixture", {}).get("status", {}).get("elapsed")),
+        has_xg=bool(data.get("statistics")),
         has_referee=bool(data.get("fixture", {}).get("referee")),
     )
 
+    decision = _decide(data)
     result   = _to_score_response(decision, knowledge_notes=knowledge.knowledge_notes)
     _learning_hook(decision)
     _memory_hook(decision)

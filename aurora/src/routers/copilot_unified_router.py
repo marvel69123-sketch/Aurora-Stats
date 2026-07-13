@@ -132,6 +132,15 @@ class CopilotResponse(BaseModel):
     aurora_version: str
     brain:          dict
 
+    # ── Conversational guidance ──────────────────────────────────────────────
+    suggested_follow_ups: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Contextual follow-up suggestions in Brazilian Portuguese. "
+            "Display as quick-reply chips or a bulleted list after the main response."
+        ),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -261,7 +270,7 @@ def _empty_bankroll(reasoning: str) -> BankrollSection:
 # ---------------------------------------------------------------------------
 
 
-async def _run_analyze(home: str, away: str) -> dict:
+async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     """Full intelligence pipeline for a match → structured copilot payload."""
     from src.brain import get_brain_meta, get_config, get_methodology_config
     from src.core import (
@@ -272,22 +281,49 @@ async def _run_analyze(home: str, away: str) -> dict:
         methodology_v1,
     )
     from src.core.decision_center import run as _dc_run
+    from src.core.fixture_status import fixture_is_live
     from src.core.intelligence_engine import generate as _intel
     from src.core.knowledge_engine import consult as _kc
     from src.learning_db import get_learning_stats
     from src.memory_db import recall_context as _mem_recall
     from src.routers.analyze import analyze_fixture
 
-    data   = await analyze_fixture(home=home, away=away)
+    data   = await analyze_fixture(home=home, away=away, prefer_live=prefer_live)
     league = (data.get("league") or {}).get("name")
     fx     = data["fixture"]
     teams  = data["teams"]
     hn     = teams["home"]["name"]
     an     = teams["away"]["name"]
 
+    status_block = fx.get("status") or {}
+    status_short = str(status_block.get("short") or "")
+    api_is_live = fixture_is_live(status_block)
+    api_minute = status_block.get("minute")
+
+    logger.info(
+        "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
+        "pipeline=intelligence_engine prefer_live=%s",
+        hn, an, status_short, api_minute, api_is_live, prefer_live,
+    )
+
     cfg  = get_config()
     mcfg = get_methodology_config()
     meth = methodology_engine.run(data, cfg)
+
+    # Hard guarantee: API live status ⇒ meth.is_live (never First Half + pré-jogo)
+    if api_is_live and not meth.is_live:
+        logger.warning(
+            "intent=analyze_match FIX is_live mismatch: api=True meth=False "
+            "status=%s — forcing meth.is_live=True",
+            status_short,
+        )
+        meth.is_live = True
+    if api_is_live and api_minute is not None and not meth.minute:
+        try:
+            meth.minute = int(api_minute)
+        except (TypeError, ValueError):
+            pass
+
     lrn  = learning_engine.run(league=league)
     conf = confidence_engine.run(meth, cfg)
     mkts = market_engine.run(hn, an, data, meth, conf, cfg)
@@ -303,7 +339,7 @@ async def _run_analyze(home: str, away: str) -> dict:
     mem_ctx   = _mem_recall(hn=hn, an=an, league=league) or {}
     knowledge = _kc(
         hn=hn, an=an, league=league,
-        is_live=meth.is_live,
+        is_live=bool(meth.is_live or api_is_live),
         has_xg=meth.has_xg,
         has_referee=bool(fx.get("referee")),
         meth_score=mv1.overall_score,
@@ -313,6 +349,23 @@ async def _run_analyze(home: str, away: str) -> dict:
         hn=hn, an=an, league=league, data=data,
         mv1=mv1, dc=dc, meth=meth,
         knowledge=knowledge, learning_stats=lstats, mem_ctx=mem_ctx,
+    )
+
+    final_is_live = bool(report.is_live or api_is_live)
+    final_minute = report.minute if report.minute is not None else api_minute
+    final_status = report.status or status_block.get("long") or status_short
+
+    if final_is_live and "pre-match" in (report.executive_summary or "").lower():
+        logger.error(
+            "intent=analyze_match BUG: live fixture still had pre-match summary "
+            "fixture=%s vs %s status=%s",
+            hn, an, status_short,
+        )
+
+    logger.info(
+        "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
+        "pipeline=intelligence_engine result_ok=1",
+        hn, an, status_short, final_minute, final_is_live,
     )
 
     # ── best_markets from DecisionCenter top_5 (clean numerical data) ──────
@@ -367,9 +420,9 @@ async def _run_analyze(home: str, away: str) -> dict:
         "intent":    "analyze_match",
         "entities":  {"home": hn, "away": an, "league": league},
         "match":     report.match,
-        "status":    report.status,
-        "is_live":   report.is_live,
-        "minute":    report.minute,
+        "status":    final_status,
+        "is_live":   final_is_live,
+        "minute":    final_minute,
 
         "executive_summary": report.executive_summary,
         "best_markets":      best_markets,
@@ -809,6 +862,119 @@ def _run_capabilities() -> dict:
     }
 
 
+def _suggest_follow_ups(intent: str, ctx: dict, payload: dict) -> list[str]:
+    """
+    Return 3–5 contextual follow-up suggestions in Brazilian Portuguese.
+
+    For analyze_match: standard exploration prompts (corners, stake, risk, etc.)
+    For follow_up:     complementary prompts not yet explored (inferred from
+                       the executive_summary topic of the current response).
+    For other intents: lightweight navigation suggestions.
+    """
+    last_match  = ctx.get("last_match", "")
+    last_anal   = ctx.get("last_analysis") or {}
+
+    # ── analyze_match ────────────────────────────────────────────────────────
+    if intent == "analyze_match":
+        return [
+            "E os escanteios?",
+            "Quanto apostar?",
+            "Qual o risco?",
+            "Existe opção mais segura?",
+            "Quais fatores positivos?",
+        ]
+
+    # ── follow_up — suggest complementary topics ─────────────────────────────
+    if intent == "follow_up":
+        # Infer what was just covered from the executive_summary topic keyword.
+        # Build a candidate pool and exclude the one that matches.
+        exec_s = (payload.get("executive_summary") or "").lower()
+        _pool: list[tuple[str, str]] = [
+            ("escanteio",  "E os escanteios?"),
+            ("gol",        "E os gols? Over/Under?"),
+            ("cart",       "E os cartões?"),
+            ("resultado",  "Qual o resultado mais provável?"),
+            ("quanto",     "Quanto apostar?"),
+            ("stake",      "Quanto apostar?"),
+            ("risco",      "Qual o risco?"),
+            ("segur",      "Existe opção mais segura?"),
+            ("melhor",     "Quem está melhor?"),
+            ("favorit",    "Quem está melhor?"),
+            ("positiv",    "Quais fatores positivos?"),
+            ("negativ",    "Quais fatores negativos?"),
+            ("todos",      "Quais todos os mercados?"),
+            ("mercado",    "Quais todos os mercados?"),
+            ("ao vivo",    "Está ao vivo?"),
+        ]
+        seen_labels: set[str] = set()
+        covered: set[str] = set()
+        for kw, label in _pool:
+            if kw in exec_s:
+                covered.add(label)
+
+        suggestions: list[str] = []
+        # Standard pool to offer next — ordered by typical usage
+        _standard = [
+            "E os escanteios?",
+            "E os gols? Over/Under?",
+            "E os cartões?",
+            "Quanto apostar?",
+            "Qual o risco?",
+            "Existe opção mais segura?",
+            "Quais fatores positivos?",
+            "Quais fatores negativos?",
+            "Quem está melhor?",
+            "Quais todos os mercados?",
+        ]
+        for s in _standard:
+            if s not in covered and s not in seen_labels:
+                suggestions.append(s)
+                seen_labels.add(s)
+            if len(suggestions) == 4:
+                break
+        return suggestions
+
+    # ── live_opportunities ───────────────────────────────────────────────────
+    if intent == "live_opportunities":
+        live_matches = payload.get("live_matches") or []
+        if live_matches:
+            first = live_matches[0]
+            hn = ((first.get("teams") or {}).get("home") or {}).get("name", "")
+            an = ((first.get("teams") or {}).get("away") or {}).get("name", "")
+            if hn and an:
+                return [f"Analisar {hn} x {an}", "Revisar banca"]
+        if last_match:
+            return [f"Analisar {last_match}", "Revisar banca"]
+        return ["Revisar banca", "O que a Aurora aprendeu?"]
+
+    # ── bankroll_review ──────────────────────────────────────────────────────
+    if intent == "bankroll_review":
+        suggestions = ["O que a Aurora aprendeu?"]
+        if last_match:
+            suggestions.append(f"Analisar {last_match}")
+        return suggestions
+
+    # ── learning_recap ───────────────────────────────────────────────────────
+    if intent == "learning_recap":
+        suggestions = ["Revisar banca"]
+        if last_match:
+            suggestions.append(f"Analisar {last_match}")
+        return suggestions
+
+    # ── knowledge_search ─────────────────────────────────────────────────────
+    if intent == "knowledge_search":
+        if last_match:
+            return [f"Analisar {last_match}", "Revisar banca"]
+        return ["Analisar [Time A] x [Time B]", "Melhores oportunidades ao vivo"]
+
+    # ── greeting / help / identity / capabilities / unknown / fallback ───────
+    return [
+        "Analisar [Time A] x [Time B]",
+        "Melhores oportunidades ao vivo",
+        "Revisar banca",
+    ]
+
+
 def _run_fallback(message: str, intent: str) -> dict:
     from src.brain import get_brain_meta
     # Try to give a useful clue based on the message content
@@ -986,38 +1152,181 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     try:
         payload: dict | None = None
 
-        # ── 1. Emotional / conversational (when router is uncertain) ──────
-        if intent == "unknown":
-            em = _conv_detect(message)
-            if em and em[1] >= 0.80:
-                emotional_intent, em_conf = em
-                payload = _conv_respond(emotional_intent, ctx, brain)
-                intent = emotional_intent
-                routing_confidence = em_conf
+        # ── 1. Emotional / conversational (any intent) ────────────────────
+        # Runs first regardless of NL router outcome — emotional patterns
+        # are specific enough not to collide with match/live/bankroll queries.
+        em = _conv_detect(message)
+        if em and em[1] >= 0.80:
+            emotional_intent, em_conf = em
+            payload = _conv_respond(emotional_intent, ctx, brain)
+            intent = emotional_intent
+            routing_confidence = em_conf
 
-        # ── 2. Follow-up (context-aware, also on unknown) ─────────────────
-        if payload is None and intent == "unknown" and ctx.get("last_match"):
-            if _is_followup(message):
-                fu_payload = _fu_resolve(message, ctx, brain)
-                if fu_payload:
-                    payload = fu_payload
-                    intent = "follow_up"
-                    routing_confidence = 0.88
+        # ── 2. Follow-up (context-aware, any intent when last_match exists) ─
+        # Runs for *any* NL-router intent so phrases like "E os escanteios?"
+        # are handled even when the router misclassifies them as knowledge_search.
+        _ctx_last_match  = ctx.get("last_match")
+        _ctx_last_intent = ctx.get("last_intent")
+        _followup_check  = _is_followup(message)
+        logger.warning(
+            "[AUDIT] follow-up gate: nl_intent=%r | ctx.last_match=%r | ctx.last_intent=%r"
+            " | follow_up_detected=%s",
+            intent, _ctx_last_match, _ctx_last_intent, _followup_check,
+        )
+        if payload is None and _ctx_last_match and _followup_check:
+            logger.warning(
+                "[AUDIT] follow-up gate: ENTERING follow-up engine "
+                "(has_last_match=True, follow_up_detected=True)"
+            )
+            fu_payload = _fu_resolve(message, ctx, brain)
+            if fu_payload:
+                payload = fu_payload
+                intent = "follow_up"
+                routing_confidence = 0.88
+                logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
+            else:
+                logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
+        elif payload is None and not _ctx_last_match:
+            logger.warning("[AUDIT] follow-up gate: SKIPPED — ctx.last_match is empty (no prior analysis in session)")
+        elif payload is None and not _followup_check:
+            logger.warning("[AUDIT] follow-up gate: SKIPPED — message not recognised as follow-up pattern")
 
         # ── 3. Normal routing ─────────────────────────────────────────────
         if payload is None:
             if intent == "analyze_match":
                 home = entities.get("home", "")
                 away = entities.get("away", "")
+                logger.warning(
+                    "[AUDIT] copilot dispatch: intent=%r home=%r away=%r is_live=%r",
+                    intent, home, away, entities.get("is_live"),
+                )
                 if not home or not away:
+                    logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — missing home or away entity")
                     payload = _run_fallback(message, intent)
                 else:
-                    payload = await _run_analyze(home, away)
-                    _save_analysis_context(ctx, payload, home, away)
-                    _db_upd_session(session_id, home=home, away=away, intent=intent)
+                    try:
+                        logger.warning(
+                            "[AUDIT] ctx_before: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
+                        prefer_live = bool(entities.get("is_live"))
+                        payload = await _run_analyze(home, away, prefer_live=prefer_live)
+                        _save_analysis_context(ctx, payload, home, away)
+                        _db_upd_session(session_id, home=home, away=away, intent=intent)
+                        logger.warning("[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r", payload.get("match"))
+                        logger.warning(
+                            "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
+                    except Exception as _analyze_exc:
+                        logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — _run_analyze raised %s: %s",
+                                       type(_analyze_exc).__name__, _analyze_exc)
+                        raise
+
+            elif intent == "live_team_analysis":
+                # FIX 1 — "analise jogo do [team]" → search live for that team
+                # then call full _run_analyze pipeline with the found match.
+                from src.routers.live import _build_live_response as _lbr_single
+                _lt_team = entities.get("team", "")
+                logger.warning(
+                    "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
+                    _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
+                )
+                _lt_live  = await _lbr_single()
+                _lt_list  = _lt_live.get("matches", [])
+                logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
+                _lt_q     = _lt_team.lower()
+                _lt_words = _lt_q.split()
+                _lt_home, _lt_away = "", ""
+                for _lt_fx in _lt_list:
+                    _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
+                    _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
+                    if (all(w in _lt_h.lower() for w in _lt_words) or
+                            all(w in _lt_a.lower() for w in _lt_words)):
+                        _lt_home, _lt_away = _lt_h, _lt_a
+                        logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
+                        break
+                if _lt_home and _lt_away:
+                    payload = await _run_analyze(_lt_home, _lt_away, prefer_live=True)
+                    _save_analysis_context(ctx, payload, _lt_home, _lt_away)
+                    logger.warning(
+                        "[AUDIT] live_team_analysis: _run_analyze succeeded match=%r", payload.get("match")
+                    )
+                else:
+                    logger.warning(
+                        "[AUDIT] live_team_analysis: %r not found in %d live matches",
+                        _lt_team, len(_lt_list),
+                    )
+                    from src.brain import get_brain_meta as _gbm_lt
+                    payload = {
+                        "intent": "live_team_analysis",
+                        "match": None, "is_live": False, "status": "NotFound", "minute": None,
+                        "executive_summary": (
+                            f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
+                            f"Se souber o adversário, diga:\n"
+                            f"\"Analisar {_lt_team} x [adversário]\""
+                        ),
+                        "best_markets": [],
+                        "confidence": {
+                            "score": 0.0, "label": "insufficient",
+                            "explanation": "Time não encontrado ao vivo.",
+                            "data_sources": ["Feed ao vivo API-Football"],
+                        },
+                        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+                        "bankroll_recommendation": {
+                            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                            "examples": {}, "no_bet": True,
+                            "reasoning": "Sem partida ao vivo identificada.",
+                        },
+                        "positive_factors": [], "negative_factors": [],
+                        "historical_references": [], "knowledge_notes": [],
+                        "final_recommendation": (
+                            f"Não encontrei {_lt_team} ao vivo. "
+                            f"Tente: \"Analisar {_lt_team} x [adversário]\""
+                        ),
+                        "aurora_version": "Copilot v1.0",
+                        "brain": _gbm_lt(),
+                    }
+                logger.warning(
+                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                    ctx.get("last_match"), ctx.get("last_intent"),
+                )
 
             elif intent == "live_opportunities":
+                # FIX 2 — preserve existing ctx when user already has an active match.
+                # Only seed ctx from the live list when no prior analysis is in session.
+                _preserve_context = bool(ctx.get("last_match"))
+                logger.warning(
+                    "[AUDIT] live_opportunities: ctx_before=last_match=%r last_intent=%r"
+                    " preserve_context=%s",
+                    ctx.get("last_match"), ctx.get("last_intent"), _preserve_context,
+                )
                 payload = await _run_live()
+                if not _preserve_context:
+                    _live_ents = payload.get("entities", {})
+                    _hn = _live_ents.get("live_home", "")
+                    _an = _live_ents.get("live_away", "")
+                    if _hn and _an:
+                        _live_match_str = f"{_hn} x {_an}"
+                        ctx["last_match"]  = _live_match_str
+                        ctx["last_home"]   = _hn
+                        ctx["last_away"]   = _an
+                        ctx["last_intent"] = "live_opportunities"
+                        logger.warning(
+                            "[AUDIT] live_opportunities: seeded ctx.last_match=%r from top opportunity",
+                            _live_match_str,
+                        )
+                    else:
+                        logger.warning("[AUDIT] live_opportunities: no live matches — ctx.last_match NOT seeded")
+                else:
+                    logger.warning(
+                        "[AUDIT] live_opportunities: ctx PRESERVED (last_match=%r last_intent=%r)",
+                        ctx.get("last_match"), ctx.get("last_intent"),
+                    )
+                logger.warning(
+                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                    ctx.get("last_match"), ctx.get("last_intent"),
+                )
 
             elif intent == "bankroll_review":
                 payload = _run_bankroll()
@@ -1149,6 +1458,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _ctx_exc:
         logger.warning("copilot: failed to save context: %s", _ctx_exc)
 
+    # Contextual follow-up suggestions (pure function, never raises)
+    try:
+        suggested_follow_ups = _suggest_follow_ups(intent, ctx, payload)
+    except Exception:
+        suggested_follow_ups = []
+
     return CopilotResponse(
         intent             = payload["intent"],
         entities           = payload.get("entities", entities),
@@ -1173,4 +1488,5 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         final_recommendation    = payload["final_recommendation"],
         aurora_version          = payload.get("aurora_version", "Copilot v1.0"),
         brain                   = payload.get("brain", {}),
+        suggested_follow_ups    = suggested_follow_ups,
     )

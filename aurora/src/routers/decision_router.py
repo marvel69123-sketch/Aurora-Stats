@@ -234,7 +234,14 @@ async def _run_pipeline(home: str, away: str) -> tuple[dict, DecisionCenterResul
     data   = await analyze_fixture(home=home, away=away)
     league = (data.get("league") or {}).get("name")
 
+    # Consult memory + knowledge before any recommendation
     _mem_ctx(hn=home, an=away, league=league)
+    knowledge = _knowledge_consult(
+        hn=home, an=away, league=league,
+        is_live=bool((data.get("fixture") or {}).get("status", {}).get("elapsed")),
+        has_xg=bool(data.get("statistics")),
+        has_referee=bool((data.get("fixture") or {}).get("referee")),
+    )
 
     cfg  = get_config()
     mcfg = get_methodology_config()
@@ -243,14 +250,7 @@ async def _run_pipeline(home: str, away: str) -> tuple[dict, DecisionCenterResul
     hn   = teams["home"]["name"]
     an   = teams["away"]["name"]
 
-    meth = methodology_engine.run(data, cfg)
-    knowledge = _knowledge_consult(
-        hn=home, an=away, league=league,
-        is_live=meth.is_live,
-        has_xg=meth.has_xg,
-        has_referee=bool(fx.get("referee")),
-    )
-
+    meth     = methodology_engine.run(data, cfg)
     learning = learning_engine.run(league=league)
     conf     = confidence_engine.run(meth, cfg)
     mkts = market_engine.run(hn, an, data, meth, conf, cfg)
@@ -310,7 +310,7 @@ async def decision(
 
     fx     = data["fixture"]
     meth_s = fx["status"]["long"]
-    minute = fx["status"].get("minute")
+    minute = fx["status"].get("elapsed")
     date   = fx.get("date", "")
 
     _memory_hook(dc, f"{dc.hn} vs {dc.an}", date, league)
@@ -360,7 +360,7 @@ async def opportunities(
 
     fx     = data["fixture"]
     meth_s = fx["status"]["long"]
-    minute = fx["status"].get("minute")
+    minute = fx["status"].get("elapsed")
     date   = fx.get("date", "")
 
     _memory_hook(dc, f"{dc.hn} vs {dc.an}", date, league)

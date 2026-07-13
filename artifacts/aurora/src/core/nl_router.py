@@ -56,8 +56,11 @@ class RouteResult:
 # Text normalisation
 # ---------------------------------------------------------------------------
 
-_PUNCTUATION_RE = re.compile(r"[^\w\s-]")  # keep hyphens (team names like "Atlético-MG")
+# Keep letters, digits, spaces, hyphens. Apostrophes/punctuation are DROPPED
+# (not turned into spaces) so "O'Higgins" → "ohiggins" after fold+join.
+_PUNCTUATION_RE = re.compile(r"[^\w\s-]", re.UNICODE)
 _WHITESPACE_RE  = re.compile(r"\s+")
+_APOSTROPHE_RE  = re.compile(r"[''`´’]")
 
 
 def normalize(text: str) -> str:
@@ -66,16 +69,25 @@ def normalize(text: str) -> str:
 
     Steps:
       1. Lowercase
-      2. Remove accents (NFKD decomposition → drop combining chars)
-      3. Replace punctuation with spaces (hyphens preserved)
-      4. Collapse whitespace / strip
+      2. Remove accents (NFKD → drop combining chars)  Ñublense → nublense
+      3. Remove apostrophes entirely                   O'Higgins → ohiggins
+      4. Replace remaining punctuation with spaces
+      5. Collapse whitespace / strip
     """
     text = text.lower().strip()
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
+    text = _APOSTROPHE_RE.sub("", text)          # o'higgins → ohiggins
     text = _PUNCTUATION_RE.sub(" ", text)
     text = _WHITESPACE_RE.sub(" ", text).strip()
     return text
+
+
+def fold_team_key(text: str) -> str:
+    """Aggressive key for alias/API matching: no accents, hyphens, apostrophes, spaces."""
+    t = normalize(text)
+    t = re.sub(r"[-_\s]+", "", t)
+    return t
 
 
 # ---------------------------------------------------------------------------
@@ -103,8 +115,8 @@ def _kw_score(norm: str, phrases: list[tuple[str, float]]) -> float:
 # Team separator & command-prefix patterns (on normalised text)
 # ---------------------------------------------------------------------------
 
-# Separators accepted in match analysis
-_SEP_RE = re.compile(r"\b(x|vs|contra|versus)\b")
+# Separators accepted in match analysis (include unicode ×)
+_SEP_RE = re.compile(r"\b(x|vs|contra|versus)\b|×", re.IGNORECASE)
 
 # Prefixes to strip from the LEFT side of the separator to expose the home team.
 # Also strips knowledge-query prefixes so "Explique Arsenal x Chelsea" works.
@@ -130,6 +142,10 @@ _CMD_STRIP_RE = re.compile(
     r"me\s+mostre?\s+|"
     r"mostre?\s+|"
     r"me\s+(?:analise|de)\s+|"
+    # Status / how-is-it prefixes ("como esta X x Y agora")
+    r"como\s+est[aá]\s+(?:o\s+)?|"
+    r"como\s+anda\s+(?:o\s+)?|"
+    r"e\s+ai\s+(?:do\s+|da\s+)?|"
     # English commands
     r"show\s+me\s+|"
     r"what\s+about\s+|"
@@ -179,28 +195,21 @@ def _resolve_team(name: str) -> str:
     title-casing if no alias is found.
     """
     # Import lazily to avoid circular dependency issues at module load time
-    from src.core.copilot_engine import normalize_team_name
-    resolved = normalize_team_name(name.strip())
-    if resolved.lower() == name.strip().lower():
-        # No alias found — title-case each word
-        return " ".join(w.capitalize() for w in name.strip().split())
-    return resolved
+    from src.core.copilot_engine import normalize_team_name, _alias_keys, _TEAM_ALIASES
+    raw = name.strip()
+    resolved = normalize_team_name(raw)
+    # Detect real alias hit via compact keys (nublense→Nublense has same lower form)
+    if any(k in _TEAM_ALIASES for k in _alias_keys(raw)):
+        return resolved
+    if fold_team_key(resolved) != fold_team_key(raw):
+        return resolved
+    return " ".join(w.capitalize() for w in raw.split())
 
 
 def _has_alias(name: str) -> bool:
     """Return True when the normalised name maps to a known alias."""
-    from src.core.copilot_engine import _TEAM_ALIASES
-    key = name.strip().lower()
-    # Direct key check
-    if key in _TEAM_ALIASES:
-        return True
-    # ASCII fallback (strip any residual accents)
-    ascii_key = (
-        unicodedata.normalize("NFKD", key)
-        .encode("ascii", "ignore")
-        .decode()
-    )
-    return ascii_key in _TEAM_ALIASES
+    from src.core.copilot_engine import _TEAM_ALIASES, _alias_keys
+    return any(k in _TEAM_ALIASES for k in _alias_keys(name))
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +402,9 @@ _LIVE_PHRASES: list[tuple[str, float]] = [
 
 
 def _clf_live(norm: str) -> tuple[float, dict]:
+    # Named fixture ("A x B … ao vivo") must route to analyze_match, never live feed.
+    if _SEP_RE.search(norm):
+        return 0.0, {}
     return _kw_score(norm, _LIVE_PHRASES), {}
 
 
@@ -554,6 +566,7 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     # Confidence scoring
     #   - bare separator alone:           0.84
     #   - with command prefix:            0.92
+    #   - live marker present:            boost to ≥0.96 (must beat "ao vivo" live feed)
     #   - each known-alias hit:          +0.03 each (max +0.06)
     base = 0.92 if had_prefix else 0.84
     alias_boost = 0.0
@@ -565,10 +578,12 @@ def _clf_match(norm: str) -> tuple[float, dict]:
         logger.debug("      _clf_match: away alias hit → +0.03")
 
     conf = min(1.0, base + alias_boost)
+    if is_live_request:
+        conf = max(conf, 0.96)
 
     logger.debug(
-        "      _clf_match: home=%r away=%r conf=%.3f (base=%.2f alias_boost=%.2f had_prefix=%s)",
-        home, away, conf, base, alias_boost, had_prefix,
+        "      _clf_match: home=%r away=%r conf=%.3f (base=%.2f alias_boost=%.2f had_prefix=%s is_live=%s)",
+        home, away, conf, base, alias_boost, had_prefix, is_live_request,
     )
 
     return conf, {"home": home, "away": away, **({"is_live": True} if is_live_request else {})}
@@ -624,9 +639,8 @@ def route(message: str) -> RouteResult:
     Returns a RouteResult with intent, entities, and confidence (0–1).
     Returns intent="unknown" only when the best confidence < 0.25.
 
-    Logs:
-      INFO  — final routing decision
-      DEBUG — per-classifier scores and intermediate steps
+    HARD RULE: if two teams are identified via separator (x/vs/contra),
+    intent is ALWAYS analyze_match — never live_opportunities.
     """
     original = message.strip()
     norm     = normalize(original)
@@ -638,6 +652,27 @@ def route(message: str) -> RouteResult:
         logger.warning("NLRouter.route: empty input → unknown")
         return RouteResult("unknown", {}, 0.0)
 
+    # ── EARLY OVERRIDE: two teams present → analyze_match ALWAYS ──────────
+    # Runs before live_opportunities can claim "ao vivo".
+    early_conf, early_ent = _clf_match(norm)
+    if (
+        early_conf >= 0.35
+        and early_ent.get("home")
+        and early_ent.get("away")
+        and early_ent["home"].lower() != early_ent["away"].lower()
+    ):
+        # Ensure live flag if message still contains live markers (belt+suspenders)
+        if not early_ent.get("is_live"):
+            if re.search(r"\b(?:ao\s+vivo|live|agora)\b", norm):
+                early_ent = {**early_ent, "is_live": True}
+                early_conf = max(early_conf, 0.96)
+        logger.info(
+            "NLRouter.route → intent=analyze_match  conf=%.3f  entities=%s "
+            "| EARLY_OVERRIDE (two teams beat live_opportunities)",
+            early_conf, early_ent,
+        )
+        return RouteResult("analyze_match", early_ent, early_conf)
+
     # ── Run all classifiers ──────────────────────────────────────────────────
     raw_classifiers: list[tuple[str, tuple[float, dict]]] = [
         ("greeting",            _clf_greeting(norm)),
@@ -647,7 +682,7 @@ def route(message: str) -> RouteResult:
         ("learning_recap",      _clf_learning(norm)),
         ("live_opportunities",  _clf_live(norm)),
         ("knowledge_search",    _clf_knowledge(norm, original)),
-        ("analyze_match",       _clf_match(norm)),
+        ("analyze_match",       (early_conf, early_ent) if early_conf > 0 else _clf_match(norm)),
         ("live_team_analysis",  _clf_single_team(norm)),
     ]
 
@@ -665,9 +700,20 @@ def route(message: str) -> RouteResult:
     # Sort: primary key = confidence (desc), secondary = priority (desc)
     candidates.sort(key=lambda t: (t[0], t[1]), reverse=True)
 
+    # Safety net: analyze_match always beats live_opportunities
+    by_intent = {intent: (conf, pri, intent, ent) for conf, pri, intent, ent in candidates}
+    if "analyze_match" in by_intent and "live_opportunities" in by_intent:
+        am_conf, _, _, am_ent = by_intent["analyze_match"]
+        if am_ent.get("home") and am_ent.get("away"):
+            logger.info(
+                "NLRouter.route: forcing analyze_match over live_opportunities "
+                "(home=%r away=%r)",
+                am_ent.get("home"), am_ent.get("away"),
+            )
+            return RouteResult("analyze_match", am_ent, max(am_conf, 0.90))
+
     top_conf, top_priority, top_intent, top_entities = candidates[0]
 
-    # Build a readable log of all candidates for easy debugging
     _cand_log = ", ".join(
         f"{i}={c:.2f}" for c, _, i, _ in candidates
     )

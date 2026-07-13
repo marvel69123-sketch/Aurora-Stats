@@ -2,14 +2,25 @@
 
 Aurora is a Python FastAPI service that proxies API-Football and returns live football match statistics — fixtures, events, lineups, standings, player stats, and more.
 
+## Live analysis (critical)
+
+If `status.short` ∈ `1H | 2H | HT | ET | BT | P | SUSP | INT | LIVE` → `is_live=True`.
+Never emit "análise pré-jogo" for live fixtures. See `AURORA_ARCHITECTURE.md` and `AURORA_AUDIT_REPORT.md`.
+
+Canonical helpers: `src/core/fixture_status.py`.
+Deploy tree: `artifacts/aurora/` (must stay in sync with `aurora/` for live fixes).
+
 ## Run & Operate
 
-- `cd artifacts/aurora && uvicorn src.main:app --host 0.0.0.0 --port 8000` — run Aurora locally
-- `pnpm --filter @workspace/api-server run dev` — run the Node.js API server (port 8080)
+
+- `cd artifacts/aurora && uvicorn main:app --host 0.0.0.0 --port 8080` — run Aurora (deploy path)
+- `bash scripts/verify-layout.sh` — fail-fast if monorepo layout is broken
+- `pnpm --filter @workspace/web run dev` — frontend Vite
+- `pnpm --filter @workspace/api-server run dev` — Node.js API scaffold
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - Required env: `API_FOOTBALL_KEY` — API-Football API key
-- Required env: `DATABASE_URL` — Postgres connection string (Node API server)
+- Required env: `DATABASE_URL` — Postgres (Node API server only)
 
 ## Stack
 
@@ -40,22 +51,18 @@ Final response (narrative enhanced, numbers preserved)
 
 ## Where things live
 
-- `artifacts/aurora/` — Python FastAPI service (Aurora)
-  - `src/main.py` — FastAPI app entry point, docs at `/aurora/docs`
+- `artifacts/aurora/` — Python FastAPI service (Aurora) — **source of truth**
+  - `main.py` / `start.sh` — production entry (`uvicorn main:app` :8080)
+  - `src/main.py` — FastAPI app, docs at `/aurora/docs`
   - `src/client.py` — httpx wrapper for API-Football requests
   - `src/routers/copilot_unified_router.py` — main chat endpoint (`POST /aurora/copilot`)
-  - `src/routers/fixtures.py` — fixture endpoints (live, stats, events, lineups, players)
-  - `src/routers/leagues.py` — league search/lookup
-  - `src/routers/teams.py` — team search, lookup, and statistics
-  - `src/routers/players.py` — player stats, top scorers, top assists
-  - `src/routers/standings.py` — league standings table
-  - `src/core/conversation_llm.py` — OpenAI layer (enhance + chat + needs_llm LLM router)
-  - `src/core/conversation_engine.py` — rule-based emotional/educational responses
-  - `src/core/follow_up_engine.py` — follow-up resolution (14 types)
-  - `src/core/live_intelligence_engine.py` — live match opportunity scoring
-  - `src/core/nl_router.py` — natural language intent router
-  - `src/chat_db.py` — SQLite session + message + context persistence
-- `artifacts/api-server/` — Node.js/Express API (base scaffold)
+  - `src/routers/analyze.py` — fixture resolver (fuzzy / accents / apostrophes)
+  - `src/core/nl_router.py` — intent router (`EARLY_OVERRIDE`: two teams → `analyze_match`)
+  - `src/core/fixture_status.py` — live status canonical set
+  - `src/core/live_intelligence_engine.py` — live opportunity scoring
+- `artifacts/web/` — React/Vite frontend (`@workspace/web`)
+- `artifacts/api-server/` — Node scaffold; Replit artifact.toml wires Aurora Python
+- `aurora/` — optional local mirror (`bash scripts/sync-aurora-mirror.sh`)
 - `lib/api-spec/openapi.yaml` — OpenAPI contract for Node API
 
 ## API Endpoints
@@ -86,9 +93,10 @@ All Aurora endpoints are prefixed `/aurora/`:
 ## Architecture decisions
 
 - Aurora lives in `artifacts/aurora/` as a pure Python package — no pnpm/Node involvement.
-- The shared reverse proxy routes `/aurora/*` to port 8000, alongside the Node API on `/api/*` (port 8080). Both are declared in `artifacts/api-server/.replit-artifact/artifact.toml` as separate `[[services]]` entries.
+- The shared reverse proxy routes `/aurora/*` to port **8080** (Aurora FastAPI; declared in `artifacts/api-server/.replit-artifact/artifact.toml`, code in `artifacts/aurora/`). Static web serves `/` from `artifacts/web`.
 - FastAPI docs (`/aurora/docs`, `/aurora/redoc`) are mounted under the `/aurora` prefix so they work correctly through the proxy.
 - All API-Football calls go through `src/client.py` which reads `API_FOOTBALL_KEY` from environment and raises HTTP errors on failure.
+- Two named teams with `x/vs` always route to `analyze_match`, never `live_opportunities` (`EARLY_OVERRIDE` in `nl_router`).
 
 ## User preferences
 

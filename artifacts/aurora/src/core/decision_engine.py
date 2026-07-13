@@ -165,7 +165,7 @@ def run(data: dict) -> DecisionResult:
         an=an,
         league=league,
         status=fx["status"]["long"],
-        minute=meth.minute if meth.is_live and meth.minute else None,
+        minute=meth.minute if meth.is_live else None,
         methodology=meth,
         confidence=conf,
         learning=learning,

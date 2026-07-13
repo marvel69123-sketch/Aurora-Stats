@@ -84,7 +84,25 @@ _TEAM_ALIASES: dict[str, str] = {
     "fluminense": "Fluminense",
     "flu": "Fluminense",
     "vasco": "Vasco",
+    # Botafogo RJ (default bare name) vs Botafogo-PB — more specific keys first via exact match
     "botafogo": "Botafogo",
+    "botafogo rj": "Botafogo",
+    "botafogo fr": "Botafogo",
+    "botafogo pb": "Botafogo PB",
+    "botafogo-pb": "Botafogo PB",
+    "botafogo paraiba": "Botafogo PB",
+    "botafogo da paraiba": "Botafogo PB",
+    "botafogo-paraiba": "Botafogo PB",
+    "belo": "Botafogo PB",
+    "confianca": "Confianca",
+    "confiança": "Confianca",
+    "ad confianca": "Confianca",
+    "ad confiança": "Confianca",
+    "associacao desportiva confianca": "Confianca",
+    "sao bernardo": "Sao Bernardo",
+    "são bernardo": "Sao Bernardo",
+    "cuiaba": "Cuiaba",
+    "cuiabá": "Cuiaba",
     "atletico-mg": "Atletico Mineiro",
     "atlético-mg": "Atletico Mineiro",
     "atletico mineiro": "Atletico Mineiro",
@@ -173,21 +191,101 @@ _TEAM_ALIASES: dict[str, str] = {
     "romênia": "Romania",
     "servia": "Serbia",
     "sérvia": "Serbia",
+    # Missing European national teams
+    "inglaterra": "England",
+    "gales": "Wales",
+    "grecia": "Greece",
+    "grécia": "Greece",
+    "finlandia": "Finland",
+    "finlândia": "Finland",
+    "islandia": "Iceland",
+    "islândia": "Iceland",
+    "albania": "Albania",
+    "albânia": "Albania",
+    "georgia": "Georgia",
+    "geórgia": "Georgia",
+    "azerbaijao": "Azerbaijan",
+    "azerbaijão": "Azerbaijan",
+    "armenia": "Armenia",
+    "armênia": "Armenia",
+    "bielorrussia": "Belarus",
+    "bielorrussia": "Belarus",
+    "irlanda do norte": "Northern Ireland",
+    "luxemburgo": "Luxembourg",
+    "macedonia": "North Macedonia",
+    "macedônia": "North Macedonia",
+    "norte da macedonia": "North Macedonia",
+    "canada": "Canada",
+    # South American / CONMEBOL
+    "equador": "Ecuador",
+    "equadór": "Ecuador",
+    "paraguai": "Paraguay",
+    "peru": "Peru",
+    "venezuela": "Venezuela",
+    "bolivia": "Bolivia",
+    "bolívia": "Bolivia",
+    # Asian / Others
+    "coreia do norte": "Korea DPR",
+    "corea do norte": "Korea DPR",
+    "china": "China",
+    "india": "India",
+    "índia": "India",
+    "africa do sul": "South Africa",
+    "áfrica do sul": "South Africa",
+    "costa rica": "Costa Rica",
+    "nova zelandia": "New Zealand",
+    "nova zelândia": "New Zealand",
+    # Chilean clubs (API often uses Ñublense / O'Higgins)
+    "nublense": "Nublense",
+    "ñublense": "Nublense",
+    "cd nublense": "Nublense",
+    "ohiggins": "O'Higgins",
+    "o higgins": "O'Higgins",
+    "o'higgins": "O'Higgins",
+    "cd ohiggins": "O'Higgins",
+    "club deportivo ohiggins": "O'Higgins",
 }
+
+
+def _alias_keys(name: str) -> list[str]:
+    """Build lookup keys: raw, spaced, ascii, compacted (no spaces/hyphens/apostrophes)."""
+    import unicodedata
+    key = name.lower().strip()
+    key = re.sub(r"[''`´’]", "", key)                 # drop apostrophes
+    key_spaced = re.sub(r"[-_]+", " ", key)
+    key_spaced = re.sub(r"\s+", " ", key_spaced).strip()
+    ascii_spaced = (
+        unicodedata.normalize("NFKD", key_spaced)
+        .encode("ascii", "ignore")
+        .decode()
+    )
+    compact = re.sub(r"[\s\-_]+", "", ascii_spaced)
+    out: list[str] = []
+    for k in (key, key_spaced, ascii_spaced, compact, name.lower().strip()):
+        if k and k not in out:
+            out.append(k)
+    return out
 
 
 def normalize_team_name(name: str) -> str:
     """Resolve common aliases and accented variants to their API-Football canonical name."""
-    key = name.lower().strip()
-    # Direct alias lookup
-    if key in _TEAM_ALIASES:
-        return _TEAM_ALIASES[key]
-    # Try removing accents via transliteration for ASCII fallback
-    import unicodedata
-    ascii_key = unicodedata.normalize("NFKD", key).encode("ascii", "ignore").decode()
-    if ascii_key in _TEAM_ALIASES:
-        return _TEAM_ALIASES[ascii_key]
-    return name  # return unchanged if no alias found
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
+    keys = _alias_keys(name)
+    for candidate in keys:
+        if candidate in _TEAM_ALIASES:
+            _log.warning(
+                "[AUDIT] normalize_team_name: %r → %r (alias key=%r)",
+                name, _TEAM_ALIASES[candidate], candidate,
+            )
+            return _TEAM_ALIASES[candidate]
+
+    # Title-case spaced form without apostrophes/hyphens noise
+    spaced = keys[1] if len(keys) > 1 else (keys[0] if keys else name)
+    display = " ".join(w.capitalize() for w in spaced.split()) if spaced else name
+    _log.warning("[AUDIT] normalize_team_name: %r → NO ALIAS → %r", name, display)
+    return display
 
 
 # ---------------------------------------------------------------------------
@@ -882,7 +980,7 @@ async def _handle_analyze(entities: dict, session_id: str) -> str:
     mem_ctx   = _mem_recall(hn=hn, an=an, league=league) or {}
     knowledge = _kc(
         hn=hn, an=an, league=league,
-        is_live=meth.is_live,
+        is_live=bool(fx.get("status", {}).get("elapsed")),
         has_xg=meth.has_xg,
         has_referee=bool(fx.get("referee")),
         meth_score=mv1.overall_score,

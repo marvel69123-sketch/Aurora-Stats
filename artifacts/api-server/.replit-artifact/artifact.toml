@@ -1,3 +1,7 @@
+# Aurora FastAPI (Python) — production service.
+# NOTE: This artifact lives under artifacts/api-server for historical Replit IDs,
+# but the code + start.sh are ALWAYS under artifacts/aurora/ (source of truth).
+# Do NOT move uvicorn to the Node @workspace/api-server package.
 kind = "api"
 previewPath = "/aurora"
 title = "Aurora"

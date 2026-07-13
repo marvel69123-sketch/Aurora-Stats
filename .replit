@@ -1,5 +1,8 @@
 modules = ["nodejs-24", "python-3.12"]
 
+[nix]
+channel = "stable-25_05"
+
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
@@ -19,5 +22,11 @@ expertMode = true
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
-[nix]
-channel = "stable-25_05"
+# ── Official layout (do not invert) ──────────────────────────────────────────
+# Root package.json = monorepo "workspace" only.
+# Frontend SoT: artifacts/web   (vite/tsconfig/src/public stay THERE)
+# Backend SoT:  artifacts/aurora (start.sh → uvicorn :8080)
+# Replit API artifact file: artifacts/api-server/.replit-artifact/artifact.toml
+#   → runs code from artifacts/aurora (historical ID; do not relocate randomly)
+# Optional mirror: aurora/  ← bash scripts/sync-aurora-mirror.sh
+# Before install/build: bash scripts/verify-layout.sh

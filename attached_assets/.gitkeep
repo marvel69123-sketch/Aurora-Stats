@@ -1,0 +1,2 @@
+# Keep directory for Vite @assets alias (artifacts/web/vite.config.ts).
+# Do not move frontend package.json or vite.config.ts to the monorepo root.

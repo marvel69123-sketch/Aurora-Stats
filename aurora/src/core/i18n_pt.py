@@ -181,6 +181,8 @@ _RAW_PATTERNS: list[tuple[str, str]] = [
     # ── executive summary opening lines ─────────────────────────────────────
     (r"(.+?) is currently live in minute (\d+), with the score at (.+?)\.",
      r"\1 está ao vivo no minuto \2, com o placar em \3."),
+    (r"(.+?) is currently live, with the score at (.+?)\.",
+     r"\1 está ao vivo, com o placar em \2."),
     (r"(.+?) is the subject of Aurora's pre-match analysis\.",
      r"A partida \1 está sendo analisada pela Aurora (análise pré-jogo)."),
 

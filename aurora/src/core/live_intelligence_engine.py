@@ -213,7 +213,7 @@ def build_live_payload(fixtures: list[dict], brain_meta: dict) -> dict:
         return {
             "intent": "live_opportunities",
             "entities": {"live_count": 0},
-            "match": None, "status": None, "is_live": False, "minute": None,
+            "match": None, "status": "Live", "is_live": True, "minute": None,
             "executive_summary": (
                 "Nenhuma partida ao vivo no momento. "
                 "Volte mais tarde ou analise uma partida futura."
@@ -296,11 +296,13 @@ def build_live_payload(fixtures: list[dict], brain_meta: dict) -> dict:
 
     return {
         "intent":   "live_opportunities",
-        "entities": {"live_count": count, "top_opportunity": f"{best.home} x {best.away}"},
-        "match":    f"{best.home} x {best.away}",
-        "status":   "Live",
-        "is_live":  True,
-        "minute":   best.minute or None,
+        "entities": {
+            "live_count":      count,
+            "top_opportunity": f"{best.home} x {best.away}",
+            "live_home":       best.home,
+            "live_away":       best.away,
+        },
+        "match":    None, "status": "Live", "is_live": True, "minute": None,
         "executive_summary":  summary,
         "best_markets":       markets,
         "confidence": {

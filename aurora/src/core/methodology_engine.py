@@ -17,7 +17,13 @@ import math
 from dataclasses import dataclass
 
 from src.brain import BrainConfig
-from src.core.fixture_status import parse_fixture_status
+
+# ---------------------------------------------------------------------------
+# Match-status sets
+# ---------------------------------------------------------------------------
+
+LIVE_STATUSES     = {"1H", "2H", "ET", "P", "BT", "HT", "SUSP", "INT", "LIVE"}
+FINISHED_STATUSES = {"FT", "AET", "PEN", "AWD", "WO"}
 
 # ---------------------------------------------------------------------------
 # Result dataclass
@@ -183,7 +189,10 @@ def run(data: dict, cfg: BrainConfig) -> MethodologyResult:  # noqa: C901
     sh     = data["standings"]["home"]
     sa     = data["standings"]["away"]
 
-    is_live, is_finished, minute = parse_fixture_status(fx["status"])
+    status_short = fx["status"]["short"]
+    is_finished  = status_short in FINISHED_STATUSES
+    is_live      = status_short in LIVE_STATUSES
+    minute       = _i(fx["status"]["minute"], 0)
 
     h_goals     = _i(sc["current"]["home"], 0)
     a_goals     = _i(sc["current"]["away"], 0)

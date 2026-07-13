@@ -2,7 +2,6 @@ import asyncio
 import time
 from fastapi import APIRouter
 from src.client import api_football_get
-from src.routers.analyze import _map_api_status
 
 router = APIRouter()
 
@@ -85,7 +84,12 @@ async def _build_live_response() -> dict:
         matches.append({
             "fixture_id": fid,
             "date": fixture["fixture"]["date"],
-            "status": _map_api_status(fixture["fixture"]["status"]),
+            "status": {
+                "long": fixture["fixture"]["status"]["long"],
+                "short": fixture["fixture"]["status"]["short"],
+                "minute": fixture["fixture"]["status"].get("elapsed"),
+                "extra_time": fixture["fixture"]["status"].get("extra"),
+            },
             "league": {
                 "id": fixture["league"]["id"],
                 "name": fixture["league"]["name"],

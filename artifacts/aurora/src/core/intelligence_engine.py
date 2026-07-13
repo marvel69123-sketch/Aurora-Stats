@@ -175,13 +175,21 @@ def _exec_summary(
     conf_adj = _confidence_adjective(overall_conf)
     ev_phrase = _ev_phrase(ev)
 
-    # Opening line — live or pre-match
-    if is_live and minute:
+    # Opening line — live or pre-match.
+    # Gate on is_live ONLY. Minute 0 (kickoff) and None must NOT force pre-match.
+    # First Half / 1H with is_live=True must never say "pre-match analysis".
+    if is_live:
         score_str = f"{h_score}–{a_score}"
-        opening = (
-            f"{hn} vs {an}{league_str} is currently live in minute {minute}, "
-            f"with the score at {score_str}."
-        )
+        if minute is not None and minute > 0:
+            opening = (
+                f"{hn} vs {an}{league_str} is currently live in minute {minute}, "
+                f"with the score at {score_str}."
+            )
+        else:
+            opening = (
+                f"{hn} vs {an}{league_str} is currently live, "
+                f"with the score at {score_str}."
+            )
     else:
         opening = f"{hn} vs {an}{league_str} is the subject of Aurora's pre-match analysis."
 
@@ -340,8 +348,8 @@ def _risk_factors(
             "to a specific official. Card market confidence is reduced."
         )
 
-    # Live-specific timing risk
-    if is_live and minute and minute < 30:
+    # Live-specific timing risk (minute may be 0 at kickoff — still live)
+    if is_live and minute is not None and minute < 30:
         lines.append(
             f"⚠ **Early live data (minute {minute})** — fewer than 30 minutes played "
             f"means statistical signals are still volatile. "
@@ -497,7 +505,11 @@ def _confidence_explanation(
     else:               data_lines.append("standings data ✗ (using league priors)")
     if has_referee:     data_lines.append("referee profile ✓")
     else:               data_lines.append("referee unassigned ✗")
-    if is_live and minute: data_lines.append(f"live match data (minute {minute}) ✓")
+    if is_live:
+        if minute is not None and minute > 0:
+            data_lines.append(f"live match data (minute {minute}) ✓")
+        else:
+            data_lines.append("live match data ✓")
 
     data_str = "; ".join(data_lines)
 
@@ -752,8 +764,9 @@ def generate(
     fid     = int(fx.get("id", 0))
     date    = str(fx.get("date", ""))
     status  = fx.get("status", {}).get("long", "Unknown")
-    minute  = fx.get("status", {}).get("elapsed") or 0
-    is_live = bool(minute and minute > 0)
+    # Preserve minute 0 (kickoff). Do NOT coerce 0 → None via falsy checks.
+    minute  = meth.minute if meth.minute is not None else 0
+    is_live = meth.is_live
 
     # Best market
     best = dc.best
@@ -782,7 +795,8 @@ def generate(
             match=f"{hn} vs {an}",
             date=date,
             status=status,
-            minute=minute if minute else None,
+            # Keep 0 when live (kickoff); only omit when truly unknown and not live
+            minute=minute if (is_live or minute) else None,
             is_live=is_live,
             primary_recommendation=best_name,
             overall_confidence=round(overall_conf, 2),

@@ -2,28 +2,23 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+// Defaults so `pnpm build` works from workspace root without Replit service env.
+const rawPort = process.env.PORT || "22333";
 const port = Number(rawPort);
-
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH || "/";
 
-if (!basePath) {
-  throw new Error(
-    "BASE_PATH environment variable is required but was not provided.",
-  );
+// Workspace root = artifacts/web/../..
+const workspaceRoot = path.resolve(import.meta.dirname, "..", "..");
+const attachedAssets = path.resolve(workspaceRoot, "attached_assets");
+if (!fs.existsSync(attachedAssets)) {
+  fs.mkdirSync(attachedAssets, { recursive: true });
 }
 
 export default defineConfig({
@@ -37,6 +32,7 @@ export default defineConfig({
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer({
+              // Point at workspace artifacts/ parent (Replit cartographer root)
               root: path.resolve(import.meta.dirname, ".."),
             }),
           ),
@@ -49,10 +45,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      "@assets": attachedAssets,
     },
     dedupe: ["react", "react-dom"],
   },
+  // Keep app root inside artifacts/web — never the monorepo root
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
@@ -65,6 +62,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      allow: [workspaceRoot],
     },
   },
   preview: {

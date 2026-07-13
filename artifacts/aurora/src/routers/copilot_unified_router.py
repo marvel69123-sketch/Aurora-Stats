@@ -270,7 +270,7 @@ def _empty_bankroll(reasoning: str) -> BankrollSection:
 # ---------------------------------------------------------------------------
 
 
-async def _run_analyze(home: str, away: str) -> dict:
+async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     """Full intelligence pipeline for a match → structured copilot payload."""
     from src.brain import get_brain_meta, get_config, get_methodology_config
     from src.core import (
@@ -281,22 +281,49 @@ async def _run_analyze(home: str, away: str) -> dict:
         methodology_v1,
     )
     from src.core.decision_center import run as _dc_run
+    from src.core.fixture_status import fixture_is_live
     from src.core.intelligence_engine import generate as _intel
     from src.core.knowledge_engine import consult as _kc
     from src.learning_db import get_learning_stats
     from src.memory_db import recall_context as _mem_recall
     from src.routers.analyze import analyze_fixture
 
-    data   = await analyze_fixture(home=home, away=away)
+    data   = await analyze_fixture(home=home, away=away, prefer_live=prefer_live)
     league = (data.get("league") or {}).get("name")
     fx     = data["fixture"]
     teams  = data["teams"]
     hn     = teams["home"]["name"]
     an     = teams["away"]["name"]
 
+    status_block = fx.get("status") or {}
+    status_short = str(status_block.get("short") or "")
+    api_is_live = fixture_is_live(status_block)
+    api_minute = status_block.get("minute")
+
+    logger.info(
+        "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
+        "pipeline=intelligence_engine prefer_live=%s",
+        hn, an, status_short, api_minute, api_is_live, prefer_live,
+    )
+
     cfg  = get_config()
     mcfg = get_methodology_config()
     meth = methodology_engine.run(data, cfg)
+
+    # Hard guarantee: API live status ⇒ meth.is_live (never First Half + pré-jogo)
+    if api_is_live and not meth.is_live:
+        logger.warning(
+            "intent=analyze_match FIX is_live mismatch: api=True meth=False "
+            "status=%s — forcing meth.is_live=True",
+            status_short,
+        )
+        meth.is_live = True
+    if api_is_live and api_minute is not None and not meth.minute:
+        try:
+            meth.minute = int(api_minute)
+        except (TypeError, ValueError):
+            pass
+
     lrn  = learning_engine.run(league=league)
     conf = confidence_engine.run(meth, cfg)
     mkts = market_engine.run(hn, an, data, meth, conf, cfg)
@@ -312,7 +339,7 @@ async def _run_analyze(home: str, away: str) -> dict:
     mem_ctx   = _mem_recall(hn=hn, an=an, league=league) or {}
     knowledge = _kc(
         hn=hn, an=an, league=league,
-        is_live=bool(fx.get("status", {}).get("elapsed")),
+        is_live=bool(meth.is_live or api_is_live),
         has_xg=meth.has_xg,
         has_referee=bool(fx.get("referee")),
         meth_score=mv1.overall_score,
@@ -322,6 +349,23 @@ async def _run_analyze(home: str, away: str) -> dict:
         hn=hn, an=an, league=league, data=data,
         mv1=mv1, dc=dc, meth=meth,
         knowledge=knowledge, learning_stats=lstats, mem_ctx=mem_ctx,
+    )
+
+    final_is_live = bool(report.is_live or api_is_live)
+    final_minute = report.minute if report.minute is not None else api_minute
+    final_status = report.status or status_block.get("long") or status_short
+
+    if final_is_live and "pre-match" in (report.executive_summary or "").lower():
+        logger.error(
+            "intent=analyze_match BUG: live fixture still had pre-match summary "
+            "fixture=%s vs %s status=%s",
+            hn, an, status_short,
+        )
+
+    logger.info(
+        "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
+        "pipeline=intelligence_engine result_ok=1",
+        hn, an, status_short, final_minute, final_is_live,
     )
 
     # ── best_markets from DecisionCenter top_5 (clean numerical data) ──────
@@ -376,9 +420,9 @@ async def _run_analyze(home: str, away: str) -> dict:
         "intent":    "analyze_match",
         "entities":  {"home": hn, "away": an, "league": league},
         "match":     report.match,
-        "status":    report.status,
-        "is_live":   report.is_live,
-        "minute":    report.minute,
+        "status":    final_status,
+        "is_live":   final_is_live,
+        "minute":    final_minute,
 
         "executive_summary": report.executive_summary,
         "best_markets":      best_markets,
@@ -1165,7 +1209,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                             "[AUDIT] ctx_before: last_match=%r last_intent=%r",
                             ctx.get("last_match"), ctx.get("last_intent"),
                         )
-                        payload = await _run_analyze(home, away)
+                        prefer_live = bool(entities.get("is_live"))
+                        payload = await _run_analyze(home, away, prefer_live=prefer_live)
                         _save_analysis_context(ctx, payload, home, away)
                         _db_upd_session(session_id, home=home, away=away, intent=intent)
                         logger.warning("[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r", payload.get("match"))
@@ -1202,7 +1247,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
                         break
                 if _lt_home and _lt_away:
-                    payload = await _run_analyze(_lt_home, _lt_away)
+                    payload = await _run_analyze(_lt_home, _lt_away, prefer_live=True)
                     _save_analysis_context(ctx, payload, _lt_home, _lt_away)
                     logger.warning(
                         "[AUDIT] live_team_analysis: _run_analyze succeeded match=%r", payload.get("match")

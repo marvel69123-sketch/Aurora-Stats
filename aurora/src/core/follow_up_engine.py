@@ -102,7 +102,12 @@ def _detect_followup_type(message: str) -> str | None:
     norm = _norm(message)
     for pattern, followup_type in _FOLLOWUP_PATTERNS:
         if re.search(pattern, norm):
+            logger.warning(
+                "[AUDIT] _detect_followup_type: message=%r → type=%r (pattern=%r)",
+                message, followup_type, pattern,
+            )
             return followup_type
+    logger.warning("[AUDIT] _detect_followup_type: message=%r → no pattern matched → None", message)
     return None
 
 
@@ -525,11 +530,19 @@ def resolve(message: str, ctx: dict, brain_meta: dict) -> dict | None:
 
     followup_type = _detect_followup_type(message)
     if not followup_type:
+        logger.warning("[AUDIT] resolve: no followup_type → returning None")
         return None
 
+    la = ctx.get("last_analysis")
+    has_analysis = la is not None
+    logger.warning(
+        "[AUDIT] resolve: followup_type=%r | match=%r | home=%r | away=%r"
+        " | has_last_analysis=%s → selected_engine=%s",
+        followup_type, match, home, away, has_analysis,
+        "_resolve_with_analysis" if has_analysis else "_no_analysis_response",
+    )
     logger.info("FollowUpEngine.resolve: type=%s  match=%r", followup_type, match)
 
-    la = ctx.get("last_analysis")
     if la:
         return _resolve_with_analysis(followup_type, la, home, away, match, brain_meta)
     return _no_analysis_response(match, followup_type, brain_meta)

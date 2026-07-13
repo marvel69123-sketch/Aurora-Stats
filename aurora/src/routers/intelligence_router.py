@@ -155,7 +155,7 @@ async def intelligence(
     # ── 4. Knowledge engine ───────────────────────────────────────────────
     knowledge = _knowledge_consult(
         hn=hn, an=an, league=league,
-        is_live=meth.is_live,
+        is_live=bool(fx.get("status", {}).get("elapsed")),
         has_xg=meth.has_xg,
         has_referee=bool(fx.get("referee")),
         meth_score=mv1.overall_score,

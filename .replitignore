@@ -3,3 +3,16 @@
 
 # No need to store the pnpm store twice.
 .local
+
+# Heavy / non-deploy trees
+node_modules
+.git
+*.zip
+*.zip.zip
+aurora_context.json
+artifacts/aurora_backup_v3
+artifacts/mockup-sandbox
+# Optional local Python mirror — deploy uses artifacts/aurora only
+aurora
+tools/scratch
+backups
