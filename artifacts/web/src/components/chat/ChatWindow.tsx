@@ -13,7 +13,11 @@ interface ChatWindowProps {
 
 const STARTERS = [
   { label: "Analisar partida", text: "Analisar Arsenal x Chelsea" },
-  { label: "Ao vivo", text: "Melhores oportunidades ao vivo" },
+  {
+    label: "Ao vivo",
+    text: "Melhores oportunidades ao vivo",
+    hint: "Sinais em partidas correndo agora, com foco em valor.",
+  },
   { label: "Banca", text: "Revisar banca" },
   { label: "Aprendizado", text: "O que a Aurora aprendeu hoje?" },
 ];
@@ -27,18 +31,18 @@ function EmptyState({
 }) {
   return (
     <section
-      className="flex flex-1 flex-col items-center justify-center px-6 pb-8 text-center"
+      className="flex flex-1 flex-col items-center justify-center px-6 pb-10 text-center"
       aria-label="Início"
     >
-      <AuroraAvatar url={avatarUrl} size="xl" className="mb-7" />
-      <h1 className="mb-3 font-display text-[1.75rem] font-semibold tracking-[-0.03em] text-white/[0.94] md:text-[2rem]">
+      <AuroraAvatar url={avatarUrl} size="xl" className="mb-8" />
+      <h1 className="mb-3.5 font-display text-[1.75rem] font-semibold tracking-[-0.03em] text-[#ECECEC] md:text-[2rem]">
         Aurora
       </h1>
-      <p className="mb-10 max-w-md text-[0.9375rem] leading-relaxed text-white/45">
+      <p className="mb-11 max-w-md text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
         Como posso ajudar nas análises de hoje?
       </p>
       <nav
-        className="grid w-full max-w-[42rem] grid-cols-1 gap-2.5 sm:grid-cols-2"
+        className="grid w-full max-w-[44rem] grid-cols-1 gap-3 sm:grid-cols-2"
         aria-label="Sugestões"
       >
         {STARTERS.map((p) => (
@@ -46,10 +50,19 @@ function EmptyState({
             key={p.text}
             type="button"
             onClick={() => onSend(p.text)}
-            className="rounded-2xl border border-white/[0.08] bg-transparent px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] hover:border-white/[0.14]"
+            className="rounded-2xl border border-white/[0.08] bg-[#1f1f1f]/60 px-4 py-4 text-left transition-colors hover:bg-white/[0.04] hover:border-white/[0.14]"
           >
-            <p className="text-[0.9375rem] font-medium text-white/78">{p.label}</p>
-            <p className="mt-1 text-[0.8125rem] text-white/35">{p.text}</p>
+            <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]/92">
+              {p.label}
+            </p>
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+              {p.text}
+            </p>
+            {"hint" in p && p.hint ? (
+              <p className="mt-1.5 text-[0.75rem] leading-relaxed text-[#A0A0A0]/80">
+                {p.hint}
+              </p>
+            ) : null}
           </button>
         ))}
       </nav>
@@ -75,7 +88,7 @@ export function ChatWindow({
 
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col bg-[#0a0a0a]"
+      className="flex min-h-0 flex-1 flex-col bg-[#212121]"
       aria-label="Conversa"
     >
       <section
@@ -86,7 +99,7 @@ export function ChatWindow({
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <section className="aurora-chat-column mx-auto w-full space-y-9 px-4 py-8 md:px-6 md:py-10">
+          <section className="aurora-chat-column mx-auto w-full space-y-10 px-4 py-9 md:px-8 md:py-11">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} avatarUrl={avatarUrl} />
             ))}
@@ -94,7 +107,7 @@ export function ChatWindow({
         )}
       </section>
 
-      <footer className="bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent">
+      <footer className="bg-gradient-to-t from-[#212121] via-[#212121]/92 to-transparent">
         <ChatInput onSend={onSend} disabled={loading} />
       </footer>
     </section>

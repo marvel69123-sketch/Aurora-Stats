@@ -43,8 +43,8 @@ export function ConversationItem({
         className={cn(
           "group relative flex h-10 items-center rounded-lg px-2.5 text-[0.875rem] transition-colors",
           active
-            ? "bg-white/[0.09] text-white"
-            : "text-white/58 hover:bg-white/[0.05] hover:text-white/88",
+            ? "bg-white/[0.09] text-[#ECECEC]"
+            : "text-[#A0A0A0] hover:bg-white/[0.05] hover:text-[#ECECEC]",
         )}
       >
         <button
@@ -54,7 +54,7 @@ export function ConversationItem({
           title={session.title}
         >
           {session.pinned && (
-            <PinIcon size={11} className="mr-1.5 inline -mt-0.5 text-white/35" />
+            <PinIcon size={11} className="mr-1.5 inline -mt-0.5 text-[#A0A0A0]" />
           )}
           {session.title}
         </button>
@@ -64,7 +64,7 @@ export function ConversationItem({
             <button
               type="button"
               className={cn(
-                "ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/35 hover:bg-white/10 hover:text-white",
+                "ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#A0A0A0] hover:bg-white/10 hover:text-[#ECECEC]",
                 "opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
                 (active || menuOpen) && "opacity-100",
               )}

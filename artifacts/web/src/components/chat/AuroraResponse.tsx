@@ -60,11 +60,11 @@ function Details({
         if (next !== open) setOpen(next);
       }}
     >
-      <summary className="flex w-full cursor-pointer list-none items-center justify-between py-1.5 text-left text-sm text-white/50 transition-colors hover:text-white/80 [&::-webkit-details-marker]:hidden">
+      <summary className="flex w-full cursor-pointer list-none items-center justify-between py-2 text-left text-sm text-[#A0A0A0] transition-colors hover:text-[#ECECEC] [&::-webkit-details-marker]:hidden">
         <span className="font-medium tracking-wide">{title}</span>
         {open ? <ChevronUpIcon size={15} /> : <ChevronDownIcon size={15} />}
       </summary>
-      {open && <div className="mt-3 space-y-4">{children}</div>}
+      {open && <div className="mt-3.5 space-y-5">{children}</div>}
     </details>
   );
 }
@@ -75,9 +75,9 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
       <ul className="space-y-2.5">
         {markets.map((m) => (
           <li key={m.rank}>
-            <p className="text-[0.9375rem] font-medium text-white/88">{m.market}</p>
+            <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]">{m.market}</p>
             {m.rationale && (
-              <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-white/45">
+              <p className="mt-1 text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
                 {m.rationale}
               </p>
             )}
@@ -101,8 +101,8 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
         <tbody className="divide-y divide-white/[0.04]">
           {markets.map((m) => (
             <tr key={m.rank} className="hover:bg-white/[0.02]">
-              <td className="max-w-[220px] truncate px-3 py-2.5 text-white/82">{m.market}</td>
-              <td className="px-3 py-2.5 text-right text-white/55">
+              <td className="max-w-[220px] truncate px-3 py-2.5 text-[#ECECEC]/85">{m.market}</td>
+              <td className="px-3 py-2.5 text-right text-[#A0A0A0]">
                 {m.probability.toFixed(0)}%
               </td>
               <td
@@ -114,7 +114,7 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
                 {m.expected_value > 0 ? "+" : ""}
                 {m.expected_value.toFixed(1)}%
               </td>
-              <td className="px-3 py-2.5 text-right text-white/45">
+              <td className="px-3 py-2.5 text-right text-[#A0A0A0]">
                 {RISK_PT[m.risk] ?? m.risk}
               </td>
             </tr>
@@ -150,12 +150,12 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
   }
 
   return (
-    <article className="w-full max-w-none space-y-4">
-      <InsightBadgeRow kinds={badges} />
+    <article className="w-full max-w-none space-y-5">
+      <InsightBadgeRow kinds={badges} className="mb-0.5" />
 
       {metaBits.length > 0 && (
-        <header>
-          <p className="text-[0.8125rem] tracking-wide text-white/40">
+        <header className="-mt-1">
+          <p className="text-[0.8125rem] leading-relaxed tracking-wide text-[#A0A0A0]">
             {metaBits.join(" · ")}
           </p>
         </header>
@@ -164,10 +164,10 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
       {showRec && (
         <section
           className={cn(
-            "rounded-2xl px-4 py-3 text-[15px] leading-7",
+            "rounded-2xl px-5 py-4 text-[15px] leading-[1.8]",
             response.bankroll_recommendation.no_bet
               ? "border border-amber-400/20 bg-amber-400/[0.06] text-amber-100/90"
-              : "border border-white/[0.06] bg-white/[0.03] font-medium text-white/[0.92]",
+              : "border border-white/[0.08] bg-[#1f1f1f]/80 font-medium text-[#ECECEC]",
           )}
           aria-label="Recomendação"
         >
@@ -175,7 +175,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
         </section>
       )}
 
-      <section aria-label="Resumo">
+      <section className="pt-0.5" aria-label="Resumo">
         <Markdown text={response.executive_summary} />
       </section>
 
@@ -190,9 +190,9 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
           defaultOpen={hasMarkets && response.intent === "analyze_match"}
         >
           {response.confidence.score > 0 && (
-            <p className="text-[0.9375rem] text-white/55">
+            <p className="text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
               Confiança{" "}
-              <span className="font-medium text-white/88">
+              <span className="font-medium text-[#ECECEC]">
                 {response.confidence.score.toFixed(1)}/10
               </span>
               {" · "}
@@ -203,9 +203,9 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
           )}
 
           {!response.bankroll_recommendation.no_bet && (
-            <p className="text-[0.9375rem] text-white/55">
+            <p className="text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
               Stake sugerida:{" "}
-              <span className="font-medium text-white/88">
+              <span className="font-medium text-[#ECECEC]">
                 {response.bankroll_recommendation.recommended_stake_pct.toFixed(1)}%
               </span>{" "}
               da banca ({response.bankroll_recommendation.method})
@@ -229,7 +229,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
                     A favor
                   </li>
                   {response.positive_factors.map((f, i) => (
-                    <li key={i} className="text-[0.8125rem] leading-relaxed text-white/65">
+                    <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#ECECEC]/80">
                       <MarkdownInline text={f} />
                     </li>
                   ))}
@@ -241,7 +241,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
                     Atenção
                   </li>
                   {response.negative_factors.map((f, i) => (
-                    <li key={i} className="text-[0.8125rem] leading-relaxed text-white/65">
+                    <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#ECECEC]/80">
                       <MarkdownInline text={f} />
                     </li>
                   ))}
@@ -254,7 +254,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
             <section aria-label="Notas">
               <ul className="space-y-2">
                 {response.knowledge_notes.map((n, i) => (
-                  <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
+                  <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
                     <MarkdownInline text={n} />
                   </li>
                 ))}
@@ -266,7 +266,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
             <section aria-label="Histórico">
               <ul className="space-y-2">
                 {response.historical_references.map((r, i) => (
-                  <li key={i} className="text-[0.8125rem] leading-relaxed text-white/50">
+                  <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
                     <MarkdownInline text={r} />
                   </li>
                 ))}

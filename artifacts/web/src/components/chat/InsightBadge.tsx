@@ -32,7 +32,7 @@ export function InsightBadge({ kind, className }: InsightBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md border px-2 py-0.5",
+        "inline-flex items-center rounded-md border px-2.5 py-1",
         "text-[10px] font-semibold tracking-[0.08em]",
         meta.className,
         className,
@@ -51,7 +51,10 @@ interface InsightBadgeRowProps {
 export function InsightBadgeRow({ kinds, className }: InsightBadgeRowProps) {
   if (kinds.length === 0) return null;
   return (
-    <nav className={cn("flex flex-wrap gap-1.5", className)} aria-label="Insights">
+    <nav
+      className={cn("flex flex-wrap items-center gap-2", className)}
+      aria-label="Insights"
+    >
       {kinds.map((kind) => (
         <InsightBadge key={kind} kind={kind} />
       ))}

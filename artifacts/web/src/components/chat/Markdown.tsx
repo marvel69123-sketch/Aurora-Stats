@@ -9,13 +9,13 @@ function InlineMd({ text }: { text: string }) {
     if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
     if (match[1] !== undefined) {
       parts.push(
-        <strong key={match.index} className="font-semibold text-white/[0.96]">
+        <strong key={match.index} className="font-semibold text-[#ECECEC]">
           {match[1]}
         </strong>,
       );
     } else if (match[2] !== undefined) {
       parts.push(
-        <em key={match.index} className="italic text-white/85">
+        <em key={match.index} className="italic text-[#ECECEC]/85">
           {match[2]}
         </em>,
       );
@@ -166,8 +166,8 @@ export function Markdown({ text, className, dense = false }: MarkdownProps) {
       <p
         key={key++}
         className={cn(
-          "text-[15px] leading-[1.75] text-white/[0.84] tracking-[0.01em]",
-          dense && "text-[0.875rem] leading-6 text-white/70",
+          "text-[15px] leading-[1.8] text-[#ECECEC]/90 tracking-[0.01em]",
+          dense && "text-[0.875rem] leading-[1.65] text-[#A0A0A0]",
         )}
       >
         <InlineMd text={para.join(" ")} />
@@ -176,7 +176,7 @@ export function Markdown({ text, className, dense = false }: MarkdownProps) {
   }
 
   return (
-    <div className={cn("aurora-md space-y-3", className)}>{blocks}</div>
+    <div className={cn("aurora-md space-y-3.5", className)}>{blocks}</div>
   );
 }
 

@@ -96,7 +96,7 @@ export function Sidebar({
             type="button"
             onClick={onNewChat}
             className={cn(
-              "flex h-10 items-center gap-2.5 rounded-lg px-3 text-[0.875rem] text-white/88",
+              "flex h-10 items-center gap-2.5 rounded-lg px-3 text-[0.875rem] text-[#ECECEC]/90",
               "hover:bg-white/[0.06] transition-colors",
               collapsed ? "md:w-10 md:justify-center md:px-0" : "flex-1",
             )}
@@ -111,7 +111,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/75 md:flex"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#A0A0A0] hover:bg-white/[0.06] hover:text-[#ECECEC] md:flex"
               title={collapsed ? "Expandir" : "Recolher"}
             >
               {collapsed ? <PanelLeftIcon size={17} /> : <PanelLeftCloseIcon size={17} />}
@@ -121,7 +121,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] md:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#A0A0A0] hover:bg-white/[0.06] md:hidden"
             aria-label="Fechar menu"
           >
             <XIcon size={17} />
@@ -137,13 +137,13 @@ export function Sidebar({
         >
           {sessions.length === 0 ? (
             <section className="flex flex-col items-center gap-2.5 px-2 py-12 text-center">
-              <MessageSquareIcon size={22} className="text-white/18" />
-              <p className="text-[0.8125rem] text-white/35">Nenhuma conversa ainda</p>
+              <MessageSquareIcon size={22} className="text-[#A0A0A0]/35" />
+              <p className="text-[0.8125rem] text-[#A0A0A0]">Nenhuma conversa ainda</p>
             </section>
           ) : (
             groups.map((group) => (
-              <section key={group.key} className="mb-3.5" aria-label={group.label}>
-                <h2 className="px-2.5 pb-1.5 pt-2 text-[11px] font-medium tracking-[0.04em] text-white/32">
+              <section key={group.key} className="mb-4" aria-label={group.label}>
+                <h2 className="px-2.5 pb-1.5 pt-2.5 text-[11px] font-medium tracking-[0.04em] text-[#A0A0A0]/85">
                   {group.label}
                 </h2>
                 <ul className="space-y-0.5">
@@ -175,7 +175,7 @@ export function Sidebar({
             onClick={() => setAvatarOpen(true)}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
-              "text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors",
+              "text-[#ECECEC]/80 hover:bg-white/[0.06] hover:text-[#ECECEC] transition-colors",
               collapsed && "md:w-10 md:justify-center md:px-0",
             )}
             title="Avatar da Aurora"
@@ -183,10 +183,10 @@ export function Sidebar({
             <AuroraAvatar url={avatarUrl} size="sm" />
             {!collapsed && (
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em]">
+                <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]">
                   Aurora
                 </p>
-                <p className="flex items-center gap-1 text-[11px] text-white/32">
+                <p className="flex items-center gap-1 text-[11px] text-[#A0A0A0]">
                   <Settings2Icon size={11} />
                   Personalizar avatar
                 </p>

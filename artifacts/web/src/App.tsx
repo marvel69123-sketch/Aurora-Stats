@@ -34,7 +34,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0a0a] text-white antialiased">
+    <div className="flex h-screen overflow-hidden bg-[#212121] text-[#ECECEC] antialiased">
       <Sidebar
         sessions={sessions}
         activeId={activeId}
@@ -54,12 +54,12 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#0a0a0a] px-3 md:px-5">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#212121]">
+        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#212121] px-3 md:px-5">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white/80 md:hidden"
+            className="rounded-lg p-2 text-[#A0A0A0] hover:bg-white/5 hover:text-[#ECECEC] md:hidden"
             aria-label="Abrir menu"
           >
             <MenuIcon size={18} />
@@ -67,7 +67,7 @@ export default function App() {
 
           <div className="flex min-w-0 items-center gap-2.5">
             <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
-            <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-white/70">
+            <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
               {activeSession?.title ?? "Aurora"}
             </p>
           </div>

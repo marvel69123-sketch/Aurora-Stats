@@ -7,10 +7,10 @@ interface AuroraAvatarProps {
 }
 
 const SIZES = {
-  sm: "h-8 w-8 text-[11px]",
-  md: "h-9 w-9 text-xs",
-  lg: "h-14 w-14 text-xl",
-  xl: "h-[4.5rem] w-[4.5rem] text-2xl",
+  sm: "h-9 w-9 text-[12px]",
+  md: "h-10 w-10 text-[13px]",
+  lg: "h-16 w-16 text-2xl",
+  xl: "h-[5.25rem] w-[5.25rem] text-[1.75rem]",
 } as const;
 
 /** Reusable Aurora avatar — custom image or default monogram. */
