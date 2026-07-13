@@ -34,7 +34,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0a0a] text-white">
+    <div className="flex h-screen overflow-hidden bg-[#0a0a0a] text-white antialiased">
       <Sidebar
         sessions={sessions}
         activeId={activeId}
@@ -55,19 +55,19 @@ export default function App() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#0a0a0a] px-3 md:px-4">
+        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#0a0a0a] px-3 md:px-5">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-white/45 hover:bg-white/5 hover:text-white/80 md:hidden"
+            className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white/80 md:hidden"
             aria-label="Abrir menu"
           >
             <MenuIcon size={18} />
           </button>
 
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
             <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
-            <p className="truncate text-sm text-white/70">
+            <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-white/70">
               {activeSession?.title ?? "Aurora"}
             </p>
           </div>

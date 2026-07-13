@@ -73,35 +73,35 @@ export function Sidebar({
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          className="fixed inset-0 z-20 bg-black/55 backdrop-blur-[2px] md:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-white/[0.06] bg-[#111]",
+          "fixed inset-y-0 left-0 z-30 flex flex-col bg-[#171717]",
+          "border-r border-white/[0.05]",
           "transition-[transform,width] duration-200 ease-out",
-          collapsed ? "md:w-[52px]" : "md:w-[260px]",
-          "w-[260px]",
+          collapsed ? "md:w-[52px]" : "md:w-[272px]",
+          "w-[272px]",
           isOpen ? "translate-x-0" : "-translate-x-full",
           "md:relative md:translate-x-0 md:shrink-0",
         )}
       >
-        {/* Top actions */}
-        <div className={cn("flex items-center gap-1 p-2", collapsed && "md:flex-col")}>
+        <div className={cn("flex items-center gap-1 p-2.5", collapsed && "md:flex-col")}>
           <button
             type="button"
             onClick={onNewChat}
             className={cn(
-              "flex h-10 items-center gap-2 rounded-lg px-3 text-sm text-white/85",
+              "flex h-10 items-center gap-2.5 rounded-lg px-3 text-[0.875rem] text-white/88",
               "hover:bg-white/[0.06] transition-colors",
               collapsed ? "md:w-10 md:justify-center md:px-0" : "flex-1",
             )}
             title="Nova conversa"
           >
-            <PlusIcon size={18} className="shrink-0" />
-            {!collapsed && <span className="font-medium">Nova conversa</span>}
+            <PlusIcon size={17} className="shrink-0 opacity-90" strokeWidth={2.25} />
+            {!collapsed && <span className="font-medium tracking-[-0.01em]">Nova conversa</span>}
             {collapsed && <span className="md:hidden font-medium">Nova conversa</span>}
           </button>
 
@@ -109,23 +109,22 @@ export function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/45 hover:bg-white/[0.06] hover:text-white/80 md:flex"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/75 md:flex"
               title={collapsed ? "Expandir" : "Recolher"}
             >
-              {collapsed ? <PanelLeftIcon size={18} /> : <PanelLeftCloseIcon size={18} />}
+              {collapsed ? <PanelLeftIcon size={17} /> : <PanelLeftCloseIcon size={17} />}
             </button>
           )}
 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/45 hover:bg-white/[0.06] md:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] md:hidden"
           >
-            <XIcon size={18} />
+            <XIcon size={17} />
           </button>
         </div>
 
-        {/* History */}
         <div
           className={cn(
             "flex-1 overflow-y-auto px-2 pb-3",
@@ -133,14 +132,14 @@ export function Sidebar({
           )}
         >
           {sessions.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-2 py-10 text-center">
-              <MessageSquareIcon size={22} className="text-white/20" />
-              <p className="text-xs text-white/35">Nenhuma conversa ainda</p>
+            <div className="flex flex-col items-center gap-2.5 px-2 py-12 text-center">
+              <MessageSquareIcon size={22} className="text-white/18" />
+              <p className="text-[0.8125rem] text-white/35">Nenhuma conversa ainda</p>
             </div>
           ) : (
             groups.map((group) => (
-              <div key={group.key} className="mb-3">
-                <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-white/35">
+              <div key={group.key} className="mb-3.5">
+                <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-medium tracking-[0.04em] text-white/32">
                   {group.label}
                 </p>
                 <div className="space-y-0.5">
@@ -161,10 +160,9 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Footer — avatar settings */}
         <div
           className={cn(
-            "border-t border-white/[0.06] p-2",
+            "border-t border-white/[0.05] p-2.5",
             collapsed && "md:flex md:justify-center",
           )}
         >
@@ -180,9 +178,11 @@ export function Sidebar({
           >
             <AuroraAvatar url={avatarUrl} size="sm" />
             {!collapsed && (
-              <div className="min-w-0 flex-1 md:block">
-                <p className="truncate text-sm font-medium">Aurora</p>
-                <p className="flex items-center gap-1 text-[11px] text-white/35">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em]">
+                  Aurora
+                </p>
+                <p className="flex items-center gap-1 text-[11px] text-white/32">
                   <Settings2Icon size={11} />
                   Personalizar avatar
                 </p>

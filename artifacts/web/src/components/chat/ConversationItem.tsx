@@ -41,15 +41,15 @@ export function ConversationItem({
     <>
       <div
         className={cn(
-          "group relative flex h-9 items-center rounded-lg px-2 text-sm transition-colors",
+          "group relative flex h-10 items-center rounded-lg px-2.5 text-[0.875rem] transition-colors",
           active
-            ? "bg-white/[0.08] text-white"
-            : "text-white/65 hover:bg-white/[0.05] hover:text-white/90",
+            ? "bg-white/[0.09] text-white"
+            : "text-white/58 hover:bg-white/[0.05] hover:text-white/88",
         )}
       >
         <button
           type="button"
-          className="min-w-0 flex-1 truncate text-left"
+          className="min-w-0 flex-1 truncate text-left tracking-[-0.01em]"
           onClick={() => onSelect(session.id)}
           title={session.title}
         >
@@ -64,7 +64,7 @@ export function ConversationItem({
             <button
               type="button"
               className={cn(
-                "ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/40 hover:bg-white/10 hover:text-white",
+                "ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/35 hover:bg-white/10 hover:text-white",
                 "opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
                 (active || menuOpen) && "opacity-100",
               )}
@@ -76,7 +76,7 @@ export function ConversationItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-44 border-white/10 bg-[#1a1a1a] text-white"
+            className="w-44 border-white/10 bg-[#1f1f1f] text-white"
             onClick={(e) => e.stopPropagation()}
           >
             <DropdownMenuItem
@@ -95,7 +95,7 @@ export function ConversationItem({
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/10" />
             <DropdownMenuItem
-              className="cursor-pointer gap-2 text-red-400 focus:bg-red-500/10 focus:text-red-300"
+              className="cursor-pointer gap-2 text-rose-400 focus:bg-rose-500/10 focus:text-rose-300"
               onClick={() => onDelete(session.id)}
             >
               <Trash2Icon size={14} />
