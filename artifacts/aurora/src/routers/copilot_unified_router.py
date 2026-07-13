@@ -282,13 +282,20 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     )
     from src.core.decision_center import run as _dc_run
     from src.core.fixture_status import fixture_is_live
+    from src.core.inference_context import scan_analyze_data
     from src.core.intelligence_engine import generate as _intel
     from src.core.knowledge_engine import consult as _kc
     from src.learning_db import get_learning_stats
     from src.memory_db import recall_context as _mem_recall
     from src.routers.analyze import analyze_fixture
 
-    data   = await analyze_fixture(home=home, away=away, prefer_live=prefer_live)
+    # Inference Layer V2 — never abort on partial fixture data
+    data   = await analyze_fixture(
+        home=home, away=away, prefer_live=prefer_live, soft=True,
+    )
+    ictx = scan_analyze_data(data)
+    is_partial = bool(data.get("_partial")) or (data.get("fixture") or {}).get("id") == 0
+
     league = (data.get("league") or {}).get("name")
     fx     = data["fixture"]
     teams  = data["teams"]
@@ -302,8 +309,9 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
 
     logger.info(
         "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
-        "pipeline=intelligence_engine prefer_live=%s",
+        "pipeline=intelligence_engine prefer_live=%s partial=%s completeness=%.2f",
         hn, an, status_short, api_minute, api_is_live, prefer_live,
+        is_partial, ictx.data_completeness,
     )
 
     cfg  = get_config()
@@ -333,7 +341,7 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         learning=lrn, mcfg=mcfg, brain_cfg=cfg,
     )
     dc = _dc_run(
-        data=data, hn=hn, an=an, fixture_id=fx["id"],
+        data=data, hn=hn, an=an, fixture_id=fx.get("id") or 0,
         meth=meth, conf=conf, mv1=mv1, learning=lrn, cfg=cfg,
     )
     mem_ctx   = _mem_recall(hn=hn, an=an, league=league) or {}
@@ -350,6 +358,16 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         mv1=mv1, dc=dc, meth=meth,
         knowledge=knowledge, learning_stats=lstats, mem_ctx=mem_ctx,
     )
+
+    # Inference Layer V2 — apply completeness penalty to reported confidence
+    raw_score = float(report.overall_confidence)
+    adj_score = ictx.apply_to_score(raw_score)
+    if adj_score != raw_score:
+        logger.info(
+            "inference: confidence %s → %s (penalty=%.2f completeness=%.2f missing=%s)",
+            raw_score, adj_score, ictx.total_penalty(),
+            ictx.data_completeness, ictx.missing_signals,
+        )
 
     final_is_live = bool(report.is_live or api_is_live)
     final_minute = report.minute if report.minute is not None else api_minute
@@ -376,65 +394,118 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
             "market":         mkt.market_name,
             "probability":    round(mkt.probability, 1),
             "expected_value": round(mkt.expected_value, 1),
-            "confidence":     round(mkt.confidence, 1),
+            "confidence":     round(max(0.0, mkt.confidence - ictx.total_penalty() * 0.35), 1),
             "risk":           mkt.risk,
             "rationale":      mkt.explanation,
         })
 
     # ── stake ────────────────────────────────────────────────────────────
     stake_pct, stake_examples, stake_reasoning = _parse_stake(report.recommended_stake)
+    # Partial / heavily incomplete data → force no_bet (still return analysis)
+    if is_partial or ictx.data_completeness < 0.35:
+        stake_pct = 0.0
+        stake_examples = {}
+        stake_reasoning = (
+            (stake_reasoning or "")
+            + " Dados parciais — Inference Layer V2 bloqueou stake até completar sinais."
+        ).strip()
     no_bet = stake_pct == 0.0
 
     # ── confidence data sources ──────────────────────────────────────────
     data_sources = _extract_data_sources(report.confidence_explanation)
+    if is_partial and "Inference Layer V2 (dados parciais)" not in data_sources:
+        data_sources = ["Inference Layer V2 (dados parciais)"] + data_sources
 
     # ── risk flags ───────────────────────────────────────────────────────
     risk_flags = [
         r for r in report.risk_factors
         if not r.startswith("• No critical")
     ]
+    if ictx.missing_signals:
+        risk_flags.append(
+            f"Dados incompletos ({ictx.data_completeness * 100:.0f}%): "
+            + ", ".join(ictx.missing_signals)
+        )
 
     # ── pos / neg factors ────────────────────────────────────────────────
     pos_factors = [
         p for p in report.positive_factors
         if not p.startswith("• No category")
     ]
-    neg_factors = report.negative_factors
+    neg_factors = list(report.negative_factors)
+    if is_partial:
+        neg_factors.insert(
+            0,
+            "Fixture oficial não localizada — análise em modo degradado "
+            "(confiança reduzida; sem stake).",
+        )
 
     # ── historical refs ───────────────────────────────────────────────────
     hist = report.historical_matches + report.learning_references
+
+    # ── explainability (knowledge_notes — visible without frontend changes) ─
+    k_notes = list(report.knowledge_notes) + ictx.knowledge_notes_pt()
 
     # ── final recommendation ─────────────────────────────────────────────
     best_ev = dc.best.expected_value if dc.best else None
     final_rec = _compose_final(
         report_or_summary=report.executive_summary,
         primary_mkt=report.primary_recommendation,
-        conf_score=report.overall_confidence,
-        conf_label=_conf_label(report.overall_confidence),
+        conf_score=adj_score,
+        conf_label=_conf_label(adj_score),
         stake_pct=stake_pct,
-        risk_level=report.risk_level,
+        risk_level=report.risk_level if not is_partial else "High",
         best_ev=best_ev,
     )
+    if is_partial:
+        final_rec = (
+            f"Análise parcial para **{hn} x {an}**: a partida não foi confirmada "
+            f"na API. Confiança ajustada para {adj_score:.1f}/10. "
+            f"Tente o nome oficial dos times para dados completos. " + final_rec
+        )
+
+    conf_explanation = report.confidence_explanation or ""
+    if ictx.total_penalty() > 0:
+        conf_explanation = (
+            f"{conf_explanation} "
+            f"[Inference V2: completude {ictx.data_completeness * 100:.0f}%, "
+            f"penalidade −{ictx.total_penalty():.1f}, "
+            f"score {raw_score:.1f}→{adj_score:.1f}]"
+        ).strip()
+
+    executive = report.executive_summary
+    if is_partial:
+        executive = (
+            f"**Dados parciais** para {hn} x {an}. "
+            f"A Aurora continuou a análise com confiança reduzida em vez de abortar.\n\n"
+            + (executive or "")
+        )
+
+    brain_meta = get_brain_meta()
+    brain_meta = {
+        **brain_meta,
+        "inference": ictx.explainability(),
+    }
 
     return {
         "intent":    "analyze_match",
         "entities":  {"home": hn, "away": an, "league": league},
-        "match":     report.match,
+        "match":     report.match or f"{hn} x {an}",
         "status":    final_status,
         "is_live":   final_is_live,
         "minute":    final_minute,
 
-        "executive_summary": report.executive_summary,
+        "executive_summary": executive,
         "best_markets":      best_markets,
 
         "confidence": {
-            "score":        report.overall_confidence,
-            "label":        _conf_label(report.overall_confidence),
-            "explanation":  report.confidence_explanation,
+            "score":        adj_score,
+            "label":        _conf_label(adj_score),
+            "explanation":  conf_explanation,
             "data_sources": data_sources,
         },
         "risk": {
-            "level":                  report.risk_level,
+            "level":                  "High" if is_partial else report.risk_level,
             "flags":                  risk_flags,
             "invalidation_conditions": report.invalidation_conditions,
         },
@@ -449,11 +520,11 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "positive_factors":       pos_factors,
         "negative_factors":       neg_factors,
         "historical_references":  hist,
-        "knowledge_notes":        report.knowledge_notes,
+        "knowledge_notes":        k_notes,
         "final_recommendation":   final_rec,
 
         "aurora_version": "Copilot v1.0",
-        "brain":          get_brain_meta(),
+        "brain":          brain_meta,
     }
 
 
@@ -1201,8 +1272,56 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     intent, home, away, entities.get("is_live"),
                 )
                 if not home or not away:
-                    logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — missing home or away entity")
+                    logger.warning(
+                        "[AUDIT] copilot dispatch: missing home/away — "
+                        "Inference V2 degraded path (no hard fallback abort)"
+                    )
+                    from src.brain import get_brain_meta as _gbm_ent
+                    from src.core.inference_context import InferenceContext
+
+                    _ictx = InferenceContext(soft_mode=True)
+                    _ictx.register_failure(
+                        "entity_extract",
+                        "Times home/away não extraídos do NLP",
+                        signal="teams",
+                    )
+                    _ictx.mark_missing("fixture", "Sem entidades de partida")
+                    _ictx.finalize()
+                    hint = ""
+                    if home:
+                        hint = f" Identifiquei apenas **{home}** — falta o adversário."
+                    elif away:
+                        hint = f" Identifiquei apenas **{away}** — falta o time da casa."
                     payload = _run_fallback(message, intent)
+                    payload["intent"] = "analyze_match"
+                    payload["entities"] = {"home": home or None, "away": away or None}
+                    payload["executive_summary"] = (
+                        "Não consegui extrair os dois times da mensagem."
+                        + hint
+                        + "\n\nInforme no formato: **\"Analisar [Casa] x [Visitante]\"**.\n\n"
+                        + "A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                        "com confiança reduzida em vez de abortar."
+                    )
+                    payload["confidence"] = {
+                        "score": _ictx.apply_to_score(1.5),
+                        "label": "insufficient",
+                        "explanation": (
+                            f"Inference V2: entidades incompletas — "
+                            f"penalidade −{_ictx.total_penalty():.1f}"
+                        ),
+                        "data_sources": ["Inference Layer V2", "NL Router"],
+                    }
+                    payload["knowledge_notes"] = (
+                        list(payload.get("knowledge_notes") or [])
+                        + _ictx.knowledge_notes_pt()
+                    )
+                    payload["brain"] = {
+                        **_gbm_ent(),
+                        "inference": _ictx.explainability(),
+                    }
+                    payload["final_recommendation"] = (
+                        "Digite os dois times: **\"Analisar [Time A] x [Time B]\"**."
+                    )
                 else:
                     try:
                         logger.warning(
@@ -1213,15 +1332,83 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         payload = await _run_analyze(home, away, prefer_live=prefer_live)
                         _save_analysis_context(ctx, payload, home, away)
                         _db_upd_session(session_id, home=home, away=away, intent=intent)
-                        logger.warning("[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r", payload.get("match"))
+                        logger.warning(
+                            "[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r",
+                            payload.get("match"),
+                        )
                         logger.warning(
                             "[AUDIT] ctx_after: last_match=%r last_intent=%r",
                             ctx.get("last_match"), ctx.get("last_intent"),
                         )
                     except Exception as _analyze_exc:
-                        logger.warning("[AUDIT] copilot dispatch: FALLBACK REASON — _run_analyze raised %s: %s",
-                                       type(_analyze_exc).__name__, _analyze_exc)
-                        raise
+                        # Soft analyze already avoids 404; this catches engine crashes.
+                        logger.warning(
+                            "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
+                            "Inference V2 continues with degraded payload",
+                            type(_analyze_exc).__name__, _analyze_exc,
+                        )
+                        from src.brain import get_brain_meta as _gbm_inf
+                        from src.core.inference_context import InferenceContext
+
+                        _eictx = InferenceContext(soft_mode=True)
+                        _eictx.register_failure(
+                            "analyze_pipeline",
+                            str(_analyze_exc),
+                            signal="fixture",
+                        )
+                        _eictx.finalize()
+                        payload = {
+                            "intent": "analyze_match",
+                            "entities": {"home": home, "away": away},
+                            "match": f"{home} x {away}",
+                            "status": "Partial",
+                            "is_live": False,
+                            "minute": None,
+                            "executive_summary": (
+                                f"Não foi possível completar a análise de **{home} x {away}**, "
+                                f"mas a Aurora registrou a falha e manteve a conversa ativa.\n\n"
+                                f"Detalhe técnico: {_analyze_exc}"
+                            ),
+                            "best_markets": [],
+                            "confidence": {
+                                "score": _eictx.apply_to_score(2.0),
+                                "label": "insufficient",
+                                "explanation": (
+                                    f"Inference V2: falha no pipeline — "
+                                    f"penalidade −{_eictx.total_penalty():.1f}"
+                                ),
+                                "data_sources": ["Inference Layer V2"],
+                            },
+                            "risk": {
+                                "level": "High",
+                                "flags": list(_eictx.missing_signals),
+                                "invalidation_conditions": [
+                                    "Confirmar nomes oficiais dos times",
+                                ],
+                            },
+                            "bankroll_recommendation": {
+                                "recommended_stake_pct": 0.0,
+                                "method": "quarter-Kelly",
+                                "examples": {},
+                                "reasoning": "Dados insuficientes para stake.",
+                                "no_bet": True,
+                            },
+                            "positive_factors": [],
+                            "negative_factors": [
+                                "Falha registrada — confiança reduzida (sem abort duro).",
+                            ],
+                            "historical_references": [],
+                            "knowledge_notes": _eictx.knowledge_notes_pt(),
+                            "final_recommendation": (
+                                f"Tente novamente com nomes oficiais: "
+                                f"\"Analisar {home} x {away}\"."
+                            ),
+                            "aurora_version": "Copilot v1.0",
+                            "brain": {
+                                **_gbm_inf(),
+                                "inference": _eictx.explainability(),
+                            },
+                        }
 
             elif intent == "live_team_analysis":
                 # FIX 1 — "analise jogo do [team]" → search live for that team
@@ -1258,34 +1445,54 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         _lt_team, len(_lt_list),
                     )
                     from src.brain import get_brain_meta as _gbm_lt
+                    from src.core.inference_context import InferenceContext
+
+                    _lt_ctx = InferenceContext(soft_mode=True)
+                    _lt_ctx.register_failure(
+                        "live_team_lookup",
+                        f"{_lt_team} não está no feed ao vivo",
+                        signal="fixture",
+                    )
+                    _lt_ctx.finalize()
                     payload = {
                         "intent": "live_team_analysis",
                         "match": None, "is_live": False, "status": "NotFound", "minute": None,
                         "executive_summary": (
                             f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
+                            f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                            f"com confiança reduzida.\n\n"
                             f"Se souber o adversário, diga:\n"
                             f"\"Analisar {_lt_team} x [adversário]\""
                         ),
                         "best_markets": [],
                         "confidence": {
-                            "score": 0.0, "label": "insufficient",
-                            "explanation": "Time não encontrado ao vivo.",
-                            "data_sources": ["Feed ao vivo API-Football"],
+                            "score": _lt_ctx.apply_to_score(2.0),
+                            "label": "insufficient",
+                            "explanation": (
+                                f"Inference V2: time ausente ao vivo — "
+                                f"penalidade −{_lt_ctx.total_penalty():.1f}"
+                            ),
+                            "data_sources": ["Feed ao vivo API-Football", "Inference Layer V2"],
                         },
-                        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+                        "risk": {
+                            "level": "Unknown",
+                            "flags": list(_lt_ctx.missing_signals),
+                            "invalidation_conditions": [],
+                        },
                         "bankroll_recommendation": {
                             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
                             "examples": {}, "no_bet": True,
                             "reasoning": "Sem partida ao vivo identificada.",
                         },
                         "positive_factors": [], "negative_factors": [],
-                        "historical_references": [], "knowledge_notes": [],
+                        "historical_references": [],
+                        "knowledge_notes": _lt_ctx.knowledge_notes_pt(),
                         "final_recommendation": (
                             f"Não encontrei {_lt_team} ao vivo. "
                             f"Tente: \"Analisar {_lt_team} x [adversário]\""
                         ),
                         "aurora_version": "Copilot v1.0",
-                        "brain": _gbm_lt(),
+                        "brain": {**_gbm_lt(), "inference": _lt_ctx.explainability()},
                     }
                 logger.warning(
                     "[AUDIT] ctx_after: last_match=%r last_intent=%r",
@@ -1355,57 +1562,113 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as exc:
         logger.error("Copilot unified error [%s]: %s", intent, exc, exc_info=True)
         from fastapi import HTTPException as _HTTPExc
+        from src.core.inference_context import InferenceContext
 
         is_404 = isinstance(exc, _HTTPExc) and exc.status_code == 404
         home_q = entities.get("home", "")
         away_q = entities.get("away", "")
 
-        if is_404:
-            if home_q and away_q:
+        # Inference V2: convert outer abort into explained low-confidence response
+        _octx = InferenceContext(soft_mode=True)
+        _octx.register_failure(
+            "copilot_outer",
+            str(exc.detail if is_404 else exc),
+            signal="fixture" if is_404 else "teams",
+        )
+        _octx.finalize()
+
+        if is_404 and home_q and away_q:
+            # Prefer soft analyze (continues engines) over static error page
+            try:
+                payload = await _run_analyze(home_q, away_q, prefer_live=False)
+            except Exception:
                 summary = (
-                    f"Não consegui localizar a partida **{home_q} x {away_q}**.\n\n"
-                    f"Isso pode acontecer porque:\n"
-                    f"• o jogo ainda não foi cadastrado na API\n"
-                    f"• o nome do time está diferente do nome oficial\n"
-                    f"• a competição não está disponível na temporada atual\n\n"
-                    f"**Sugestões:** tente o nome oficial completo — por exemplo, "
-                    f"*\"Atletico Mineiro\"* em vez de *\"Atlético-MG\"*, ou "
-                    f"*\"Paris Saint-Germain\"* em vez de *\"PSG\"*."
+                    f"Não consegui localizar a partida **{home_q} x {away_q}** "
+                    f"com dados completos.\n\n"
+                    f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                    f"com confiança reduzida.\n\n"
+                    f"**Sugestão:** use o nome oficial completo dos times."
                 )
-                final = "Tente novamente com o nome oficial do time. Digite o nome completo sem abreviações."
-            else:
-                summary = (
-                    "Não consegui localizar esse time ou partida na API.\n\n"
-                    "Verifique o nome oficial e tente novamente.\n"
-                    "Exemplo: *\"Analisar Real Madrid x Barcelona\"*"
-                )
-                final = "Use o nome oficial completo do time para uma busca bem-sucedida."
+                payload = {
+                    "intent":   intent,
+                    "entities": entities,
+                    "match":   f"{home_q} x {away_q}",
+                    "status": "Partial", "is_live": False, "minute": None,
+                    "executive_summary": summary,
+                    "best_markets":      [],
+                    "confidence": {
+                        "score": _octx.apply_to_score(2.0),
+                        "label": "insufficient",
+                        "explanation": (
+                            f"Inference V2: fixture ausente — "
+                            f"penalidade −{_octx.total_penalty():.1f}"
+                        ),
+                        "data_sources": ["Inference Layer V2"],
+                    },
+                    "risk": {
+                        "level": "High",
+                        "flags": list(_octx.missing_signals),
+                        "invalidation_conditions": [
+                            "Confirmar nomes oficiais na API-Football",
+                        ],
+                    },
+                    "bankroll_recommendation": {
+                        "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                        "examples": {}, "reasoning": "Sem dados completos para stake.",
+                        "no_bet": True,
+                    },
+                    "positive_factors": [],
+                    "negative_factors": [
+                        "Fixture não resolvida — análise degradada.",
+                    ],
+                    "historical_references": [],
+                    "knowledge_notes": _octx.knowledge_notes_pt(),
+                    "final_recommendation": (
+                        "Tente novamente com o nome oficial do time, "
+                        "sem abreviações."
+                    ),
+                    "aurora_version": "Copilot v1.0",
+                    "brain": {**brain, "inference": _octx.explainability()},
+                }
         else:
             summary = (
-                "A Aurora encontrou um problema ao processar sua solicitação. "
-                "Por favor, tente novamente ou reformule a pergunta."
+                "A Aurora encontrou um problema ao processar sua solicitação, "
+                "registrou a falha e manteve a resposta ativa (Inference V2).\n\n"
+                "Por favor, reformule ou tente novamente."
             )
-            final = "Tente novamente. Se o problema persistir, verifique o nome da partida."
-
-        payload = {
-            "intent":   intent,
-            "entities": entities,
-            "match":   None, "status": None, "is_live": False, "minute": None,
-            "executive_summary": summary,
-            "best_markets":      [],
-            "confidence": {"score": 0.0, "label": "insufficient",
-                           "explanation": "Erro de processamento.", "data_sources": []},
-            "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
-            "bankroll_recommendation": {
-                "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-                "examples": {}, "reasoning": "Nenhuma aposta disponível.", "no_bet": True,
-            },
-            "positive_factors": [], "negative_factors": [],
-            "historical_references": [], "knowledge_notes": [],
-            "final_recommendation": final,
-            "aurora_version": "Copilot v1.0",
-            "brain": brain,
-        }
+            payload = {
+                "intent":   intent,
+                "entities": entities,
+                "match":   None, "status": None, "is_live": False, "minute": None,
+                "executive_summary": summary,
+                "best_markets":      [],
+                "confidence": {
+                    "score": _octx.apply_to_score(1.0),
+                    "label": "insufficient",
+                    "explanation": (
+                        f"Inference V2: erro de processamento — "
+                        f"penalidade −{_octx.total_penalty():.1f}"
+                    ),
+                    "data_sources": ["Inference Layer V2"],
+                },
+                "risk": {
+                    "level": "Unknown",
+                    "flags": list(_octx.missing_signals),
+                    "invalidation_conditions": [],
+                },
+                "bankroll_recommendation": {
+                    "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                    "examples": {}, "reasoning": "Nenhuma aposta disponível.", "no_bet": True,
+                },
+                "positive_factors": [], "negative_factors": [],
+                "historical_references": [],
+                "knowledge_notes": _octx.knowledge_notes_pt(),
+                "final_recommendation": (
+                    "Tente novamente. Se o problema persistir, verifique o nome da partida."
+                ),
+                "aurora_version": "Copilot v1.0",
+                "brain": {**brain, "inference": _octx.explainability()},
+            }
 
     # ── LLM Conversational Layer (Phases 1–9) ────────────────────────────
     # Called ONLY when the LLM router decides it adds value.

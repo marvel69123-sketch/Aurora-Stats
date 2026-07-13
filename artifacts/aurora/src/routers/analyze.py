@@ -495,6 +495,13 @@ async def analyze_fixture(
     home: str = Query(..., description="Home team name (full or partial match)"),
     away: str = Query(..., description="Away team name (full or partial match)"),
     prefer_live: bool = Query(False, description="Prefer in-play fixtures when resolving"),
+    soft: bool = Query(
+        False,
+        description=(
+            "Inference Layer V2: on missing fixture/teams, return a partial "
+            "payload instead of HTTP 404 (used by /aurora/copilot)."
+        ),
+    ),
 ):
     """
     Locate a fixture by team names and return a single structured JSON object
@@ -504,9 +511,28 @@ async def analyze_fixture(
     Discovery order:
     1. Live matches (if the game is currently in play)
     2. Recent / upcoming fixtures resolved via team search
+
+    When soft=True (Inference Layer V2), resolution failures continue with a
+    synthetic partial payload + _inference metadata instead of aborting.
     """
+    from src.core.inference_context import InferenceContext, build_partial_analyze_data
+
+    ictx = InferenceContext(soft_mode=soft)
+
     # ── Step 1: resolve the fixture ─────────────────────────────────────────
-    fixture = await _find_fixture(home, away, prefer_live=prefer_live)
+    try:
+        fixture = await _find_fixture(home, away, prefer_live=prefer_live)
+    except HTTPException as exc:
+        if soft and exc.status_code == 404:
+            logger.warning(
+                "analyze soft: fixture resolve failed — continuing with partial data "
+                "home=%r away=%r detail=%s",
+                home, away, exc.detail,
+            )
+            return build_partial_analyze_data(
+                home, away, reason=str(exc.detail), ctx=ictx,
+            )
+        raise
 
     fixture_id: int = fixture["fixture"]["id"]
     league_id: int = fixture["league"]["id"]
@@ -517,21 +543,32 @@ async def analyze_fixture(
     status_short = str(fixture["fixture"]["status"].get("short", "")).upper()
     status_minute = fixture["fixture"]["status"].get("elapsed")
     logger.info(
-        "pipeline=analyze fixture=%s vs %s status=%s minute=%s is_live=%s fixture_id=%s",
+        "pipeline=analyze fixture=%s vs %s status=%s minute=%s is_live=%s fixture_id=%s soft=%s",
         fixture["teams"]["home"]["name"],
         fixture["teams"]["away"]["name"],
         status_short,
         status_minute,
         status_short in LIVE_STATUSES,
         fixture_id,
+        soft,
     )
 
-    # ── Step 2: fan out – all four calls happen simultaneously ───────────────
+    # ── Step 2: fan out – soft mode never aborts on secondary fetch failure ──
+    async def _safe_get(path: str, params: dict, signal: str) -> dict:
+        try:
+            return await api_football_get(path, params)
+        except Exception as exc:
+            logger.warning("analyze soft-fetch failed signal=%s: %s", signal, exc)
+            if soft:
+                ictx.register_failure("api_fetch", str(exc), signal=signal)
+                return {"response": []}
+            raise
+
     stats_data, events_data, lineups_data, standings_data = await asyncio.gather(
-        api_football_get("/fixtures/statistics", {"fixture": fixture_id}),
-        api_football_get("/fixtures/events", {"fixture": fixture_id}),
-        api_football_get("/fixtures/lineups", {"fixture": fixture_id}),
-        api_football_get("/standings", {"league": league_id, "season": season}),
+        _safe_get("/fixtures/statistics", {"fixture": fixture_id}, "statistics"),
+        _safe_get("/fixtures/events", {"fixture": fixture_id}, "events"),
+        _safe_get("/fixtures/lineups", {"fixture": fixture_id}, "lineups"),
+        _safe_get("/standings", {"league": league_id, "season": season}, "standings"),
     )
 
     raw_stats: list = stats_data.get("response", [])
@@ -553,7 +590,7 @@ async def analyze_fixture(
     )
 
     # ── Step 4: assemble response ────────────────────────────────────────────
-    return {
+    payload = {
         "fixture": {
             "id": fixture_id,
             "date": fixture["fixture"]["date"],
@@ -624,3 +661,9 @@ async def analyze_fixture(
             "away": _find_standing(standings_table, away_id),
         },
     }
+
+    if soft:
+        # Seed inference notes from secondary fetch failures already recorded
+        payload["_inference"] = ictx.to_dict()
+
+    return payload
