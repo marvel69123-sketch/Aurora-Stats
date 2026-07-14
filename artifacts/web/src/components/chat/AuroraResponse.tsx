@@ -21,24 +21,42 @@ const CONF_PT: Record<string, string> = {
 };
 
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
+  // Social / help chrome: never show analysis badges
+  if (
+    response.intent === "greeting" ||
+    response.intent === "identity" ||
+    response.intent === "help" ||
+    response.intent === "capabilities" ||
+    response.intent === "small_talk" ||
+    response.intent === "unknown" ||
+    response.intent === "emotional"
+  ) {
+    return [];
+  }
+  if (response.intent !== "analyze_match" && response.intent !== "live_opportunities") {
+    // Follow-ups: only high-risk / no-bet caution, never REGRA DE OURO spam
+    const kinds: InsightBadgeKind[] = [];
+    if (response.risk.level === "High") kinds.push("high_risk");
+    else if (response.bankroll_recommendation.no_bet) kinds.push("caution");
+    return kinds;
+  }
+
   const kinds: InsightBadgeKind[] = [];
   const riskHigh = response.risk.level === "High";
   const noBet = response.bankroll_recommendation.no_bet;
-  const hasNotes = response.knowledge_notes.length > 0;
   const strong =
     response.confidence.label === "strong" || response.confidence.score >= 7.5;
+  const moderate =
+    response.confidence.label === "moderate" ||
+    response.confidence.label === "adequate" ||
+    (response.confidence.score >= 5 && response.confidence.score < 7.5);
 
-  if (hasNotes || (strong && !noBet && !riskHigh)) kinds.push("golden_rule");
-  if (noBet || riskHigh || response.negative_factors.length > 0) kinds.push("alert");
-  if (
-    !noBet ||
-    response.risk.flags.length > 0 ||
-    response.risk.level === "Medium" ||
-    response.risk.level === "High"
-  ) {
-    kinds.push("risk");
-  }
-  return [...new Set(kinds)];
+  if (riskHigh) kinds.push("high_risk");
+  else if (noBet) kinds.push("caution");
+  else if (strong) kinds.push("opportunity");
+  else if (moderate) kinds.push("caution");
+
+  return [...new Set(kinds)].slice(0, 1); // max one badge
 }
 
 function Details({
@@ -125,6 +143,44 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
   );
 }
 
+const INTERESTING_MARKET_RE =
+  /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under/i;
+
+const TECH_FACTOR_RE =
+  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%/i;
+
+function pickInterestingMarkets(markets: MarketEntry[]): MarketEntry[] {
+  const filtered = markets.filter((m) => INTERESTING_MARKET_RE.test(m.market));
+  return (filtered.length > 0 ? filtered : markets).slice(0, 4);
+}
+
+function publicStrengths(response: CopilotResponse): string[] {
+  const meta = response.response_metadata;
+  if (meta?.public_strengths?.length) {
+    return meta.public_strengths.slice(0, 3);
+  }
+  const out: string[] = [];
+  for (const f of response.positive_factors.slice(0, 6)) {
+    if (TECH_FACTOR_RE.test(f)) {
+      if (/escanteio|corner/i.test(f)) {
+        const tip = "O histórico recente favorece atenção aos escanteios.";
+        if (!out.includes(tip)) out.push(tip);
+      }
+      continue;
+    }
+    const clean = f.replace(/^•\s*/, "").trim();
+    if (clean) out.push(clean);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+function looksTechnicalProse(text: string): boolean {
+  return /(?:\bVE\b|λ\s*=|\/\s*10|Best[-_\s]?mercado|não foi confirmada na API|over_\d+)/i.test(
+    text,
+  );
+}
+
 /** Clean ChatGPT-style Aurora reply — prose first, details collapsed. */
 export function AuroraResponse({ response }: { response: CopilotResponse }) {
   const hasMarkets = response.best_markets.length > 0;
@@ -132,21 +188,53 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
     response.positive_factors.length > 0 || response.negative_factors.length > 0;
   const hasNotes = response.knowledge_notes.length > 0;
   const hasHistory = response.historical_references.length > 0;
-  const showRec =
-    response.final_recommendation &&
-    !response.final_recommendation.startsWith("Por favor") &&
-    !response.final_recommendation.startsWith("Please");
 
   const badges = deriveBadges(response);
+  const isSocial =
+    response.intent === "greeting" ||
+    response.intent === "identity" ||
+    response.intent === "help" ||
+    response.intent === "capabilities" ||
+    response.intent === "small_talk" ||
+    response.intent === "emotional";
+
+  const isAnalysis =
+    response.intent === "analyze_match" ||
+    response.intent === "follow_up" ||
+    response.intent === "live_opportunities" ||
+    response.intent === "live_team_analysis";
+
+  const conclusionRaw = response.final_recommendation || "";
+  const showRec =
+    !isSocial &&
+    isAnalysis &&
+    Boolean(conclusionRaw) &&
+    !conclusionRaw.startsWith("Por favor") &&
+    !conclusionRaw.startsWith("Please") &&
+    !looksTechnicalProse(conclusionRaw);
+
+  // Amber only for caution — never when conclusion still looks internal
+  const showCautionBanner =
+    showRec &&
+    (response.bankroll_recommendation.no_bet || response.risk.level === "High");
+
+  const interesting = isAnalysis ? pickInterestingMarkets(response.best_markets) : [];
+  const softPositives =
+    response.intent === "analyze_match" || response.intent === "follow_up"
+      ? publicStrengths(response)
+      : [];
 
   const metaBits: string[] = [];
-  if (response.match) metaBits.push(response.match);
+  if (response.match) metaBits.push(`⚽ ${response.match}`);
   if (response.is_live) {
     metaBits.push(
       response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
     );
-  } else if (response.status) {
-    metaBits.push(response.status);
+  } else if (response.status && response.intent === "analyze_match") {
+    // Hide raw API status noise like "Not Started" when paired with partial data chrome
+    if (!/^not\s*started$/i.test(response.status)) {
+      metaBits.push(response.status);
+    }
   }
 
   return (
@@ -154,41 +242,74 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
       <InsightBadgeRow kinds={badges} className="mb-0.5" />
 
       {metaBits.length > 0 && (
-        <header className="-mt-1">
-          <p className="text-[0.8125rem] leading-relaxed tracking-wide text-[#A0A0A0]">
-            {metaBits.join(" · ")}
+        <header className="-mt-1" aria-label="Partida">
+          <p className="text-[0.9375rem] font-medium leading-relaxed tracking-wide text-[#ECECEC]">
+            {metaBits[0]}
           </p>
-        </header>
-      )}
-
-      {showRec && (
-        <section
-          className={cn(
-            "rounded-2xl px-5 py-4 text-[15px] leading-[1.8]",
-            response.bankroll_recommendation.no_bet
-              ? "border border-amber-400/20 bg-amber-400/[0.06] text-amber-100/90"
-              : "border border-white/[0.08] bg-[#1f1f1f]/80 font-medium text-[#ECECEC]",
+          {metaBits.length > 1 && (
+            <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+              {metaBits.slice(1).join(" · ")}
+            </p>
           )}
-          aria-label="Recomendação"
-        >
-          <MarkdownInline text={response.final_recommendation} />
-        </section>
+        </header>
       )}
 
       <section className="pt-0.5" aria-label="Resumo">
         <Markdown text={response.executive_summary} />
       </section>
 
-      {(response.confidence.score > 0 ||
-        !response.bankroll_recommendation.no_bet ||
-        hasMarkets ||
-        hasFactors ||
-        hasNotes ||
-        hasHistory) && (
-        <Details
-          title="Detalhes da análise"
-          defaultOpen={hasMarkets && response.intent === "analyze_match"}
+      {softPositives.length > 0 && (
+        <section aria-label="Pontos fortes">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+            Pontos que se destacam
+          </p>
+          <ul className="space-y-1.5">
+            {softPositives.map((f, i) => (
+              <li key={i} className="text-[0.875rem] leading-[1.65] text-[#ECECEC]/85">
+                • <MarkdownInline text={f} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {interesting.length > 0 && response.intent !== "live_opportunities" && (
+        <section aria-label="Mercados interessantes">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+            Mercados interessantes
+          </p>
+          <ul className="space-y-2">
+            {interesting.map((m) => (
+              <li key={m.rank} className="text-[0.9375rem] leading-snug text-[#ECECEC]">
+                • {m.market}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {showRec && (
+        <section
+          className={cn(
+            "text-[15px] leading-[1.8]",
+            showCautionBanner
+              ? "rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-5 py-4 text-amber-100/90"
+              : "text-[#ECECEC]/90",
+          )}
+          aria-label="Conclusão"
         >
+          <MarkdownInline text={conclusionRaw} />
+        </section>
+      )}
+
+      {!isSocial &&
+        (response.confidence.score > 0 ||
+          !response.bankroll_recommendation.no_bet ||
+          hasMarkets ||
+          hasFactors ||
+          hasNotes ||
+          hasHistory) && (
+        <Details title="Detalhes da análise" defaultOpen={false}>
           {response.confidence.score > 0 && (
             <p className="text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
               Confiança{" "}
@@ -213,7 +334,7 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
           )}
 
           {hasMarkets && (
-            <section aria-label="Mercados">
+            <section aria-label="Mercados detalhados">
               <MarketsTable
                 markets={response.best_markets}
                 isLiveList={response.intent === "live_opportunities"}

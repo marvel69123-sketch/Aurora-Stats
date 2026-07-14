@@ -378,7 +378,7 @@ def chat(message: str, ctx: dict, intent: str, brain_meta: dict) -> dict:
         sentences = [s.strip() for s in reply.replace("\n", " ").split(".") if s.strip()]
         final_rec = sentences[-1] + "." if sentences else reply[:120]
     else:
-        final_rec = "Estou aqui para ajudar. Diga o que precisar!"
+        final_rec = "Se tiver um jogo em mente, posso analisar com você."
 
     return {
         "intent":   intent,
@@ -388,8 +388,8 @@ def chat(message: str, ctx: dict, intent: str, brain_meta: dict) -> dict:
         "is_live":  False,
         "minute":   None,
         "executive_summary": reply or (
-            "Estou aqui para ajudar com análises de futebol, apostas e gestão de banca. "
-            "O que você gostaria de saber?"
+            "Posso ajudar com leituras de partidas e mercados.\n"
+            "Qual confronto você gostaria de observar?"
         ),
         "best_markets": [],
         "confidence": {

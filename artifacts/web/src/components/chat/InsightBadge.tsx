@@ -1,23 +1,23 @@
 import { cn } from "@/lib/utils";
 
-export type InsightBadgeKind = "golden_rule" | "alert" | "risk";
+export type InsightBadgeKind = "opportunity" | "caution" | "high_risk";
 
 const BADGE_META: Record<
   InsightBadgeKind,
   { label: string; className: string }
 > = {
-  golden_rule: {
-    label: "REGRA DE OURO",
+  opportunity: {
+    label: "🟢 Oportunidade",
     className:
-      "border-amber-400/35 bg-amber-400/[0.12] text-amber-200/95",
+      "border-emerald-400/35 bg-emerald-400/[0.10] text-emerald-200/95",
   },
-  alert: {
-    label: "ALERTA",
-    className: "border-rose-400/35 bg-rose-500/[0.12] text-rose-200/95",
+  caution: {
+    label: "🟡 Confiança moderada",
+    className: "border-amber-400/35 bg-amber-400/[0.10] text-amber-200/95",
   },
-  risk: {
-    label: "GESTÃO DE RISCO",
-    className: "border-sky-400/35 bg-sky-500/[0.12] text-sky-200/95",
+  high_risk: {
+    label: "🔴 Risco elevado",
+    className: "border-rose-400/35 bg-rose-500/[0.10] text-rose-200/95",
   },
 };
 
@@ -26,14 +26,14 @@ interface InsightBadgeProps {
   className?: string;
 }
 
-/** Visual insight chip for Aurora analysis responses. */
+/** Soft insight chip — analysis only, never social chat. */
 export function InsightBadge({ kind, className }: InsightBadgeProps) {
   const meta = BADGE_META[kind];
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-md border px-2.5 py-1",
-        "text-[10px] font-semibold tracking-[0.08em]",
+        "text-[10px] font-semibold tracking-[0.04em]",
         meta.className,
         className,
       )}

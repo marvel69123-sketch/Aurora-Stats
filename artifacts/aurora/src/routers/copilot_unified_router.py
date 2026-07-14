@@ -140,6 +140,10 @@ class CopilotResponse(BaseModel):
             "Display as quick-reply chips or a bulleted list after the main response."
         ),
     )
+    response_metadata: dict = Field(
+        default_factory=dict,
+        description="Presentation-only metadata (public_strengths, mode, etc.).",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1208,7 +1212,21 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # ── 0. QuickFollowUpGate (BEFORE nl_router) — Phase 5B economy ────────
+    # ── 0a. Small Talk Gate (BEFORE NL) — Phase 6.4 social mode ───────────
+    try:
+        from src.communication import try_small_talk as _try_small_talk
+        _social = _try_small_talk(message, brain)
+        if _social:
+            payload = _social
+            intent = "small_talk"
+            entities = {"social": True}
+            routing_confidence = 0.95
+            skipped_nl = True
+            logger.warning("[AUDIT] SmallTalkGate: HIT message=%r", message)
+    except Exception as _st_exc:
+        logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
+
+    # ── 0b. QuickFollowUpGate (BEFORE nl_router) — Phase 5B economy ───────
     # If we already have a fixture in context and the message is a follow-up,
     # resolve from last_analysis without NL / EntityResolver / full analyze.
     #
@@ -1216,7 +1234,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # Context here is best-effort (memory → local SQLite). Cross-node miss
     # falls through to normal NL — never invent fixture context.
     _ctx_last_match = ctx.get("last_match") or ctx.get("last_fixture")
-    if _ctx_last_match and _is_followup(message):
+    if payload is None and _ctx_last_match and _is_followup(message):
         logger.warning(
             "[AUDIT] QuickFollowUpGate: ENTER (before NL) last_match=%r message=%r",
             _ctx_last_match, message,
@@ -1786,4 +1804,5 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         aurora_version          = payload.get("aurora_version", "Copilot v1.0"),
         brain                   = payload.get("brain", {}),
         suggested_follow_ups    = suggested_follow_ups,
+        response_metadata       = payload.get("response_metadata") or {},
     )

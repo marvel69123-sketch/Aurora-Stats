@@ -46,6 +46,12 @@ export interface CopilotResponse {
   final_recommendation: string;
   aurora_version: string;
   brain: Record<string, unknown>;
+  response_metadata?: {
+    public_strengths?: string[];
+    presentation?: string;
+    mode?: string;
+    source?: string;
+  };
 }
 
 export interface Message {
