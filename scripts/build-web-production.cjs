@@ -44,7 +44,7 @@ const env = {
   ...process.env,
   CI: process.env.CI || "true",
   NODE_ENV: "production",
-  PORT: process.env.PORT || "22333",
+  PORT: process.env.PORT || 8080,
   BASE_PATH: basePath,
   AURORA_UI_BUILD: buildId,
   MSYS2_ARG_CONV_EXCL: "*",

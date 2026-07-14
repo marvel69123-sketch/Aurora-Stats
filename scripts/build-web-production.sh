@@ -27,7 +27,7 @@ if [ -z "${BASE_PATH:-}" ] || [ "${BASE_PATH}" = "/" ] || [[ "${BASE_PATH}" == *
   export BASE_PATH="/"
 fi
 export MSYS2_ARG_CONV_EXCL="*"
-export PORT="${PORT:-22333}"
+export PORT="${PORT:-8080}"
 export AURORA_UI_BUILD="${AURORA_UI_BUILD:-chatgpt-$(date -u +%Y%m%d%H%M%S)}"
 
 pnpm --filter @workspace/web run build
