@@ -193,24 +193,26 @@ def _resolve_team(name: str) -> str:
     Look up the extracted (normalised-lowercase) team name against the alias
     table, returning the canonical API-Football name.  Falls back to
     title-casing if no alias is found.
+
+    Phase 5A: delegates to EntityResolver (SoT).
     """
-    # Import lazily to avoid circular dependency issues at module load time
-    from src.core.copilot_engine import normalize_team_name, _alias_keys, _TEAM_ALIASES
+    from src.core.entity_resolver import resolve_team, has_alias, fold
+
     raw = name.strip()
-    resolved = normalize_team_name(raw)
+    result = resolve_team(raw)
+    resolved = result.get("canonical") or raw
     # Detect real alias hit via compact keys (nublense→Nublense has same lower form)
-    if any(k in _TEAM_ALIASES for k in _alias_keys(raw)):
+    if has_alias(raw):
         return resolved
-    if fold_team_key(resolved) != fold_team_key(raw):
+    if fold(resolved) != fold(raw):
         return resolved
     return " ".join(w.capitalize() for w in raw.split())
 
 
 def _has_alias(name: str) -> bool:
     """Return True when the normalised name maps to a known alias."""
-    from src.core.copilot_engine import _TEAM_ALIASES, _alias_keys
-    return any(k in _TEAM_ALIASES for k in _alias_keys(name))
-
+    from src.core.entity_resolver import has_alias
+    return has_alias(name)
 
 # ---------------------------------------------------------------------------
 # Per-intent classifiers

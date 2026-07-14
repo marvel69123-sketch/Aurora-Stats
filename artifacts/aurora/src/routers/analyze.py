@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import re
-import unicodedata
 from fastapi import APIRouter, Query, HTTPException
 from src.client import api_football_get
 from src.core.fixture_status import LIVE_STATUSES, fixture_is_live
@@ -22,105 +20,48 @@ def _map_api_status(api_status: dict) -> dict:
 
 # ---------------------------------------------------------------------------
 # Team / fixture discovery
+# Phase 5A — logic lives in EntityResolver; keep names as compat wrappers.
 # ---------------------------------------------------------------------------
 
+from src.core.entity_resolver import (
+    fold as _er_fold,
+    compact as _er_compact,
+    search_variants as _er_search_variants,
+    name_match as _er_name_match,
+    team_score as _er_team_score,
+    pick_best_team as _er_pick_best_team,
+    get_resolver as _er_get_resolver,
+)
+
+
 def _fold(text: str) -> str:
-    """Lowercase, strip accents/apostrophes/hyphens/punctuation → spaced tokens."""
-    t = (text or "").lower().strip()
-    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode()
-    t = re.sub(r"[''`´’]", "", t)          # O'Higgins → Ohiggins → ohiggins
-    t = re.sub(r"[^\w\s]", " ", t)         # leftover punct → space
-    t = re.sub(r"[-_]+", " ", t)
-    return re.sub(r"\s+", " ", t).strip()
+    """Compat → entity_resolver.fold."""
+    return _er_fold(text)
 
 
 def _compact(text: str) -> str:
-    """Fully compacted key: 'O'Higgins' → 'ohiggins', 'Ñublense' → 'nublense'."""
-    return re.sub(r"\s+", "", _fold(text))
+    """Compat → entity_resolver.compact."""
+    return _er_compact(text)
 
 
 def _search_variants(name: str) -> list[str]:
-    """Generate API /teams?search= variants for international / smaller clubs."""
-    folded = _fold(name)
-    compact = _compact(name)
-    # Prefer apostrophe-free / compact first — API-Football often 400s on O'Higgins
-    variants: list[str] = []
-    for v in (
-        compact,                       # ohiggins, nublense
-        folded,                        # o higgins → ohiggins after fold
-        name.replace("'", "").replace("'", "").strip(),
-        name.strip(),
-        folded.replace(" ", "-"),
-        folded.split()[0] if folded.split() else folded,
-    ):
-        if v and v not in variants and len(v) >= 3:
-            variants.append(v)
-    return variants
+    """Compat → entity_resolver.search_variants."""
+    return _er_search_variants(name)
 
 
 def _name_match(api_name: str, query: str) -> bool:
-    """
-    Fuzzy / contains match against API-Football team names.
-
-    Uses folded + compacted forms so:
-      O'Higgins ↔ ohiggins ↔ O Higgins
-      Ñublense  ↔ nublense
-    """
-    api_f = _fold(api_name)
-    q_f = _fold(query)
-    api_c = _compact(api_name)
-    q_c = _compact(query)
-    if not q_f or not api_f:
-        return False
-    if q_f == api_f or q_c == api_c:
-        return True
-    if q_f in api_f or api_f in q_f or q_c in api_c or api_c in q_c:
-        return True
-    q_words = [w for w in q_f.split() if len(w) > 1]
-    if q_words and all(w in api_f or w in api_c for w in q_words):
-        return True
-    hits = sum(1 for w in q_words if w in api_f or w in api_c)
-    return bool(q_words) and hits >= max(1, (len(q_words) + 1) // 2)
+    """Compat → entity_resolver.name_match."""
+    return _er_name_match(api_name, query)
 
 
 def _team_score(api_team: dict, query: str) -> float:
-    """Rank API /teams results — prefer exact/folded/compact match."""
-    name = (api_team.get("team") or {}).get("name") or ""
-    country = ((api_team.get("team") or {}).get("country") or "").lower()
-    q_f, n_f = _fold(query), _fold(name)
-    q_c, n_c = _compact(query), _compact(name)
-    score = 0.0
-    if n_c == q_c or n_f == q_f:
-        score += 100
-    elif q_c in n_c or n_c in q_c or q_f in n_f or n_f in q_f:
-        score += 60
-    q_words = [w for w in q_f.split() if len(w) > 1]
-    if q_words and all(w in n_f or w in n_c for w in q_words):
-        score += 40
-    else:
-        score += 10 * sum(1 for w in q_words if w in n_f or w in n_c)
-    # Soft country boosts (Brazil + Chile common for these clubs)
-    if any(c in country for c in ("brazil", "brasil", "chile")):
-        score += 15
-    if not (api_team.get("team") or {}).get("national"):
-        score += 5
-    return score
+    """Compat → entity_resolver.team_score."""
+    return _er_team_score(api_team, query)
 
 
 def _pick_best_team(teams: list[dict], query: str) -> dict | None:
-    """Score and pick the best /teams search hit for *query*."""
-    if not teams:
-        return None
-    ranked = sorted(teams, key=lambda t: _team_score(t, query), reverse=True)
-    best = ranked[0]
-    logger.info(
-        "fixture_lookup pick_team query=%r selected=%r score=%.1f candidates=%s",
-        query,
-        (best.get("team") or {}).get("name"),
-        _team_score(best, query),
-        [(t.get("team") or {}).get("name") for t in ranked[:5]],
-    )
-    return best
+    """Compat → entity_resolver.pick_best_team."""
+    return _er_pick_best_team(teams, query)
 
 
 async def _safe_teams_search(query: str) -> list[dict]:
@@ -137,25 +78,11 @@ async def _safe_teams_search(query: str) -> list[dict]:
 
 
 async def _resolve_team_id(name: str) -> tuple[int | None, str | None]:
-    """Try multiple search variants until a team is found."""
-    all_hits: list[dict] = []
-    for variant in _search_variants(name):
-        hits = await _safe_teams_search(variant)
-        logger.info(
-            "fixture_lookup teams_search variant=%r hits=%d names=%s",
-            variant, len(hits),
-            [(h.get("team") or {}).get("name") for h in hits[:5]],
-        )
-        all_hits.extend(hits)
-        pick = _pick_best_team(hits, name)
-        if pick and _team_score(pick, name) >= 40:
-            return pick["team"]["id"], pick["team"]["name"]
-    # Global best across all variants
-    pick = _pick_best_team(all_hits, name)
-    if pick:
-        return pick["team"]["id"], pick["team"]["name"]
-    return None, None
-
+    """Compat → EntityResolver.resolve_team_async (returns id + canonical)."""
+    result = await _er_get_resolver().resolve_team_async(
+        name, teams_search=_safe_teams_search,
+    )
+    return result.team_id, result.canonical
 
 async def _find_fixture(home: str, away: str, prefer_live: bool = False) -> dict:
     """

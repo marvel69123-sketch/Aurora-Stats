@@ -1422,14 +1422,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 _lt_live  = await _lbr_single()
                 _lt_list  = _lt_live.get("matches", [])
                 logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
-                _lt_q     = _lt_team.lower()
-                _lt_words = _lt_q.split()
+                # Phase 5A — live matching via EntityResolver (fold + name_match)
+                from src.core.entity_resolver import match_team_in_fixture_names
                 _lt_home, _lt_away = "", ""
                 for _lt_fx in _lt_list:
                     _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
                     _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
-                    if (all(w in _lt_h.lower() for w in _lt_words) or
-                            all(w in _lt_a.lower() for w in _lt_words)):
+                    if match_team_in_fixture_names(_lt_team, _lt_h, _lt_a):
                         _lt_home, _lt_away = _lt_h, _lt_a
                         logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
                         break
