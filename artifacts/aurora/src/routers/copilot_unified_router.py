@@ -760,37 +760,28 @@ def _run_knowledge(query: str) -> dict:
 
 def _run_greeting() -> dict:
     from src.brain import get_brain_meta
+    from src.communication import (
+        official_greeting_recommendation,
+        official_greeting_summary,
+    )
     return {
         "intent":   "greeting",
         "entities": {},
         "match":   None, "status": None, "is_live": False, "minute": None,
-        "executive_summary": (
-            "Olá! Sou a **Aurora**, sua assistente profissional de inteligência esportiva. "
-            "Combino dados ao vivo, gols esperados (xG), padrões históricos e 39 regras metodológicas "
-            "de apostas para entregar análises de nível profissional."
-        ),
+        "executive_summary": official_greeting_summary(),
         "best_markets":      [],
         "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Sessão iniciada.", "data_sources": []},
         "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
         "bankroll_recommendation": {
             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
             "examples": {}, "no_bet": True,
-            "reasoning": "Comece analisando uma partida para receber uma recomendação de stake.",
+            "reasoning": "",
         },
         "positive_factors":      [],
         "negative_factors":      [],
         "historical_references": [],
-        "knowledge_notes": [
-            "Analisar partida: \"Analisar Palmeiras x Flamengo\"",
-            "Oportunidades ao vivo: \"Melhores oportunidades ao vivo\"",
-            "Revisão de banca: \"Revisar banca\"",
-            "Aprendizado: \"O que a Aurora aprendeu hoje?\"",
-            "Conhecimento: \"O que você sabe sobre BTTS?\"",
-        ],
-        "final_recommendation": (
-            "Por onde começar? Tente: **\"Analisar [Time da Casa] x [Time Visitante]\"** "
-            "para um relatório completo de inteligência."
-        ),
+        "knowledge_notes": [],
+        "final_recommendation": official_greeting_recommendation(),
         "aurora_version": "Copilot v1.0",
         "brain":          get_brain_meta(),
     }
@@ -837,21 +828,16 @@ def _run_help() -> dict:
 
 def _run_identity() -> dict:
     from src.brain import get_brain_meta
+    from src.communication import AURORA_TAGLINE
     return {
         "intent":   "identity",
         "entities": {},
         "match":   None, "status": None, "is_live": False, "minute": None,
         "executive_summary": (
-            "Sou a **Aurora** — uma assistente de inteligência esportiva de nível profissional.\n\n"
-            "Fui construída para analistas e apostadores sérios que precisam de dados concretos, "
-            "não de palpites. Combino múltiplas fontes em tempo real:\n\n"
-            "• **Dados ao vivo** — fixtures, escalações, eventos e estatísticas de partidas\n"
-            "• **Gols esperados (xG)** — qualidade de chutes além do placar\n"
-            "• **Histórico de confrontos** — padrões de h2h e forma recente\n"
-            "• **Base de conhecimento** — 40 regras metodológicas de apostas\n"
-            "• **Gestão de banca** — dimensionamento de stake pelo Critério de Kelly\n"
-            "• **Motor de aprendizado** — aprendo com cada previsão e ajusto os pesos\n\n"
-            "Entendo português natural. Não precisa de comandos exatos."
+            "Eu sou a **Aurora** — analista esportiva focada em ler o jogo com calma e precisão.\n\n"
+            "Observo o que realmente importa em uma partida: ritmo, pressão, oportunidades "
+            "e os detalhes que costumam passar despercebidos.\n\n"
+            "Se tiver um confronto em mente, analisamos juntos — sem pressa e sem ruído."
         ),
         "best_markets": [],
         "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Apresentação da Aurora.", "data_sources": []},
@@ -859,23 +845,15 @@ def _run_identity() -> dict:
         "bankroll_recommendation": {
             "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
             "examples": {}, "no_bet": True,
-            "reasoning": "Analise uma partida para receber uma recomendação de stake.",
+            "reasoning": "",
         },
         "positive_factors":      [],
         "negative_factors":      [],
         "historical_references": [],
-        "knowledge_notes": [
-            "Aurora = Inteligência Esportiva Profissional",
-            "Dados: API-Football + xG + H2H + 40 regras metodológicas",
-            "Banca: dimensionamento pelo Critério de Kelly",
-            "Aprendizado: precisão rastreada por mercado, risco ajustado automaticamente",
-        ],
-        "final_recommendation": (
-            "Pronto para ajudar! Tente: **\"Analisar [Time da Casa] x [Time Visitante]\"** "
-            "para uma análise completa de inteligência."
-        ),
+        "knowledge_notes": [],
+        "final_recommendation": AURORA_TAGLINE,
         "aurora_version": "Copilot v1.0",
-        "brain":          get_brain_meta(),
+        "brain": get_brain_meta(),
     }
 
 
@@ -1745,6 +1723,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         payload = _translate_pt(payload)
     except Exception as _i18n_exc:
         logger.warning("copilot: i18n translation skipped (%s)", _i18n_exc)
+
+    # ── Phase 6: Personality & Communication Layer (presentation only) ──
+    # Cleanup internals, humanize, size control, tone, hooks.
+    # Does NOT alter engines, EntityResolver, follow-up detection, or memory.
+    try:
+        from src.communication import polish_payload as _polish
+
+        payload = _polish(payload, message=message, intent=intent, ctx=ctx)
+    except Exception as _pers_exc:
+        logger.warning("copilot: personality layer skipped (%s)", _pers_exc)
 
     # Persist Aurora response turn
     try:
