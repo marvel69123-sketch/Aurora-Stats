@@ -1115,13 +1115,30 @@ def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> No
     Persist the analysis result into the conversation context dict *in-place*.
 
     The 'brain' and 'aurora_version' keys are excluded to keep the blob small.
+    Phase 5B: also mirrors last_fixture / live snapshot fields.
     """
     analysis = {k: v for k, v in payload.items() if k not in ("brain", "aurora_version")}
+    match = payload.get("match") or f"{home} x {away}"
     ctx["last_home"]     = home
     ctx["last_away"]     = away
-    ctx["last_match"]    = payload.get("match") or f"{home} x {away}"
+    ctx["last_match"]    = match
+    ctx["last_fixture"]  = match
     ctx["last_intent"]   = "analyze_match"
     ctx["last_analysis"] = analysis
+    ctx["last_market"]   = analysis.get("best_markets")
+    ctx["last_is_live"]  = bool(payload.get("is_live"))
+    ctx["last_minute"]   = payload.get("minute")
+    conf = analysis.get("confidence") if isinstance(analysis.get("confidence"), dict) else {}
+    try:
+        ctx["last_confidence"] = float(conf.get("score") or 0.0)
+    except (TypeError, ValueError):
+        ctx["last_confidence"] = 0.0
+    ctx["last_entities"] = [{"home": home, "away": away}]
+    if payload.get("is_live"):
+        from datetime import datetime, timezone
+        ctx["last_live_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    from datetime import datetime, timezone
+    ctx["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------
@@ -1176,11 +1193,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     from src.brain import get_brain_meta
     from src.chat_db import (
         create_session      as _db_create,
-        get_conversation_context  as _db_get_ctx,
-        save_conversation_context as _db_save_ctx,
         save_message        as _db_save_msg,
         update_session_context    as _db_upd_session,
     )
+    from src.conversation import conversation_manager
     from src.core.conversation_engine import (
         detect                  as _conv_detect,
         extract_user_profile_info as _extract_profile,
@@ -1197,7 +1213,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── Session management ────────────────────────────────────────────────
     session_id = body.session_id or secrets.token_hex(8)
     _db_create(session_id)
-    ctx   = _db_get_ctx(session_id) or {}
+    # Phase 5B: memory cache first, SQLite fallback
+    ctx   = conversation_manager.get(session_id) or {}
     brain = get_brain_meta()
 
     # Silently extract + update user profile from this message
@@ -1206,14 +1223,46 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     if new_profile != old_profile:
         ctx["user_profile"] = new_profile
 
-    # ── NL Routing ────────────────────────────────────────────────────────
-    _route = _nl_route(message)
-    intent, entities, routing_confidence = _route.intent, _route.entities, _route.confidence
     request_id = secrets.token_hex(4)
+    intent: str = "unknown"
+    entities: dict = {}
+    routing_confidence = 0.0
+    payload: dict | None = None
+    skipped_nl = False
+
+    # ── 0. QuickFollowUpGate (BEFORE nl_router) — Phase 5B economy ────────
+    # If we already have a fixture in context and the message is a follow-up,
+    # resolve from last_analysis without NL / EntityResolver / full analyze.
+    #
+    # LIMITATION: Autoscale has no sticky sessions; SQLite is per-instance.
+    # Context here is best-effort (memory → local SQLite). Cross-node miss
+    # falls through to normal NL — never invent fixture context.
+    _ctx_last_match = ctx.get("last_match") or ctx.get("last_fixture")
+    if _ctx_last_match and _is_followup(message):
+        logger.warning(
+            "[AUDIT] QuickFollowUpGate: ENTER (before NL) last_match=%r message=%r",
+            _ctx_last_match, message,
+        )
+        fu_payload = _fu_resolve(message, ctx, brain)
+        if fu_payload:
+            payload = fu_payload
+            intent = "follow_up"
+            entities = dict(fu_payload.get("entities") or {})
+            routing_confidence = 0.90
+            skipped_nl = True
+            logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
+        else:
+            logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
+
+    # ── NL Routing (skipped on quick follow-up hit) ───────────────────────
+    if not skipped_nl:
+        _route = _nl_route(message)
+        intent, entities, routing_confidence = _route.intent, _route.entities, _route.confidence
 
     logger.info(
-        "copilot request_id=%s session=%s intent=%s conf=%.3f entities=%s message=%r",
-        request_id, session_id, intent, routing_confidence, entities, message,
+        "copilot request_id=%s session=%s intent=%s conf=%.3f entities=%s "
+        "message=%r skipped_nl=%s",
+        request_id, session_id, intent, routing_confidence, entities, message, skipped_nl,
     )
 
     # Persist user turn
@@ -1221,28 +1270,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                  intent=intent, entities=entities)
 
     try:
-        payload: dict | None = None
+        # ── 1. Emotional / conversational (only if not already answered) ──
+        if payload is None:
+            em = _conv_detect(message)
+            if em and em[1] >= 0.80:
+                emotional_intent, em_conf = em
+                payload = _conv_respond(emotional_intent, ctx, brain)
+                intent = emotional_intent
+                routing_confidence = em_conf
 
-        # ── 1. Emotional / conversational (any intent) ────────────────────
-        # Runs first regardless of NL router outcome — emotional patterns
-        # are specific enough not to collide with match/live/bankroll queries.
-        em = _conv_detect(message)
-        if em and em[1] >= 0.80:
-            emotional_intent, em_conf = em
-            payload = _conv_respond(emotional_intent, ctx, brain)
-            intent = emotional_intent
-            routing_confidence = em_conf
-
-        # ── 2. Follow-up (context-aware, any intent when last_match exists) ─
-        # Runs for *any* NL-router intent so phrases like "E os escanteios?"
-        # are handled even when the router misclassifies them as knowledge_search.
-        _ctx_last_match  = ctx.get("last_match")
+        # ── 2. Legacy follow-up after NL (compat if QuickGate missed) ─────
+        _ctx_last_match  = ctx.get("last_match") or ctx.get("last_fixture")
         _ctx_last_intent = ctx.get("last_intent")
         _followup_check  = _is_followup(message)
         logger.warning(
             "[AUDIT] follow-up gate: nl_intent=%r | ctx.last_match=%r | ctx.last_intent=%r"
-            " | follow_up_detected=%s",
-            intent, _ctx_last_match, _ctx_last_intent, _followup_check,
+            " | follow_up_detected=%s | already_payload=%s",
+            intent, _ctx_last_match, _ctx_last_intent, _followup_check, payload is not None,
         )
         if payload is None and _ctx_last_match and _followup_check:
             logger.warning(
@@ -1714,9 +1758,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _save_exc:
         logger.warning("copilot: failed to save aurora msg: %s", _save_exc)
 
-    # Persist updated conversation context
+    # Persist updated conversation context (memory + SQLite)
     try:
-        _db_save_ctx(session_id, ctx)
+        meta = (payload or {}).get("response_metadata") or {}
+        if meta:
+            ctx["last_response_metadata"] = meta
+        conversation_manager.save(session_id, ctx)
     except Exception as _ctx_exc:
         logger.warning("copilot: failed to save context: %s", _ctx_exc)
 

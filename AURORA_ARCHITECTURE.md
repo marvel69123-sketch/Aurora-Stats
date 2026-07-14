@@ -28,8 +28,12 @@ Plataforma estável de **análise esportiva ao vivo** (API-Football + engines Au
 ```
 POST /aurora/copilot
     │
-    ├─ chat_db session + context
-    ├─ nl_router.route(message)
+    ├─ conversation_manager.get(session)   ← RAM TTL 30m → SQLite local (best-effort)
+    │
+    ├─ QuickFollowUpGate (ANTES do NL)     ← se last_match + follow-up pattern
+    │     → follow_up_engine.resolve(last_analysis)  SEM EntityResolver / analyze
+    │
+    ├─ [senão] nl_router.route(message)
     │     → intent + entities {home, away, is_live?}
     │
     ├─ analyze_match
@@ -54,6 +58,16 @@ Se `status.short ∈ {1H, 2H, HT, ET, BT, P, SUSP, INT, LIVE}`:
 - **Nunca** gerar "análise pré-jogo"
 - Usar placar/minuto/escanteios da API quando disponíveis
 - Logs: `intent= status= minute= is_live= pipeline= fixture=`
+
+### Memória conversacional (Fase 5B) — limitação Autoscale
+
+| Fato | Implicação |
+|------|------------|
+| Deploy **sem sticky session** | Request N+1 pode cair em outra VM |
+| SQLite (`aurora.db`) **local por instância** | Contexto **não** é compartilhado entre nós |
+| Cache RAM (`conversation_manager`, TTL 30 min) | Best-effort no **mesmo** worker |
+
+**Consequência:** follow-ups (“e os gols?”, “continua valendo?”) evitam pipelines caros **quando o contexto está quente na instância**. Miss cross-node → fallback ao NL normal (sem inventar partida). Sem Redis / store externo nesta fase.
 
 ---
 
