@@ -211,6 +211,7 @@ function humanBullet(raw: string): string | null {
   let t = oneLinePt((raw || "").replace(/^•\s*/, "").replace(/\*\*/g, ""), 72);
   if (!t || TECH_FACTOR_RE.test(t)) return null;
   if (LOW_CONF_IDEA_RE.test(t)) return null;
+  if (/an[aá]lise\s+completa/i.test(t)) return null;
   return t || null;
 }
 
@@ -239,19 +240,51 @@ function pickInterestingMarkets(
   isLive = false,
 ): MarketEntry[] {
   const filtered = markets.filter((m) => isRealFeaturedMarket(m.market));
-  // No fallback to all markets — featured shows only real lines.
   return filtered.slice(0, isLive ? 1 : 2);
 }
 
-function humanRationale(text: string, usedIdeas: Set<string>): string | null {
-  const clean = oneLinePt(text || "", 90);
-  if (!clean || TECH_FACTOR_RE.test(clean) || LOW_CONF_IDEA_RE.test(clean)) {
-    return null;
+/** Rows allowed in the technical analysis table (no CTAs / internal labels). */
+function displayableMarketRows(markets: MarketEntry[]): MarketEntry[] {
+  return markets.filter((m) => {
+    const name = (m.market || "").trim();
+    if (!name) return false;
+    if (NON_MARKET_FEATURED_RE.test(name)) return false;
+    if (/^analisar\b/i.test(name)) return false;
+    return true;
+  });
+}
+
+/**
+ * Natural featured-market copy — never reuse truncated engine rationales
+ * like "Empate ao min 67…".
+ */
+function featuredNarrative(
+  market: MarketEntry,
+  opts: {
+    isLive: boolean;
+    momentumSide?: string | null;
+  },
+): { context: string; opportunity: string } {
+  const label = marketLabelPt(market.market);
+  const side = (opts.momentumSide || "").toLowerCase();
+
+  let context: string;
+  if (side === "neutral") {
+    context = "Confronto equilibrado. Ambas as equipes seguem criando oportunidades.";
+  } else if (side === "home") {
+    context = "O mandante pressiona neste momento.";
+  } else if (side === "away") {
+    context = "O visitante pressiona neste momento.";
+  } else {
+    context = opts.isLive
+      ? "Leitura com base no cenário atual da partida."
+      : "Leitura com base nos dados disponíveis do confronto.";
   }
-  const key = ideaKey(clean);
-  if (usedIdeas.has(key)) return null;
-  usedIdeas.add(key);
-  return clean;
+
+  return {
+    context,
+    opportunity: `Mercado de ${label} apresenta valor neste momento.`,
+  };
 }
 
 function decisionAlert(response: CopilotResponse): string | null {
@@ -315,44 +348,39 @@ function Details({
   );
 }
 
-function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveList: boolean }) {
-  if (isLiveList) {
+function MarketsTable({ markets }: { markets: MarketEntry[] }) {
+  const rows = displayableMarketRows(markets);
+  if (rows.length === 0) {
     return (
-      <ul className="space-y-2.5">
-        {markets.map((m) => (
-          <li key={m.rank}>
-            <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]">
-              {marketLabelPt(m.market)}
-            </p>
-          </li>
-        ))}
-      </ul>
+      <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+        Nenhum mercado técnico disponível neste momento.
+      </p>
     );
   }
 
   return (
     <div className="overflow-x-auto -mx-0.5">
-      <table className="w-full min-w-[280px] text-[0.8125rem]">
+      <table className="w-full min-w-[300px] text-[0.8125rem]">
         <thead>
           <tr className="border-b border-white/[0.05] text-[#A0A0A0]/80">
             <th className="px-1 py-2 text-left font-medium">Mercado</th>
             <th className="px-1 py-2 text-right font-medium">Prob.</th>
-            <th className="px-1 py-2 text-right font-medium">VE</th>
+            <th className="px-1 py-2 text-right font-medium">VME</th>
             <th className="px-1 py-2 text-right font-medium">Risco</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/[0.04]">
-          {markets.map((m) => (
+          {rows.map((m) => (
             <tr key={m.rank}>
-              <td className="max-w-[11rem] truncate px-1 py-2 text-[#ECECEC]/85 sm:max-w-[220px]">
+              <td className="px-1 py-2 text-[#ECECEC]/90">
                 {marketLabelPt(m.market)}
               </td>
-              <td className="whitespace-nowrap px-1 py-2 text-right text-[#A0A0A0]">
+              <td className="whitespace-nowrap px-1 py-2 text-right tabular-nums text-[#A0A0A0]">
                 {m.probability.toFixed(0)}%
               </td>
               <td
                 className={cn(
-                  "whitespace-nowrap px-1 py-2 text-right font-medium",
+                  "whitespace-nowrap px-1 py-2 text-right font-medium tabular-nums",
                   m.expected_value > 0 ? "text-emerald-400/90" : "text-rose-400/90",
                 )}
               >
@@ -367,6 +395,86 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
         </tbody>
       </table>
     </div>
+  );
+}
+
+function TechnicalAnalysisCard({
+  response,
+  recommended,
+}: {
+  response: CopilotResponse;
+  recommended: MarketEntry | null;
+}) {
+  const riskLabel = RISK_PT[response.risk.level] || "";
+  const conf =
+    response.confidence.score > 0
+      ? `${response.confidence.score.toFixed(1)}/10 · ${confLabelPt(response.confidence.label)}`
+      : "—";
+
+  const metrics: Array<{ label: string; value: string }> = [
+    {
+      label: "Mercado recomendado",
+      value: recommended ? marketLabelPt(recommended.market) : "—",
+    },
+    {
+      label: "Probabilidade",
+      value: recommended ? `${recommended.probability.toFixed(0)}%` : "—",
+    },
+    {
+      label: "VME",
+      value: recommended
+        ? `${recommended.expected_value > 0 ? "+" : ""}${recommended.expected_value.toFixed(1)}%`
+        : "—",
+    },
+    {
+      label: "Risco",
+      value: riskLabel || "—",
+    },
+    {
+      label: "Confiança",
+      value: conf,
+    },
+  ];
+
+  return (
+    <section
+      className="space-y-4 rounded-xl border border-white/[0.07] bg-[#1b1b1d]/55 px-3.5 py-3.5"
+      aria-label="Análise completa"
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+        Análise completa
+      </p>
+      <dl className="grid gap-2.5 sm:grid-cols-2">
+        {metrics.map((m) => (
+          <div
+            key={m.label}
+            className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2.5"
+          >
+            <dt className="text-[0.6875rem] text-[#A0A0A0]">{m.label}</dt>
+            <dd className="mt-0.5 text-[0.875rem] font-medium leading-snug text-[#ECECEC]">
+              {m.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {!response.bankroll_recommendation.no_bet ? (
+        <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+          Stake sugerida:{" "}
+          <span className="text-[#ECECEC]">
+            {response.bankroll_recommendation.recommended_stake_pct.toFixed(1)}%
+          </span>{" "}
+          da banca
+        </p>
+      ) : null}
+      {response.best_markets.length > 0 ? (
+        <div>
+          <p className="mb-2 text-[0.75rem] font-medium text-[#A0A0A0]">
+            Probabilidades por mercado
+          </p>
+          <MarketsTable markets={response.best_markets} />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -447,6 +555,22 @@ export function AuroraResponse({
     null,
   );
 
+  // Never keep boot enrichment after the card leaves live — avoid stale stats.
+  useEffect(() => {
+    if (!isLiveCard) {
+      setBootStats(null);
+      setBootMomentum(null);
+    }
+  }, [isLiveCard]);
+
+  // Network / refresh failure: wipe boot enrichment so nothing stale remains on screen.
+  useEffect(() => {
+    if (liveStatusNote && /temporariamente indispon/i.test(liveStatusNote)) {
+      setBootStats(null);
+      setBootMomentum(null);
+    }
+  }, [liveStatusNote]);
+
   const lockedFixtureHint = extractFixtureIdHint({ liveStats, response });
   const lockRef = useRef(onLiveContextLock);
   lockRef.current = onLiveContextLock;
@@ -470,7 +594,7 @@ export function AuroraResponse({
         const stats = buildLiveStatsView(live);
         const cache = buildLiveCacheFromFixture(live, baseCard);
         setBootStats(stats);
-        setBootMomentum(momentumFromLive(live));
+        setBootMomentum(momentumFromLive(live) ?? null);
         lockRef.current?.(cache, stats);
       } catch {
         // optional enrichment — ignore
@@ -488,7 +612,10 @@ export function AuroraResponse({
     baseCard?.competition?.name,
   ]);
 
-  const statsView = liveStats || bootStats;
+  const statsBlockedByRefreshError = Boolean(
+    liveStatusNote && /temporariamente indispon/i.test(liveStatusNote),
+  );
+  const statsView = statsBlockedByRefreshError ? null : liveStats || bootStats;
   const card: MatchCard | null =
     baseCard && bootMomentum && !baseCard.momentum?.detail
       ? { ...baseCard, momentum: bootMomentum }
@@ -519,6 +646,10 @@ export function AuroraResponse({
       ? pickInterestingMarkets(response.best_markets, isLiveCard)
       : [];
   const showMarketsBlock = !integrityBlocked && isAnalysis;
+  const recommendedMarket =
+    interesting[0] ||
+    displayableMarketRows(response.best_markets)[0] ||
+    null;
 
   const favorBullets =
     !integrityBlocked &&
@@ -581,7 +712,11 @@ export function AuroraResponse({
 
       {liveStatusNote ? (
         <p
-          className="text-[0.875rem] leading-relaxed text-[#A0A0A0]"
+          className={
+            /temporariamente indispon/i.test(liveStatusNote)
+              ? "rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5 text-[0.875rem] leading-relaxed text-[#ECECEC]/90"
+              : "text-[0.875rem] leading-relaxed text-[#A0A0A0]"
+          }
           role="status"
         >
           {liveStatusNote}
@@ -599,30 +734,38 @@ export function AuroraResponse({
       {/* 1) Oportunidade */}
       {showMarketsBlock && (
         <section
-          className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3"
+          className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3.5"
           aria-label="Mercado em destaque"
         >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/75">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/75">
             💡 Mercado em destaque
           </p>
           {interesting.length > 0 ? (
-            <ul className="space-y-2.5">
+            <div className="space-y-3.5">
               {interesting.map((m) => {
-                const why = humanRationale(m.rationale, usedIdeas);
+                const narrative = featuredNarrative(m, {
+                  isLive: isLiveCard,
+                  momentumSide: card?.momentum?.side ?? bootMomentum?.side ?? null,
+                });
                 return (
-                  <li key={m.rank}>
-                    <p className="text-[0.9rem] font-medium leading-snug text-[#ECECEC]">
+                  <div key={m.rank} className="space-y-2.5">
+                    <p className="text-[1rem] font-medium leading-snug tracking-[-0.01em] text-[#ECECEC]">
                       {marketLabelPt(m.market)}
                     </p>
-                    {why ? (
-                      <p className="mt-0.5 text-[0.75rem] leading-relaxed text-[#A0A0A0]">
-                        {why}
+                    <div className="space-y-1.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+                      <p>
+                        <span className="mr-1 text-[#ECECEC]/80">📌 Contexto:</span>
+                        {narrative.context}
                       </p>
-                    ) : null}
-                  </li>
+                      <p>
+                        <span className="mr-1 text-[#ECECEC]/80">🎯 Oportunidade:</span>
+                        {narrative.opportunity}
+                      </p>
+                    </div>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           ) : (
             <div className="space-y-1 py-0.5">
               <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]/95">
@@ -714,39 +857,10 @@ export function AuroraResponse({
 
       {showDetails && (
         <Details title="Ver análise completa" defaultOpen={false}>
-          {response.confidence.score > 0 && (
-            <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
-              Confiança{" "}
-              <span className="text-[#ECECEC]">
-                {response.confidence.score.toFixed(1)}/10
-              </span>
-              {" · "}
-              {confLabelPt(response.confidence.label)}
-              {(() => {
-                const riskLabel = RISK_PT[response.risk.level] ?? "";
-                return riskLabel ? ` · Risco ${riskLabel}` : "";
-              })()}
-            </p>
-          )}
-
-          {!response.bankroll_recommendation.no_bet && (
-            <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
-              Stake sugerida:{" "}
-              <span className="text-[#ECECEC]">
-                {response.bankroll_recommendation.recommended_stake_pct.toFixed(1)}%
-              </span>{" "}
-              da banca
-            </p>
-          )}
-
-          {hasMarkets && (
-            <section aria-label="Mercados detalhados">
-              <MarketsTable
-                markets={response.best_markets}
-                isLiveList={response.intent === "live_opportunities"}
-              />
-            </section>
-          )}
+          <TechnicalAnalysisCard
+            response={response}
+            recommended={recommendedMarket}
+          />
 
           {hasNotes && (
             <section aria-label="Notas">

@@ -17,24 +17,30 @@ export function LiveStatsPanel({ stats }: { stats: LiveStatsSnapshot }) {
         <span className="truncate text-right">{stats.awayName}</span>
       </div>
 
-      <ul className="space-y-1.5">
-        {stats.rows.map((row) => (
-          <li
-            key={row.label}
-            className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-white/[0.04] pt-1.5 first:border-0 first:pt-0"
-          >
-            <span className="text-right text-[0.8125rem] tabular-nums text-[#ECECEC]">
-              {row.home}
-            </span>
-            <span className="w-28 shrink-0 text-center text-[0.6875rem] text-[#A0A0A0]">
-              {row.label}
-            </span>
-            <span className="text-left text-[0.8125rem] tabular-nums text-[#ECECEC]">
-              {row.away}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {stats.rows.length === 0 ? (
+        <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+          Dados indisponíveis
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {stats.rows.map((row) => (
+            <li
+              key={row.label}
+              className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-white/[0.04] pt-1.5 first:border-0 first:pt-0"
+            >
+              <span className="text-right text-[0.8125rem] tabular-nums text-[#ECECEC]">
+                {row.home}
+              </span>
+              <span className="w-28 shrink-0 text-center text-[0.6875rem] text-[#A0A0A0]">
+                {row.label}
+              </span>
+              <span className="text-left text-[0.8125rem] tabular-nums text-[#ECECEC]">
+                {row.away}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

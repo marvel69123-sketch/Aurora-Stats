@@ -1,6 +1,7 @@
 /**
- * Aurora v3.5.1 — FE-only live refresh helpers.
+ * Aurora v3.5.2 — FE-only live refresh helpers.
  * Consumes existing GET /aurora/live. Does not alter engines, FollowUp, or payloads.
+ * Sacred: never invent stats — missing → omit row / "—" / null momentum.
  */
 
 import type { CopilotResponse, LiveStatsSnapshot, MatchCard } from "@/types/chat";
@@ -303,78 +304,108 @@ function parsePossession(value: string | number | null | undefined): number | nu
   return Number(m[1].replace(",", "."));
 }
 
+/** Display for missing confirmed API values — never invent numbers. */
+export const STAT_UNAVAILABLE = "—";
+
 function fmtStat(value: string | number | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return STAT_UNAVAILABLE;
   if (typeof value === "number") {
     return Number.isInteger(value) ? String(value) : value.toFixed(2);
   }
   const s = String(value).trim();
-  return s || "—";
+  return s || STAT_UNAVAILABLE;
+}
+
+function isConfirmed(value: string | number | null | undefined): boolean {
+  return value != null && value !== "";
+}
+
+/** Only include a row when at least one side has API-confirmed data. */
+function maybeRow(
+  label: string,
+  home: string | number | null | undefined,
+  away: string | number | null | undefined,
+): { label: string; home: string; away: string } | null {
+  if (!isConfirmed(home) && !isConfirmed(away)) return null;
+  return { label, home: fmtStat(home), away: fmtStat(away) };
+}
+
+function parseNumericStat(
+  value: string | number | null | undefined,
+): number | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const n = Number(String(value).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }
 
 export function buildLiveStatsView(fx: LiveFixture): LiveStatsView {
   const hs = fx.home.statistics || {};
   const as = fx.away.statistics || {};
+  const rows = [
+    maybeRow("Posse", hs.possession, as.possession),
+    maybeRow("xG", hs.xg, as.xg),
+    maybeRow("Finalizações", hs.shots_total, as.shots_total),
+    maybeRow("Chutes no gol", hs.shots_on_target, as.shots_on_target),
+    maybeRow("Escanteios", hs.corners, as.corners),
+    maybeRow("Impedimentos", hs.offsides, as.offsides),
+    maybeRow("Faltas", hs.fouls, as.fouls),
+    // Never coerce null → 0 (invented cards).
+    maybeRow("Cartões amarelos", fx.home.yellow_cards, fx.away.yellow_cards),
+  ].filter((r): r is NonNullable<typeof r> => r != null);
+
   return {
     homeName: fx.home.name,
     awayName: fx.away.name,
     fixtureId: fx.fixture_id,
     minute: fx.status?.minute ?? null,
-    rows: [
-      {
-        label: "Posse",
-        home: fmtStat(hs.possession),
-        away: fmtStat(as.possession),
-      },
-      { label: "xG", home: fmtStat(hs.xg), away: fmtStat(as.xg) },
-      {
-        label: "Finalizações",
-        home: fmtStat(hs.shots_total),
-        away: fmtStat(as.shots_total),
-      },
-      {
-        label: "Chutes no gol",
-        home: fmtStat(hs.shots_on_target),
-        away: fmtStat(as.shots_on_target),
-      },
-      {
-        label: "Escanteios",
-        home: fmtStat(hs.corners),
-        away: fmtStat(as.corners),
-      },
-      {
-        label: "Impedimentos",
-        home: fmtStat(hs.offsides),
-        away: fmtStat(as.offsides),
-      },
-      { label: "Faltas", home: fmtStat(hs.fouls), away: fmtStat(as.fouls) },
-      {
-        label: "Cartões amarelos",
-        home: fmtStat(fx.home.yellow_cards ?? 0),
-        away: fmtStat(fx.away.yellow_cards ?? 0),
-      },
-    ],
+    rows,
   };
 }
 
-/** FE presentation momentum from live stats (does not change MatchHeader logic). */
-export function momentumFromLive(fx: LiveFixture): NonNullable<MatchCard["momentum"]> {
-  const hp = parsePossession(fx.home.statistics?.possession) ?? 50;
-  const ap = parsePossession(fx.away.statistics?.possession) ?? 50;
-  const hs = Number(fx.home.statistics?.shots_total ?? 0) || 0;
-  const as_ = Number(fx.away.statistics?.shots_total ?? 0) || 0;
-  const hc = Number(fx.home.statistics?.corners ?? 0) || 0;
-  const ac = Number(fx.away.statistics?.corners ?? 0) || 0;
+/**
+ * FE presentation momentum from live stats only.
+ * Returns null when there is no confirmed possession/shots/corners — never invents 50%.
+ */
+export function momentumFromLive(
+  fx: LiveFixture,
+): NonNullable<MatchCard["momentum"]> | null {
+  const hp = parsePossession(fx.home.statistics?.possession);
+  const ap = parsePossession(fx.away.statistics?.possession);
+  const hs = parseNumericStat(fx.home.statistics?.shots_total);
+  const as_ = parseNumericStat(fx.away.statistics?.shots_total);
+  const hc = parseNumericStat(fx.home.statistics?.corners);
+  const ac = parseNumericStat(fx.away.statistics?.corners);
 
-  const homePressure = hp + hs * 4 + hc * 3;
-  const awayPressure = ap + as_ * 4 + ac * 3;
+  let homePressure = 0;
+  let awayPressure = 0;
+  let signals = 0;
+
+  if (hp != null && ap != null) {
+    homePressure += hp;
+    awayPressure += ap;
+    signals += 1;
+  }
+  if (hs != null && as_ != null) {
+    homePressure += hs * 4;
+    awayPressure += as_ * 4;
+    signals += 1;
+  }
+  if (hc != null && ac != null) {
+    homePressure += hc * 3;
+    awayPressure += ac * 3;
+    signals += 1;
+  }
+
+  if (signals === 0) return null;
+
   const gap = Math.abs(homePressure - awayPressure);
 
   if (gap < 12) {
     return {
-      label: "Equilíbrio",
+      label: "Ritmo da partida",
       side: "neutral",
-      detail: "Partida sem dominância clara.",
+      detail: "Confronto equilibrado.",
     };
   }
 
@@ -396,8 +427,8 @@ export function momentumFromLive(fx: LiveFixture): NonNullable<MatchCard["moment
     side,
     detail: [
       posse != null ? `${Math.round(posse)}% posse` : null,
-      shots > 0 ? `${shots} finalizações` : null,
-      corners > 0 ? `${corners} escanteios` : null,
+      shots != null ? `${shots} finalizações` : null,
+      corners != null ? `${corners} escanteios` : null,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -411,7 +442,7 @@ export function applyLiveToMatchCard(
   const sh = fx.home.score;
   const sa = fx.away.score;
   const minute = fx.status?.minute ?? card.minute ?? null;
-  const momentum = momentumFromLive(fx);
+  const liveMomentum = momentumFromLive(fx);
 
   return {
     ...card,
@@ -431,11 +462,8 @@ export function applyLiveToMatchCard(
     is_live: true,
     status_label:
       fx.status?.long || fx.status?.short || card.status_label || "Ao vivo",
-    momentum: {
-      label: momentum.label,
-      side: momentum.side,
-      detail: momentum.detail,
-    },
+    // Only overwrite momentum when live feed confirms pressure signals.
+    momentum: liveMomentum ?? card.momentum ?? null,
     competition: card.competition?.name
       ? card.competition
       : fx.league?.name

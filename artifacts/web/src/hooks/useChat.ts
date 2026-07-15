@@ -559,7 +559,8 @@ export function useChat() {
         return;
       }
 
-      // Not in live feed — keep MatchHeader/context; never INVALID
+      // Not in live feed — keep MatchHeader/context; never INVALID.
+      // Clear liveStats so stale statistics are never reused.
       setSessions(() =>
         patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => {
           if (!m.response) return { ...m, refreshing: false };
@@ -568,6 +569,7 @@ export function useChat() {
             ...m,
             refreshing: false,
             refreshedAt: now(),
+            liveStats: null,
             liveStatusNote:
               "Partida encerrada ou não está mais ao vivo.",
             response: {
@@ -581,12 +583,13 @@ export function useChat() {
         }),
       );
     } catch {
+      // Never keep stale liveStats after a failed refresh — credibility first.
       setSessions(() =>
         patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => ({
           ...m,
           refreshing: false,
-          liveStatusNote:
-            "Não foi possível atualizar agora. Tente novamente em instantes.",
+          liveStats: null,
+          liveStatusNote: "⚠️ Dados temporariamente indisponíveis.",
         })),
       );
     }

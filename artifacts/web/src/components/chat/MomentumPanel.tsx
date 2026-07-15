@@ -15,8 +15,8 @@ function foldMomentumLabel(label: string): {
       tone: "extreme",
     };
   }
-  if (/equil[ií]brio|balanced|neutral/.test(l)) {
-    return { title: "Equilíbrio", tone: "balance" };
+  if (/ritmo da partida|equil[ií]brio|balanced|neutral/.test(l)) {
+    return { title: "Ritmo da partida", tone: "balance" };
   }
   if (/visitante|away/.test(l)) {
     return { title: "Pressão do visitante", tone: "away" };
@@ -29,7 +29,7 @@ function foldMomentumLabel(label: string): {
 
 function iconFor(tone: string): string {
   if (tone === "extreme") return "🚨";
-  if (tone === "balance") return "⚖️";
+  if (tone === "balance") return "📊";
   return "🔥";
 }
 
