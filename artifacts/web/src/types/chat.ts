@@ -113,6 +113,15 @@ export interface DebugAudit {
   fixture_quality?: string;
 }
 
+/** FE-only live stats snapshot (not a backend payload field). */
+export interface LiveStatsSnapshot {
+  homeName: string;
+  awayName: string;
+  rows: Array<{ label: string; home: string; away: string }>;
+  fixtureId: number;
+  minute: number | null;
+}
+
 export interface Message {
   id: string;
   role: "user" | "aurora";
@@ -121,6 +130,12 @@ export interface Message {
   error?: string;
   createdAt: string;
   loading?: boolean;
+  /** FE-only: last successful live refresh timestamp (ISO). */
+  refreshedAt?: string;
+  /** FE-only: live statistics table from GET /aurora/live. */
+  liveStats?: LiveStatsSnapshot | null;
+  /** FE-only: refresh in progress for this message. */
+  refreshing?: boolean;
 }
 
 export interface Session {

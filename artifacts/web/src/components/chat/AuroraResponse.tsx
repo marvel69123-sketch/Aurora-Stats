@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  buildLiveStatsView,
+  fetchLiveFixtures,
+  findLiveFixture,
+  momentumFromLive,
+} from "@/lib/liveMatch";
 import { marketLabelPt, oneLinePt, scrubProsePt } from "@/lib/marketDisplay";
-import type { CopilotResponse, DebugAudit, MarketEntry } from "@/types/chat";
+import type {
+  CopilotResponse,
+  DebugAudit,
+  LiveStatsSnapshot,
+  MarketEntry,
+  MatchCard,
+} from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
+import { LiveStatsPanel } from "./LiveStatsPanel";
 import { MarkdownInline } from "./Markdown";
 import { MatchHeader, canRenderMatchHeader } from "./MatchHeader";
+import { MomentumPanel } from "./MomentumPanel";
 import { WarningCard } from "./WarningCard";
 
 const INVALID_FIXTURE_TITLE =
@@ -61,7 +75,12 @@ const LOW_CONF_IDEA_RE =
   /confiança\s+(muito\s+)?baixa|manteve a conversa|ainda faltam sinais|previsibilidade\s+(muito\s+)?baixa|aguardar(ia)?\s+mais\s+confirma|prefira\s+acompanhar|sinais\s+(claros\s+)?insuficientes|cenário\s+(de\s+)?(baixa confiança|incerto)|fixture\s+(oficial\s+)?(ainda\s+)?n[aã]o\s+confirm|dados\s+parciais|sem fixture|indispon[ií]vel/i;
 
 const TECH_FACTOR_RE =
-  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|puxando a nota|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%|api[-_\s]?football|data_completeness|market_generation|category pulling|portfolio exposure/i;
+  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|puxando a nota|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%|api[-_\s]?football|data_completeness|market_generation|category pulling|portfolio exposure|regras ao vivo|gest[aã]o de risco|nenhum dado hist[oó]rico|mercado de melhor desempenho/i;
+
+/** Strip noisy technical methodology notes from the main/details surface. */
+function publicNotes(notes: string[]): string[] {
+  return notes.filter((n) => !TECH_FACTOR_RE.test(n) && !/^\[/.test(n.trim()));
+}
 
 const INTERESTING_MARKET_RE =
   /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under|handicap|dnb/i;
@@ -299,13 +318,19 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
   );
 }
 
-/** Aurora v3.4 — product UX: opportunity > risk > details; no repeated ideas. */
+/** Aurora v3.5 — live experience + premium presentation hierarchy. */
 export function AuroraResponse({
   response,
   onRefreshMatch,
+  refreshing = false,
+  refreshedAt = null,
+  liveStats = null,
 }: {
   response: CopilotResponse;
   onRefreshMatch?: () => void;
+  refreshing?: boolean;
+  refreshedAt?: string | null;
+  liveStats?: LiveStatsSnapshot | null;
 }) {
   if (isInvalidFixture(response)) {
     return (
@@ -322,7 +347,8 @@ export function AuroraResponse({
 
   const usedIdeas = new Set<string>();
   const hasMarkets = response.best_markets.length > 0;
-  const hasNotes = response.knowledge_notes.length > 0;
+  const notes = publicNotes(response.knowledge_notes || []);
+  const hasNotes = notes.length > 0;
   const hasHistory = response.historical_references.length > 0;
 
   const badges = deriveBadges(response);
@@ -340,7 +366,7 @@ export function AuroraResponse({
     response.intent === "live_opportunities" ||
     response.intent === "live_team_analysis";
 
-  const card = response.match_card ?? null;
+  const baseCard = response.match_card ?? null;
   const fixtureStatus =
     response.fixture_status ||
     (typeof response.entities?.fixture_status === "string"
@@ -357,12 +383,52 @@ export function AuroraResponse({
     fixtureStatus === "FICTIONAL" ||
     response.entities?.entity_invalid === true;
 
-  const showMatchHeader = !integrityBlocked && canRenderMatchHeader(card);
+  const showMatchHeader = !integrityBlocked && canRenderMatchHeader(baseCard);
+  const isLiveCard = Boolean(baseCard?.is_live || response.is_live);
+
+  const [bootStats, setBootStats] = useState<LiveStatsSnapshot | null>(null);
+  const [bootMomentum, setBootMomentum] = useState<MatchCard["momentum"] | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!isLiveCard || !baseCard?.home?.name || !baseCard?.away?.name) return;
+    if (liveStats) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const fixtures = await fetchLiveFixtures();
+        const live = findLiveFixture(
+          fixtures,
+          baseCard.home.name,
+          baseCard.away.name,
+        );
+        if (cancelled || !live) return;
+        setBootStats(buildLiveStatsView(live));
+        setBootMomentum(momentumFromLive(live));
+      } catch {
+        // optional enrichment — ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLiveCard,
+    liveStats,
+    baseCard?.home?.name,
+    baseCard?.away?.name,
+  ]);
+
+  const statsView = liveStats || bootStats;
+  const card: MatchCard | null =
+    baseCard && bootMomentum && !baseCard.momentum?.detail
+      ? { ...baseCard, momentum: bootMomentum }
+      : baseCard;
 
   const matchLabel =
     response.match && !/^unknown$/i.test(response.match) ? response.match : null;
 
-  // Alert claims low_conf first so summary never repeats it
   const alertText =
     !isSocial && isAnalysis ? decisionAlert(response) : null;
   if (alertText) usedIdeas.add("low_conf");
@@ -370,7 +436,7 @@ export function AuroraResponse({
   const summaryText = compactSummary(
     response.executive_summary || "",
     usedIdeas,
-    isAnalysis ? matchLabel : null,
+    isAnalysis && !showMatchHeader ? matchLabel : null,
   );
 
   const interesting =
@@ -391,14 +457,12 @@ export function AuroraResponse({
       ? uniqueBullets(response.negative_factors || [], usedIdeas, 3)
       : [];
 
+  // Prefer MatchHeader over duplicate "England x Argentina ao vivo" meta line
   const metaBits: string[] = [];
-  if (!showMatchHeader) {
-    if (matchLabel && !integrityBlocked) metaBits.push(matchLabel);
-    if (response.is_live) {
-      metaBits.push(
-        response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
-      );
-    }
+  if (!showMatchHeader && !integrityBlocked && response.is_live) {
+    metaBits.push(
+      response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
+    );
   }
 
   const showDetails =
@@ -411,12 +475,27 @@ export function AuroraResponse({
       hasNotes ||
       hasHistory);
 
+  const momentum =
+    card?.momentum && card.momentum.label ? card.momentum : bootMomentum;
+  const showMomentum = Boolean(isLiveCard && momentum?.label);
+
+  const highRiskUrgent =
+    response.risk.level === "High" &&
+    (response.is_live || card?.is_live) &&
+    !alertText;
+
   return (
-    <article className="w-full max-w-none space-y-6 sm:space-y-7">
+    <article className="w-full max-w-none space-y-7 sm:space-y-8">
       <InsightBadgeRow kinds={badges} />
 
       {showMatchHeader && card ? (
-        <MatchHeader card={card} onRefresh={onRefreshMatch} />
+        <MatchHeader
+          card={card}
+          onRefresh={onRefreshMatch}
+          refreshing={refreshing}
+          refreshedAt={refreshedAt}
+          hideMomentum={showMomentum}
+        />
       ) : metaBits.length > 0 ? (
         <header aria-label="Partida">
           <p className="text-[0.9375rem] font-medium leading-relaxed text-[#ECECEC]">
@@ -427,20 +506,20 @@ export function AuroraResponse({
 
       {summaryText ? (
         <section aria-label="Resumo">
-          <p className="text-[15px] leading-[1.7] text-[#ECECEC]/92">{summaryText}</p>
+          <p className="text-[15px] leading-[1.75] text-[#ECECEC]/92">
+            {summaryText}
+          </p>
         </section>
       ) : null}
 
-      {/* Oportunidade */}
+      {/* 1) Oportunidade */}
       {showMarketsBlock && (
         <section
           className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3"
-          aria-label="Destaque"
+          aria-label="Mercado em destaque"
         >
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/75">
-            {response.is_live || (showMatchHeader && card?.is_live)
-              ? "Neste momento"
-              : "Destaque"}
+            💡 Mercado em destaque
           </p>
           {interesting.length > 0 ? (
             <ul className="space-y-2.5">
@@ -468,14 +547,14 @@ export function AuroraResponse({
         </section>
       )}
 
-      {/* Risco — um alerta */}
+      {/* 2) Atenção */}
       {alertText ? (
         <section
           className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
-          aria-label="Alerta"
+          aria-label="Atenção"
         >
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
-            Alerta
+            ⚠️ Atenção
           </p>
           <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
             {alertText}
@@ -483,13 +562,32 @@ export function AuroraResponse({
         </section>
       ) : null}
 
+      {/* 3) Urgência */}
+      {highRiskUrgent ? (
+        <section
+          className="rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-2.5"
+          aria-label="Evento importante"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-300/80">
+            🚨 Evento importante
+          </p>
+          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
+            Cenário de risco elevado — revise stake e invalidadores antes de entrar.
+          </p>
+        </section>
+      ) : null}
+
+      {isLiveCard && statsView ? <LiveStatsPanel stats={statsView} /> : null}
+
+      {showMomentum && momentum ? <MomentumPanel momentum={momentum} /> : null}
+
       {(favorBullets.length > 0 || attentionBullets.length > 0) && (
         <section
           className="grid gap-4 sm:grid-cols-2 sm:gap-6"
           aria-label="Pontos rápidos"
         >
           {favorBullets.length > 0 && (
-            <div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
                 A favor
               </p>
@@ -499,16 +597,16 @@ export function AuroraResponse({
                     key={i}
                     className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
                   >
-                    {f}
+                    • {f}
                   </li>
                 ))}
               </ul>
             </div>
           )}
           {attentionBullets.length > 0 && (
-            <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-                Atenção
+            <div className="rounded-xl border border-amber-400/12 bg-amber-400/[0.03] px-3.5 py-3">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
+                ⚠️ Atenção
               </p>
               <ul className="space-y-1">
                 {attentionBullets.map((f, i) => (
@@ -516,7 +614,7 @@ export function AuroraResponse({
                     key={i}
                     className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
                   >
-                    {f}
+                    • {f}
                   </li>
                 ))}
               </ul>
@@ -564,7 +662,7 @@ export function AuroraResponse({
           {hasNotes && (
             <section aria-label="Notas">
               <ul className="space-y-1.5">
-                {response.knowledge_notes.slice(0, 4).map((n, i) => (
+                {notes.slice(0, 4).map((n, i) => (
                   <li key={i} className="text-[0.75rem] leading-relaxed text-[#A0A0A0]">
                     <MarkdownInline text={scrubProsePt(n)} />
                   </li>

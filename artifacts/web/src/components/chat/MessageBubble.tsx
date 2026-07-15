@@ -49,7 +49,7 @@ export function MessageBubble({
             <span className="aurora-dot h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" />
             <span className="aurora-dot h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" />
           </div>
-        ) : message.error ? (
+        ) : message.error && !message.response ? (
           <section className="space-y-2" aria-label="Erro">
             <p className="text-[15px] leading-[1.8] text-rose-300/90">{message.error}</p>
             <p className="text-sm leading-relaxed text-[#A0A0A0]">
@@ -60,6 +60,9 @@ export function MessageBubble({
           <AuroraResponse
             response={message.response}
             onRefreshMatch={onRefreshMatch}
+            refreshing={Boolean(message.refreshing)}
+            refreshedAt={message.refreshedAt ?? null}
+            liveStats={message.liveStats ?? null}
           />
         ) : null}
       </div>

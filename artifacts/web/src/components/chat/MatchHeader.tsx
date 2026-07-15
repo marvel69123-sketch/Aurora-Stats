@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { formatUpdatedAgo } from "@/lib/liveMatch";
 import type { MatchCard } from "@/types/chat";
 
 const TEAM_STOP_WORDS = new Set([
@@ -110,29 +111,32 @@ function TeamCrest({
   );
 }
 
-function statusLine(card: MatchCard): string {
-  const bits: string[] = [];
-  if (card.is_live) {
-    bits.push(card.minute != null ? `Ao vivo ${card.minute}'` : "Ao vivo");
-  } else if (
-    card.status_label &&
-    !isBlankOrUnknown(card.status_label) &&
-    !/^not\s*started$/i.test(card.status_label)
-  ) {
-    bits.push(card.status_label);
-  }
-  return bits.join(" · ");
-}
-
 interface MatchHeaderProps {
   card: MatchCard;
   onRefresh?: () => void;
+  refreshing?: boolean;
+  refreshedAt?: string | null;
+  /** When true, momentum is shown in a richer panel below — avoid duplicate chip. */
+  hideMomentum?: boolean;
   className?: string;
 }
 
 /** Rich match header — logos, score, competition, venue, momentum. */
-export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
-  const status = statusLine(card);
+export function MatchHeader({
+  card,
+  onRefresh,
+  refreshing = false,
+  refreshedAt = null,
+  hideMomentum = false,
+  className,
+}: MatchHeaderProps) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!refreshedAt) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 5000);
+    return () => window.clearInterval(id);
+  }, [refreshedAt]);
+
   const venueLine = [card.venue?.name, card.venue?.city]
     .filter((v) => v && !isBlankOrUnknown(v))
     .join(" · ");
@@ -142,10 +146,14 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
       ? card.competition.round
       : null;
 
+  const updatedLabel = formatUpdatedAgo(refreshedAt);
+  const liveMinute =
+    card.is_live && card.minute != null ? `${card.minute}'` : null;
+
   return (
     <header
       className={cn(
-        "rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-4 sm:px-5",
+        "rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-4 sm:px-5",
         className,
       )}
       aria-label="Cabeçalho da partida"
@@ -181,7 +189,7 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-center gap-1 px-1">
+        <div className="flex shrink-0 flex-col items-center gap-1.5 px-1">
           {card.score ? (
             <p
               className="font-semibold tabular-nums tracking-tight text-[#ECECEC]"
@@ -195,9 +203,22 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
           ) : (
             <p className="text-sm font-medium tracking-[0.2em] text-white/40">VS</p>
           )}
-          {status ? (
-            <p className="text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-emerald-400/80">
-              {status}
+          {card.is_live ? (
+            <p
+              className="aurora-live-pulse flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-rose-400"
+              aria-label={liveMinute ? `Ao vivo ${liveMinute}` : "Ao vivo"}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.85)]"
+                aria-hidden
+              />
+              AO VIVO{liveMinute ? ` ${liveMinute}` : ""}
+            </p>
+          ) : card.status_label &&
+            !isBlankOrUnknown(card.status_label) &&
+            !/^not\s*started$/i.test(card.status_label) ? (
+            <p className="text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-[#A0A0A0]">
+              {card.status_label}
             </p>
           ) : null}
         </div>
@@ -216,7 +237,9 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
         </p>
       ) : null}
 
-      {card.momentum?.label && !isBlankOrUnknown(card.momentum.label) ? (
+      {!hideMomentum &&
+      card.momentum?.label &&
+      !isBlankOrUnknown(card.momentum.label) ? (
         <div className="mt-3 flex flex-col items-center gap-1">
           <span className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[0.6875rem] font-medium tracking-wide text-[#ECECEC]/90">
             {card.momentum.label}
@@ -229,15 +252,24 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
         </div>
       ) : null}
 
-      {onRefresh && card.is_live ? (
-        <div className="mt-3.5 flex justify-center">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="rounded-full border border-white/[0.10] bg-white/[0.04] px-3.5 py-1.5 text-[0.75rem] font-medium text-[#ECECEC]/90 transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/30"
-          >
-            Atualizar partida
-          </button>
+      {(onRefresh && card.is_live) || updatedLabel ? (
+        <div className="mt-3.5 flex flex-col items-center gap-1.5">
+          {onRefresh && card.is_live ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="rounded-full border border-white/[0.10] bg-white/[0.04] px-3.5 py-1.5 text-[0.75rem] font-medium text-[#ECECEC]/90 transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/30 disabled:cursor-wait disabled:opacity-60"
+            >
+              {refreshing ? "Atualizando…" : "Atualizar partida"}
+            </button>
+          ) : null}
+          {updatedLabel ? (
+            <p className="text-[0.6875rem] text-[#A0A0A0]/80">
+              {liveMinute ? `Última atualização: ${liveMinute}` : updatedLabel}
+              {liveMinute && updatedLabel ? ` · ${updatedLabel}` : ""}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </header>

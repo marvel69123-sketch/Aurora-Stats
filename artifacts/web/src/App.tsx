@@ -20,6 +20,7 @@ export default function App() {
     renameSession,
     togglePinSession,
     sendMessage,
+    refreshLiveMatch,
   } = useChat();
   const { avatarUrl, setFromFile, clear } = useAuroraAvatar();
 
@@ -34,7 +35,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#212121] text-[#ECECEC] antialiased">
+    <div className="flex h-screen overflow-hidden bg-[#171717] text-[#ECECEC] antialiased">
       <Sidebar
         sessions={sessions}
         activeId={activeId}
@@ -54,8 +55,8 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#212121]">
-        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#212121] px-3 md:px-5">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#171717]">
+        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#171717] px-3 md:px-5">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -68,7 +69,7 @@ export default function App() {
           <div className="flex min-w-0 items-center gap-2.5">
             <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
             <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
-              {activeSession?.title ?? "Aurora"}
+              Aurora
             </p>
           </div>
         </header>
@@ -78,6 +79,7 @@ export default function App() {
           loading={loading}
           avatarUrl={avatarUrl}
           onSend={sendMessage}
+          onRefreshLiveMatch={refreshLiveMatch}
         />
       </main>
     </div>

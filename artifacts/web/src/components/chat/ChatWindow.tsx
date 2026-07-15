@@ -9,6 +9,7 @@ interface ChatWindowProps {
   loading: boolean;
   avatarUrl: string | null;
   onSend: (text: string) => void;
+  onRefreshLiveMatch?: (messageId: string) => void;
 }
 
 const STARTERS = [
@@ -50,7 +51,7 @@ function EmptyState({
             key={p.text}
             type="button"
             onClick={() => onSend(p.text)}
-            className="rounded-2xl border border-white/[0.06] bg-[#1f1f1f]/50 px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03] hover:border-white/[0.10]"
+            className="rounded-2xl border border-white/[0.06] bg-[#1f1f1f]/40 px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03] hover:border-white/[0.10]"
           >
             <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]/92">
               {p.label}
@@ -75,6 +76,7 @@ export function ChatWindow({
   loading,
   avatarUrl,
   onSend,
+  onRefreshLiveMatch,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLElement>(null);
   const messages = session?.messages ?? [];
@@ -99,15 +101,15 @@ export function ChatWindow({
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <section className="aurora-chat-column mx-auto w-full max-w-3xl space-y-11 px-3 py-8 sm:space-y-12 sm:px-5 md:px-6 md:py-11">
+          <section className="aurora-chat-column mx-auto w-full max-w-3xl space-y-12 px-3 py-8 sm:space-y-14 sm:px-5 md:px-6 md:py-12">
             {messages.map((msg) => (
               <MessageBubble
                 key={msg.id}
                 message={msg}
                 avatarUrl={avatarUrl}
                 onRefreshMatch={
-                  msg.response?.match_card?.is_live
-                    ? () => onSend("atualizar partida")
+                  msg.response?.match_card?.is_live && onRefreshLiveMatch
+                    ? () => onRefreshLiveMatch(msg.id)
                     : undefined
                 }
               />
@@ -117,7 +119,11 @@ export function ChatWindow({
       </section>
 
       <footer className="bg-gradient-to-t from-[#171717] via-[#171717]/95 to-transparent">
-        <ChatInput onSend={onSend} disabled={loading} />
+        <ChatInput
+          onSend={onSend}
+          disabled={loading}
+          sessionId={session?.id ?? null}
+        />
       </footer>
     </section>
   );

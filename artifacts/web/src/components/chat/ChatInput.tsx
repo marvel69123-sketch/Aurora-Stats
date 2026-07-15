@@ -1,15 +1,35 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend: (text: string) => void;
   disabled: boolean;
+  sessionId?: string | null;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+const ROTATING_PHRASES = [
+  "O melhor apostador não prevê tudo — ele gerencia riscos.",
+  "Uma boa leitura vale mais que uma entrada apressada.",
+  "Nem toda oportunidade precisa ser aproveitada.",
+  "O contexto do jogo muda tudo.",
+  "Lucro consistente nasce de decisões disciplinadas.",
+  "A paciência também é uma estratégia.",
+];
+
+function phraseForSession(sessionId: string | null | undefined): string {
+  if (!sessionId) return ROTATING_PHRASES[0];
+  let h = 0;
+  for (let i = 0; i < sessionId.length; i += 1) {
+    h = (h * 31 + sessionId.charCodeAt(i)) >>> 0;
+  }
+  return ROTATING_PHRASES[h % ROTATING_PHRASES.length];
+}
+
+export function ChatInput({ onSend, disabled, sessionId = null }: ChatInputProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const phrase = useMemo(() => phraseForSession(sessionId), [sessionId]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -78,7 +98,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         </button>
       </div>
       <p className="aurora-chat-column mt-3 text-center text-[11px] leading-relaxed tracking-wide text-[#A0A0A0]/70">
-        Aurora pode errar. Confira dados ao vivo antes de decidir.
+        {phrase}
       </p>
     </section>
   );
