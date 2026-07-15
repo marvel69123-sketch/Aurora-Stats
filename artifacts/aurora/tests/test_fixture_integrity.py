@@ -159,3 +159,37 @@ def test_flamengo_palmeiras_precheck_ok():
     result = assess_named_fixture("Flamengo", "Palmeiras")
     assert result.status == "FOUND"
     assert result.quality == "VALID"
+
+
+def _assert_precheck_ok(home: str, away: str):
+    result = assess_named_fixture(home, away)
+    assert result.is_blocked is False, (
+        f"{home} x {away} should pass precheck, got {result.status} {result.reasons}"
+    )
+    assert result.quality == "VALID"
+    assert result.markets_blocked is False
+    assert result.header_blocked is False
+
+
+def test_libertad_universitario_precheck_ok():
+    _assert_precheck_ok("Libertad", "Universitario")
+
+
+def test_libertad_fc_tecnico_universitario_precheck_ok():
+    _assert_precheck_ok("Libertad FC", "Tecnico Universitario")
+    _assert_precheck_ok("Libertad FC", "Técnico Universitario")
+
+
+def test_required_big_clubs_precheck_ok():
+    _assert_precheck_ok("Arsenal", "Chelsea")
+    _assert_precheck_ok("Argentina", "Inglaterra")
+    _assert_precheck_ok("Flamengo", "Santos")
+    _assert_precheck_ok("Real Madrid", "Barcelona")
+    _assert_precheck_ok("Man City", "Liverpool")
+    _assert_precheck_ok("Manchester City", "Liverpool")
+
+
+def test_required_fiction_still_invalid():
+    _assert_invalid("Goku", "Vegeta", expect_status="FICTIONAL")
+    _assert_invalid("Brasil", "Marte FC", expect_status="FICTIONAL")
+    _assert_invalid("Naruto", "Dragon Ball", expect_status="FICTIONAL")
