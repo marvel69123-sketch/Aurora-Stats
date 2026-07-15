@@ -21,7 +21,8 @@ INVALID_FIXTURE_MESSAGE = (
 
 _MAX_CHARS = 35
 _MAX_WORDS = 4
-_MIN_SIMILARITY = 0.72
+_MIN_SIMILARITY = 0.60  # was 0.72 — too strict for real clubs missing from aliases
+_VERY_LOW_SIMILARITY = 0.45  # below this → treat as unknown / INVALID
 
 # Conversational leftovers that must never appear inside a team entity
 _ENTITY_STOP_WORDS: frozenset[str] = frozenset(
@@ -92,6 +93,11 @@ def _known_team_names() -> list[str]:
         logger.warning("entity_validator: TEAM_ALIASES unavailable (%s)", exc)
         _KNOWN_TEAMS_CACHE = []
     return _KNOWN_TEAMS_CACHE
+
+
+def clear_known_teams_cache() -> None:
+    global _KNOWN_TEAMS_CACHE
+    _KNOWN_TEAMS_CACHE = None
 
 
 def team_similarity(name: str) -> float:

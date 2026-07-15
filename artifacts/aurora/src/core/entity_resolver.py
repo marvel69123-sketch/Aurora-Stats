@@ -85,7 +85,7 @@ def has_alias(name: str) -> bool:
 
 
 # Fuzzy typo correction (difflib) — argentin→argentina, flamngo→flamengo, etc.
-_FUZZY_CUTOFF = 0.78
+_FUZZY_CUTOFF = 0.74  # was 0.78 — allow mild typos (flamngo, argentin, sants)
 _FUZZY_CANDIDATES: list[tuple[str, str]] | None = None
 
 
@@ -109,6 +109,16 @@ def _fuzzy_candidates() -> list[tuple[str, str]]:
                 pairs.setdefault(c, canon)
     _FUZZY_CANDIDATES = sorted(pairs.items(), key=lambda x: x[0])
     return _FUZZY_CANDIDATES
+
+
+def clear_fuzzy_cache() -> None:
+    """Reset fuzzy candidate cache (e.g. after alias table updates in tests)."""
+    global _FUZZY_CANDIDATES
+    _FUZZY_CANDIDATES = None
+    try:
+        get_resolver().clear_cache()
+    except Exception:
+        pass
 
 
 def _alias_canonical(name: str) -> str | None:

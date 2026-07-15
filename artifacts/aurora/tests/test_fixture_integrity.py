@@ -1,4 +1,4 @@
-"""Aurora v3.3.2-beta — Fixture Integrity Guard tests."""
+"""Aurora — Fixture Integrity Guard tests (relaxed PARTIAL vs INVALID)."""
 from __future__ import annotations
 
 import sys
@@ -8,11 +8,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.core.entity_resolver import clear_fuzzy_cache
+from src.core.entity_validator import clear_known_teams_cache
 from src.core.fixture_integrity import (
     INTEGRITY_NOT_FOUND_MESSAGE,
+    assess_analyze_result,
     assess_named_fixture,
     blocked_integrity_payload,
+    partial_integrity_payload,
 )
+
+clear_fuzzy_cache()
+clear_known_teams_cache()
 
 
 def _assert_sports_fail(home: str, away: str, *, expect_status: str | None = None):
@@ -72,3 +79,34 @@ def test_real_clubs_pass_precheck():
     assert result.markets_blocked is False
     assert result.market_generation_enabled is True
     assert result.is_blocked is False
+
+
+def test_arsenal_chelsea_precheck_valid():
+    result = assess_named_fixture("Arsenal", "Chelsea")
+    assert result.is_blocked is False
+    assert result.status == "FOUND"
+    assert result.quality == "VALID"
+    assert result.entity_match_score >= 0.9
+
+
+def test_arsenal_chelsea_missing_fixture_is_partial_not_invalid():
+    result = assess_analyze_result(
+        "Arsenal",
+        "Chelsea",
+        fixture_id=0,
+        is_partial=True,
+        data_completeness=0.0,
+    )
+    assert result.status == "PARTIAL"
+    assert result.quality == "PARTIAL"
+    assert result.is_blocked is False
+    assert result.markets_blocked is True
+    assert result.fixture_found is False
+    payload = partial_integrity_payload(result, brain={"v": "test"})
+    assert payload["fixture_quality"] == "PARTIAL"
+    assert payload["fixture_found"] is False
+    assert payload["best_markets"] == []
+    assert payload["entities"]["entity_invalid"] is False
+    assert "parcial" in payload["executive_summary"].lower() or "reconhecido" in (
+        payload["executive_summary"].lower()
+    )

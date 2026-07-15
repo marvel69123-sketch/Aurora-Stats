@@ -439,12 +439,12 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         an,
     )
 
-    # v3.3.2-beta: never generate generic markets / analysis narrative
-    # when the sports fixture was not located.
+    # Known teams without a current API fixture → PARTIAL (not INVALID).
+    # Fiction / unknown entities → INVALID via integrity_response_payload.
     if not fixture_located_early:
         from src.core.fixture_integrity import (
             assess_analyze_result as _assess_missing,
-            blocked_integrity_payload as _blocked_missing,
+            integrity_response_payload as _integrity_payload,
         )
 
         _miss = _assess_missing(
@@ -456,10 +456,11 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         )
         logger.warning(
             "[DEBUG] fixture_resolver=early_abort fixture_found=false "
-            "market_generation_enabled=false reasons=%s",
+            "fixture_quality=%s market_generation_enabled=false reasons=%s",
+            _miss.quality,
             _miss.reasons,
         )
-        return _blocked_missing(_miss, brain=get_brain_meta())
+        return _integrity_payload(_miss, brain=get_brain_meta())
 
     logger.info(
         "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
