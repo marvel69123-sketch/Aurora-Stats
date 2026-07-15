@@ -1,4 +1,4 @@
-"""Aurora v3.3.0-beta — match_card presentation builder tests."""
+"""Aurora v3.3.1-beta — match_card presentation builder tests."""
 from __future__ import annotations
 
 import sys

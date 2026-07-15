@@ -2,6 +2,77 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { MatchCard } from "@/types/chat";
 
+const TEAM_STOP_WORDS = new Set([
+  "aurora",
+  "quero",
+  "saber",
+  "sobre",
+  "agora",
+  "amanha",
+  "amanhã",
+  "hoje",
+  "analise",
+  "análise",
+  "analisar",
+  "analisa",
+  "favor",
+  "diga",
+  "como",
+  "esta",
+  "está",
+  "vivo",
+  "versus",
+  "contra",
+  "unknown",
+]);
+
+function foldAscii(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** True when a team name is garbage / placeholder and MatchHeader must not render. */
+export function isInvalidMatchTeamName(name?: string | null): boolean {
+  if (!name || !name.trim()) return true;
+  const raw = name.trim();
+  if (/^unknown$/i.test(raw)) return true;
+  if (raw.length > 35) return true;
+
+  const words = foldAscii(raw).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  if (words.length > 4) return true;
+  if (words.some((w) => TEAM_STOP_WORDS.has(w))) return true;
+
+  const compact = words.join("");
+  for (const stop of TEAM_STOP_WORDS) {
+    if (stop.length >= 4 && compact.includes(stop) && compact !== stop) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function canRenderMatchHeader(card: MatchCard | null | undefined): boolean {
+  if (!card?.home?.name || !card?.away?.name) return false;
+  if (isInvalidMatchTeamName(card.home.name)) return false;
+  if (isInvalidMatchTeamName(card.away.name)) return false;
+  return true;
+}
+
+function isBlankOrUnknown(value?: string | null): boolean {
+  if (!value || !value.trim()) return true;
+  return /^(unknown|n\/?a|null|none|undefined)$/i.test(value.trim());
+}
+
+/** Competition label: never "Unknown"; null when missing/placeholder. */
+export function competitionDisplayName(name?: string | null): string | null {
+  if (isBlankOrUnknown(name)) return null;
+  return name!.trim();
+}
+
 function TeamCrest({
   name,
   logo,
@@ -43,7 +114,11 @@ function statusLine(card: MatchCard): string {
   const bits: string[] = [];
   if (card.is_live) {
     bits.push(card.minute != null ? `Ao vivo ${card.minute}'` : "Ao vivo");
-  } else if (card.status_label && !/^not\s*started$/i.test(card.status_label)) {
+  } else if (
+    card.status_label &&
+    !isBlankOrUnknown(card.status_label) &&
+    !/^not\s*started$/i.test(card.status_label)
+  ) {
     bits.push(card.status_label);
   }
   return bits.join(" · ");
@@ -58,7 +133,14 @@ interface MatchHeaderProps {
 /** Rich match header — logos, score, competition, venue, momentum. */
 export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
   const status = statusLine(card);
-  const venueLine = [card.venue?.name, card.venue?.city].filter(Boolean).join(" · ");
+  const venueLine = [card.venue?.name, card.venue?.city]
+    .filter((v) => v && !isBlankOrUnknown(v))
+    .join(" · ");
+  const competitionName = competitionDisplayName(card.competition?.name);
+  const competitionRound =
+    card.competition?.round && !isBlankOrUnknown(card.competition.round)
+      ? card.competition.round
+      : null;
 
   return (
     <header
@@ -68,9 +150,9 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
       )}
       aria-label="Cabeçalho da partida"
     >
-      {card.competition?.name && (
+      {competitionName ? (
         <div className="mb-3 flex items-center gap-2 text-[0.75rem] text-[#A0A0A0]">
-          {card.competition.logo ? (
+          {card.competition?.logo ? (
             <img
               src={card.competition.logo}
               alt=""
@@ -81,10 +163,14 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
             />
           ) : null}
           <span className="truncate tracking-wide">
-            {card.competition.name}
-            {card.competition.round ? ` · ${card.competition.round}` : ""}
+            {competitionName}
+            {competitionRound ? ` · ${competitionRound}` : ""}
           </span>
         </div>
+      ) : (
+        <p className="mb-3 text-[0.75rem] text-[#A0A0A0]">
+          Competição não identificada.
+        </p>
       )}
 
       <div className="flex items-center justify-between gap-3">
@@ -130,7 +216,7 @@ export function MatchHeader({ card, onRefresh, className }: MatchHeaderProps) {
         </p>
       ) : null}
 
-      {card.momentum?.label ? (
+      {card.momentum?.label && !isBlankOrUnknown(card.momentum.label) ? (
         <div className="mt-3 flex flex-col items-center gap-1">
           <span className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[0.6875rem] font-medium tracking-wide text-[#ECECEC]/90">
             {card.momentum.label}

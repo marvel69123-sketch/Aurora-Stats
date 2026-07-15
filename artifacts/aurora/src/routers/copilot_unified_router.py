@@ -134,7 +134,7 @@ class MatchPredictabilityCard(BaseModel):
 
 
 class MatchCard(BaseModel):
-    """Aurora v3.3.0-beta — rich live/prematch header (presentation only)."""
+    """Aurora v3.3.1-beta — rich live/prematch header (presentation only)."""
     home: MatchTeamCard
     away: MatchTeamCard
     score: MatchScoreCard | None = None
@@ -213,6 +213,33 @@ def _conf_label(score: float) -> str:
     if score >= 4:  return "adequate"
     if score >= 2:  return "weak"
     return "insufficient"
+
+
+def _resolve_fixture_confidence(
+    score: float,
+    *,
+    fixture_located: bool,
+    degraded: bool,
+) -> tuple[float, str]:
+    """
+    Confidence must reflect fixture quality (v3.3.1-beta).
+
+    - Fixture not located / degraded → very low (never moderate+)
+    - Fixture located and healthy → moderate or strong (alta)
+    """
+    try:
+        raw = float(score)
+    except (TypeError, ValueError):
+        raw = 0.0
+
+    if degraded or not fixture_located:
+        capped = round(min(max(raw, 0.0), 1.5), 1)
+        return capped, "insufficient"
+
+    if raw >= 7.5:
+        return round(min(raw, 10.0), 1), "strong"
+    # Located fixture → at least moderate (never advertise weak as "ok")
+    return round(max(raw, 6.0), 1), "moderate"
 
 
 def _parse_stake(stake_text: str) -> tuple[float, dict[str, float], str]:
@@ -425,6 +452,25 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
             ictx.data_completeness, ictx.missing_signals,
         )
 
+    fixture_id = (data.get("fixture") or {}).get("id") or fx.get("id") or 0
+    fixture_located = (not is_partial) and int(fixture_id or 0) > 0
+    degraded = bool(
+        is_partial
+        or not fixture_located
+        or ictx.data_completeness < 0.35
+    )
+    conf_score, conf_label = _resolve_fixture_confidence(
+        adj_score,
+        fixture_located=fixture_located,
+        degraded=degraded,
+    )
+    logger.warning(
+        "[AUDIT] fixture_confidence located=%s degraded=%s score=%.1f label=%s "
+        "(raw=%.1f adj=%.1f completeness=%.2f)",
+        fixture_located, degraded, conf_score, conf_label,
+        raw_score, adj_score, ictx.data_completeness,
+    )
+
     final_is_live = bool(report.is_live or api_is_live)
     final_minute = report.minute if report.minute is not None else api_minute
     final_status = report.status or status_block.get("long") or status_short
@@ -507,33 +553,39 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     final_rec = _compose_final(
         report_or_summary=report.executive_summary,
         primary_mkt=report.primary_recommendation,
-        conf_score=adj_score,
-        conf_label=_conf_label(adj_score),
+        conf_score=conf_score,
+        conf_label=conf_label,
         stake_pct=stake_pct,
         risk_level=report.risk_level if not is_partial else "High",
         best_ev=best_ev,
     )
-    if is_partial:
+    if is_partial or degraded:
         final_rec = (
             f"Análise parcial para **{hn} x {an}**: a partida não foi confirmada "
-            f"na API. Confiança ajustada para {adj_score:.1f}/10. "
+            f"na API. Confiança muito baixa ({conf_score:.1f}/10). "
             f"Tente o nome oficial dos times para dados completos. " + final_rec
         )
 
     conf_explanation = report.confidence_explanation or ""
-    if ictx.total_penalty() > 0:
+    if degraded or not fixture_located:
+        conf_explanation = (
+            "Fixture não localizada ou dados degradados — confiança muito baixa. "
+            + conf_explanation
+        ).strip()
+    elif ictx.total_penalty() > 0:
         conf_explanation = (
             f"{conf_explanation} "
             f"[Inference V2: completude {ictx.data_completeness * 100:.0f}%, "
             f"penalidade −{ictx.total_penalty():.1f}, "
-            f"score {raw_score:.1f}→{adj_score:.1f}]"
+            f"score {raw_score:.1f}→{conf_score:.1f}]"
         ).strip()
 
     executive = report.executive_summary
-    if is_partial:
+    if is_partial or degraded:
         executive = (
             f"**Dados parciais** para {hn} x {an}. "
-            f"A Aurora continuou a análise com confiança reduzida em vez de abortar.\n\n"
+            f"A Aurora manteve a conversa com confiança muito baixa "
+            f"(fixture não confirmada).\n\n"
             + (executive or "")
         )
 
@@ -555,13 +607,13 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "best_markets":      best_markets,
 
         "confidence": {
-            "score":        adj_score,
-            "label":        _conf_label(adj_score),
+            "score":        conf_score,
+            "label":        conf_label,
             "explanation":  conf_explanation,
             "data_sources": data_sources,
         },
         "risk": {
-            "level":                  "High" if is_partial else report.risk_level,
+            "level":                  "High" if (is_partial or degraded) else report.risk_level,
             "flags":                  risk_flags,
             "invalidation_conditions": report.invalidation_conditions,
         },
@@ -1228,22 +1280,16 @@ def _fixtures_equivalent(
     last_home: str = "",
     last_away: str = "",
 ) -> bool:
-    """True when named teams refer to the same fixture already in context."""
-    try:
-        from src.core.entity_resolver import fold
-    except Exception:
-        def fold(text: str) -> str:  # type: ignore[misc]
-            return (text or "").strip().lower()
+    """Compat wrapper → followup_guard.fixtures_equivalent."""
+    from src.core.followup_guard import fixtures_equivalent
 
-    fh, fa = fold(home or ""), fold(away or "")
-    if not fh or not fa:
-        return False
-    if last_home and last_away:
-        lh, la = fold(last_home), fold(last_away)
-        if {fh, fa} == {lh, la}:
-            return True
-    lm = fold(last_match or "")
-    return bool(lm) and fh in lm and fa in lm
+    return fixtures_equivalent(
+        home,
+        away,
+        last_match=last_match,
+        last_home=last_home,
+        last_away=last_away,
+    )
 
 
 def _parse_match_card_model(raw: object) -> MatchCard | None:
@@ -1365,57 +1411,72 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _st_exc:
         logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
 
-    # ── 0b. QuickFollowUpGate (BEFORE nl_router) — Phase 5B economy ───────
-    # If we already have a fixture in context and the message is a follow-up,
-    # resolve from last_analysis without NL / EntityResolver / full analyze.
-    #
-    # LIMITATION: Autoscale has no sticky sessions; SQLite is per-instance.
-    # Context here is best-effort (memory → local SQLite). Cross-node miss
-    # falls through to normal NL — never invent fixture context.
-    #
-    # v3.3.0-beta: if the message names a *different* A x B fixture, do NOT
-    # reuse prior context — prefer analyze_match with the new entities.
+    # ── 0b. Follow-up / fixture context guard (v3.3.1-beta) ───────────────
+    # Compare entities BEFORE reusing last_analysis. Different teams → discard
+    # follow-up, start a new fixture context, force analyze_match.
+    from src.core.followup_guard import (
+        decide_followup_reuse as _decide_fu_reuse,
+        start_new_fixture_context as _start_new_fx,
+    )
+
     _ctx_last_match = ctx.get("last_match") or ctx.get("last_fixture")
-    if payload is None and _ctx_last_match and _is_followup(message):
+    _fu_decision = _decide_fu_reuse(message, ctx)
+
+    if payload is None and _fu_decision.new_fixture and not _fu_decision.reuse:
+        # Explicit new A x B — never reuse prior England/etc. context
+        intent = "analyze_match"
+        entities = {
+            "home": _fu_decision.home,
+            "away": _fu_decision.away,
+            **({"is_live": True} if _fu_decision.is_live else {}),
+        }
+        routing_confidence = max(routing_confidence, 0.92)
+        skipped_nl = True
+        _start_new_fx(
+            ctx,
+            str(_fu_decision.home or ""),
+            str(_fu_decision.away or ""),
+            is_live=bool(_fu_decision.is_live),
+        )
+        logger.warning(
+            "[AUDIT] FixtureGuard: NEW fixture overrides context → analyze_match "
+            "prev=%r new=%r",
+            _fu_decision.previous_fixture,
+            _fu_decision.new_fixture,
+        )
+    elif payload is None and _ctx_last_match and _is_followup(message) and _fu_decision.reuse:
         logger.warning(
             "[AUDIT] QuickFollowUpGate: ENTER (before NL) last_match=%r message=%r",
             _ctx_last_match, message,
         )
-        _peek = _nl_route(message)
-        _ph = str((_peek.entities or {}).get("home") or "").strip()
-        _pa = str((_peek.entities or {}).get("away") or "").strip()
-        _new_fixture = (
-            _peek.intent == "analyze_match"
-            and bool(_ph)
-            and bool(_pa)
-            and not _fixtures_equivalent(
-                _ph,
-                _pa,
-                last_match=str(_ctx_last_match or ""),
-                last_home=str(ctx.get("last_home") or ""),
-                last_away=str(ctx.get("last_away") or ""),
-            )
-        )
-        if _new_fixture:
-            intent = _peek.intent
-            entities = dict(_peek.entities or {})
-            routing_confidence = _peek.confidence
+        fu_payload = _fu_resolve(message, ctx, brain)
+        if fu_payload:
+            payload = fu_payload
+            intent = "follow_up"
+            entities = dict(fu_payload.get("entities") or {})
+            routing_confidence = 0.90
             skipped_nl = True
-            logger.warning(
-                "[AUDIT] QuickFollowUpGate: NEW FIXTURE %r x %r overrides context %r → analyze",
-                _ph, _pa, _ctx_last_match,
-            )
+            logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
         else:
-            fu_payload = _fu_resolve(message, ctx, brain)
-            if fu_payload:
-                payload = fu_payload
-                intent = "follow_up"
-                entities = dict(fu_payload.get("entities") or {})
-                routing_confidence = 0.90
-                skipped_nl = True
-                logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
-            else:
-                logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
+            logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
+    elif payload is None and _ctx_last_match and _is_followup(message) and not _fu_decision.reuse:
+        # Follow-up phrasing but different teams named — already handled above;
+        # belt-and-suspenders fallthrough to analyze if entities present.
+        if _fu_decision.home and _fu_decision.away:
+            intent = "analyze_match"
+            entities = {
+                "home": _fu_decision.home,
+                "away": _fu_decision.away,
+                **({"is_live": True} if _fu_decision.is_live else {}),
+            }
+            routing_confidence = 0.92
+            skipped_nl = True
+            _start_new_fx(
+                ctx,
+                str(_fu_decision.home),
+                str(_fu_decision.away),
+                is_live=bool(_fu_decision.is_live),
+            )
 
     # ── NL Routing (skipped on quick follow-up hit) ───────────────────────
     if not skipped_nl:
@@ -1448,45 +1509,55 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         _ctx_last_match  = ctx.get("last_match") or ctx.get("last_fixture")
         _ctx_last_intent = ctx.get("last_intent")
         _followup_check  = _is_followup(message)
+        _fu_decision2 = _decide_fu_reuse(
+            message,
+            ctx,
+        )
         logger.warning(
             "[AUDIT] follow-up gate: nl_intent=%r | ctx.last_match=%r | ctx.last_intent=%r"
-            " | follow_up_detected=%s | already_payload=%s",
-            intent, _ctx_last_match, _ctx_last_intent, _followup_check, payload is not None,
+            " | follow_up_detected=%s | already_payload=%s | FOLLOWUP_REUSED=%s",
+            intent, _ctx_last_match, _ctx_last_intent, _followup_check,
+            payload is not None,
+            "true" if _fu_decision2.reuse else "false",
         )
-        if payload is None and _ctx_last_match and _followup_check:
-            _fh = str(entities.get("home") or "").strip()
-            _fa = str(entities.get("away") or "").strip()
-            _nl_new_fixture = (
-                intent == "analyze_match"
-                and bool(_fh)
-                and bool(_fa)
-                and not _fixtures_equivalent(
-                    _fh,
-                    _fa,
-                    last_match=str(_ctx_last_match or ""),
-                    last_home=str(ctx.get("last_home") or ""),
-                    last_away=str(ctx.get("last_away") or ""),
-                )
+        if (
+            payload is None
+            and _fu_decision2.new_fixture
+            and not _fu_decision2.reuse
+            and _fu_decision2.home
+            and _fu_decision2.away
+        ):
+            # Named a different fixture — discard follow-up, force analyze
+            intent = "analyze_match"
+            entities = {
+                "home": _fu_decision2.home,
+                "away": _fu_decision2.away,
+                **({"is_live": True} if _fu_decision2.is_live else {}),
+            }
+            _start_new_fx(
+                ctx,
+                str(_fu_decision2.home),
+                str(_fu_decision2.away),
+                is_live=bool(_fu_decision2.is_live),
             )
-            if _nl_new_fixture:
-                logger.warning(
-                    "[AUDIT] follow-up gate: SKIPPED — NL named new fixture %r x %r "
-                    "(ctx was %r)",
-                    _fh, _fa, _ctx_last_match,
-                )
+            logger.warning(
+                "[AUDIT] follow-up gate: DISCARD reuse — new fixture %r (was %r)",
+                _fu_decision2.new_fixture,
+                _fu_decision2.previous_fixture,
+            )
+        elif payload is None and _ctx_last_match and _followup_check and _fu_decision2.reuse:
+            logger.warning(
+                "[AUDIT] follow-up gate: ENTERING follow-up engine "
+                "(has_last_match=True, follow_up_detected=True, FOLLOWUP_REUSED=true)"
+            )
+            fu_payload = _fu_resolve(message, ctx, brain)
+            if fu_payload:
+                payload = fu_payload
+                intent = "follow_up"
+                routing_confidence = 0.88
+                logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
             else:
-                logger.warning(
-                    "[AUDIT] follow-up gate: ENTERING follow-up engine "
-                    "(has_last_match=True, follow_up_detected=True)"
-                )
-                fu_payload = _fu_resolve(message, ctx, brain)
-                if fu_payload:
-                    payload = fu_payload
-                    intent = "follow_up"
-                    routing_confidence = 0.88
-                    logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
-                else:
-                    logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
+                logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
         elif payload is None and not _ctx_last_match:
             logger.warning("[AUDIT] follow-up gate: SKIPPED — ctx.last_match is empty (no prior analysis in session)")
         elif payload is None and not _followup_check:
@@ -1553,92 +1624,111 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         "Digite os dois times: **\"Analisar [Time A] x [Time B]\"**."
                     )
                 else:
-                    try:
-                        logger.warning(
-                            "[AUDIT] ctx_before: last_match=%r last_intent=%r",
-                            ctx.get("last_match"), ctx.get("last_intent"),
-                        )
-                        prefer_live = bool(entities.get("is_live"))
-                        payload = await _run_analyze(home, away, prefer_live=prefer_live)
-                        _save_analysis_context(ctx, payload, home, away)
-                        _db_upd_session(session_id, home=home, away=away, intent=intent)
-                        logger.warning(
-                            "[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r",
-                            payload.get("match"),
-                        )
-                        logger.warning(
-                            "[AUDIT] ctx_after: last_match=%r last_intent=%r",
-                            ctx.get("last_match"), ctx.get("last_intent"),
-                        )
-                    except Exception as _analyze_exc:
-                        # Soft analyze already avoids 404; this catches engine crashes.
-                        logger.warning(
-                            "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
-                            "Inference V2 continues with degraded payload",
-                            type(_analyze_exc).__name__, _analyze_exc,
-                        )
-                        from src.brain import get_brain_meta as _gbm_inf
-                        from src.core.inference_context import InferenceContext
+                    from src.core.entity_validator import (
+                        invalid_fixture_payload as _invalid_fx,
+                        validate_fixture_entities as _validate_ents,
+                    )
 
-                        _eictx = InferenceContext(soft_mode=True)
-                        _eictx.register_failure(
-                            "analyze_pipeline",
-                            str(_analyze_exc),
-                            signal="fixture",
+                    _ents_ok, _hv, _av = _validate_ents(home, away)
+                    if not _ents_ok:
+                        _reasons = list(_hv.reasons) + list(_av.reasons)
+                        logger.warning(
+                            "[AUDIT] entity_validator: REJECT home=%r away=%r reasons=%s",
+                            home, away, _reasons,
                         )
-                        _eictx.finalize()
-                        payload = {
-                            "intent": "analyze_match",
-                            "entities": {"home": home, "away": away},
-                            "match": f"{home} x {away}",
-                            "status": "Partial",
-                            "is_live": False,
-                            "minute": None,
-                            "executive_summary": (
-                                f"Não foi possível completar a análise de **{home} x {away}**, "
-                                f"mas a Aurora registrou a falha e manteve a conversa ativa.\n\n"
-                                f"Detalhe técnico: {_analyze_exc}"
-                            ),
-                            "best_markets": [],
-                            "confidence": {
-                                "score": _eictx.apply_to_score(2.0),
-                                "label": "insufficient",
-                                "explanation": (
-                                    f"Inference V2: falha no pipeline — "
-                                    f"penalidade −{_eictx.total_penalty():.1f}"
+                        payload = _invalid_fx(
+                            home=home,
+                            away=away,
+                            brain=brain,
+                            reasons=_reasons,
+                        )
+                    else:
+                        try:
+                            logger.warning(
+                                "[AUDIT] ctx_before: last_match=%r last_intent=%r",
+                                ctx.get("last_match"), ctx.get("last_intent"),
+                            )
+                            prefer_live = bool(entities.get("is_live"))
+                            payload = await _run_analyze(home, away, prefer_live=prefer_live)
+                            _save_analysis_context(ctx, payload, home, away)
+                            _db_upd_session(session_id, home=home, away=away, intent=intent)
+                            logger.warning(
+                                "[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r",
+                                payload.get("match"),
+                            )
+                            logger.warning(
+                                "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                                ctx.get("last_match"), ctx.get("last_intent"),
+                            )
+                        except Exception as _analyze_exc:
+                            # Soft analyze already avoids 404; this catches engine crashes.
+                            logger.warning(
+                                "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
+                                "Inference V2 continues with degraded payload",
+                                type(_analyze_exc).__name__, _analyze_exc,
+                            )
+                            from src.brain import get_brain_meta as _gbm_inf
+                            from src.core.inference_context import InferenceContext
+
+                            _eictx = InferenceContext(soft_mode=True)
+                            _eictx.register_failure(
+                                "analyze_pipeline",
+                                str(_analyze_exc),
+                                signal="fixture",
+                            )
+                            _eictx.finalize()
+                            payload = {
+                                "intent": "analyze_match",
+                                "entities": {"home": home, "away": away},
+                                "match": f"{home} x {away}",
+                                "status": "Partial",
+                                "is_live": False,
+                                "minute": None,
+                                "executive_summary": (
+                                    f"Não foi possível completar a análise de **{home} x {away}**, "
+                                    f"mas a Aurora registrou a falha e manteve a conversa ativa.\n\n"
+                                    f"Detalhe técnico: {_analyze_exc}"
                                 ),
-                                "data_sources": ["Inference Layer V2"],
-                            },
-                            "risk": {
-                                "level": "High",
-                                "flags": list(_eictx.missing_signals),
-                                "invalidation_conditions": [
-                                    "Confirmar nomes oficiais dos times",
+                                "best_markets": [],
+                                "confidence": {
+                                    "score": _eictx.apply_to_score(2.0),
+                                    "label": "insufficient",
+                                    "explanation": (
+                                        f"Inference V2: falha no pipeline — "
+                                        f"penalidade −{_eictx.total_penalty():.1f}"
+                                    ),
+                                    "data_sources": ["Inference Layer V2"],
+                                },
+                                "risk": {
+                                    "level": "High",
+                                    "flags": list(_eictx.missing_signals),
+                                    "invalidation_conditions": [
+                                        "Confirmar nomes oficiais dos times",
+                                    ],
+                                },
+                                "bankroll_recommendation": {
+                                    "recommended_stake_pct": 0.0,
+                                    "method": "quarter-Kelly",
+                                    "examples": {},
+                                    "reasoning": "Dados insuficientes para stake.",
+                                    "no_bet": True,
+                                },
+                                "positive_factors": [],
+                                "negative_factors": [
+                                    "Falha registrada — confiança reduzida (sem abort duro).",
                                 ],
-                            },
-                            "bankroll_recommendation": {
-                                "recommended_stake_pct": 0.0,
-                                "method": "quarter-Kelly",
-                                "examples": {},
-                                "reasoning": "Dados insuficientes para stake.",
-                                "no_bet": True,
-                            },
-                            "positive_factors": [],
-                            "negative_factors": [
-                                "Falha registrada — confiança reduzida (sem abort duro).",
-                            ],
-                            "historical_references": [],
-                            "knowledge_notes": _eictx.knowledge_notes_pt(),
-                            "final_recommendation": (
-                                f"Tente novamente com nomes oficiais: "
-                                f"\"Analisar {home} x {away}\"."
-                            ),
-                            "aurora_version": "Copilot v1.0",
-                            "brain": {
-                                **_gbm_inf(),
-                                "inference": _eictx.explainability(),
-                            },
-                        }
+                                "historical_references": [],
+                                "knowledge_notes": _eictx.knowledge_notes_pt(),
+                                "final_recommendation": (
+                                    f"Tente novamente com nomes oficiais: "
+                                    f"\"Analisar {home} x {away}\"."
+                                ),
+                                "aurora_version": "Copilot v1.0",
+                                "brain": {
+                                    **_gbm_inf(),
+                                    "inference": _eictx.explainability(),
+                                },
+                            }
 
             elif intent == "live_team_analysis":
                 # FIX 1 — "analise jogo do [team]" → search live for that team

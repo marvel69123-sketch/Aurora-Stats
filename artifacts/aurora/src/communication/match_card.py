@@ -1,5 +1,5 @@
 """
-Match Card builder (Aurora v3.3.0-beta) — presentation only.
+Match Card builder (Aurora v3.3.1-beta) — presentation only.
 
 Assembles logos, score, competition, venue, momentum and predictability
 from analyze/live payloads already fetched by engines. Does NOT call
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-AURORA_MATCH_VERSION = "Aurora v3.3.0-beta"
+AURORA_MATCH_VERSION = "Aurora v3.3.1-beta"
 
 _MOMENTUM_UI: dict[str, dict[str, str]] = {
     "home_pressing": {
@@ -40,7 +40,14 @@ _PRED_LABEL: dict[str, str] = {
     "moderate": "Previsibilidade moderada",
     "adequate": "Previsibilidade adequada",
     "weak": "Baixa previsibilidade",
-    "insufficient": "Sinais ainda insuficientes",
+    "insufficient": "Previsibilidade muito baixa",
+    # i18n may already have translated the confidence label
+    "alta": "Alta previsibilidade",
+    "moderada": "Previsibilidade moderada",
+    "adequada": "Previsibilidade adequada",
+    "fraca": "Baixa previsibilidade",
+    "insuficiente": "Previsibilidade muito baixa",
+    "muito baixa": "Previsibilidade muito baixa",
 }
 
 
@@ -59,7 +66,11 @@ def _safe_str(value: Any) -> str | None:
         return None
     if isinstance(value, str):
         text = value.strip()
-        return text or None
+        if not text:
+            return None
+        if text.lower() in {"unknown", "n/a", "na", "null", "none", "undefined"}:
+            return None
+        return text
     if isinstance(value, (int, float, bool)):
         return str(value)
     return None
@@ -70,6 +81,19 @@ def _logo_str(value: Any) -> str | None:
         text = value.strip()
         return text or None
     return None
+
+
+def _competition_block(league: dict[str, Any]) -> dict[str, Any] | None:
+    """Build competition dict or None — never emit Unknown labels."""
+    name = _safe_str(league.get("name"))
+    if not name:
+        return None
+    return {
+        "name": name,
+        "logo": _logo_str(league.get("logo")),
+        "country": _safe_str(league.get("country")),
+        "round": _safe_str(league.get("round")),
+    }
 
 
 def _team_block(name: str, logo: Any = None) -> dict[str, Any]:
@@ -168,15 +192,7 @@ def build_match_card_from_analyze(
     elif is_live:
         momentum = _momentum_from_score(sh, sa)
 
-    competition = None
-    league_name = _safe_str(league.get("name"))
-    if league_name:
-        competition = {
-            "name": league_name,
-            "logo": _logo_str(league.get("logo")),
-            "country": _safe_str(league.get("country")),
-            "round": _safe_str(league.get("round")),
-        }
+    competition = _competition_block(league if isinstance(league, dict) else {})
 
     venue_out = None
     venue_name = _safe_str(venue.get("name"))
@@ -242,15 +258,7 @@ def build_match_card_from_live_fixture(
 
     momentum = dict(_MOMENTUM_UI[key]) if key in _MOMENTUM_UI else None
 
-    competition = None
-    league_name = _safe_str(league.get("name"))
-    if league_name:
-        competition = {
-            "name": league_name,
-            "logo": _logo_str(league.get("logo")),
-            "country": _safe_str(league.get("country")),
-            "round": _safe_str(league.get("round")),
-        }
+    competition = _competition_block(league if isinstance(league, dict) else {})
 
     score_out = None
     if sh is not None and sa is not None:
@@ -294,13 +302,8 @@ def normalize_match_card(card: dict[str, Any] | None) -> dict[str, Any] | None:
 
     competition = card.get("competition")
     competition_out = None
-    if isinstance(competition, dict) and _safe_str(competition.get("name")):
-        competition_out = {
-            "name": _safe_str(competition.get("name")),
-            "logo": _logo_str(competition.get("logo")),
-            "country": _safe_str(competition.get("country")),
-            "round": _safe_str(competition.get("round")),
-        }
+    if isinstance(competition, dict):
+        competition_out = _competition_block(competition)
 
     venue = card.get("venue")
     venue_out = None

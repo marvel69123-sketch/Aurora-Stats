@@ -90,7 +90,19 @@ def normalize_team_name(name: str) -> str:
             )
             return canonical
 
-    spaced = keys[1] if len(keys) > 1 else (keys[0] if keys else name)
+    # Prefer the spaced form for title-case display.
+    # alias_keys() de-dupes; when key==ascii_spaced, keys[1] is the *compact*
+    # key — never use that for display (v3.3.1-beta stabilization).
+    key = (name or "").lower().strip()
+    key = re.sub(r"[''`´’]", "", key)
+    key_spaced = re.sub(r"[-_]+", " ", key)
+    key_spaced = re.sub(r"\s+", " ", key_spaced).strip()
+    ascii_spaced = (
+        unicodedata.normalize("NFKD", key_spaced)
+        .encode("ascii", "ignore")
+        .decode()
+    )
+    spaced = ascii_spaced or key_spaced or key or (name or "")
     display = " ".join(w.capitalize() for w in spaced.split()) if spaced else name
     logger.warning(
         "[AUDIT] entity_resolver.normalize: %r → NO ALIAS → %r", name, display,

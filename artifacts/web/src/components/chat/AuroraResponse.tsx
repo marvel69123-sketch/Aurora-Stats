@@ -4,21 +4,28 @@ import { cn } from "@/lib/utils";
 import type { CopilotResponse, MarketEntry } from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
 import { Markdown, MarkdownInline } from "./Markdown";
-import { MatchHeader } from "./MatchHeader";
+import { MatchHeader, canRenderMatchHeader } from "./MatchHeader";
 
 const RISK_PT: Record<string, string> = {
   Low: "Baixo",
   Medium: "Médio",
   High: "Alto",
-  Unknown: "—",
+  Unknown: "",
 };
 
 const CONF_PT: Record<string, string> = {
-  strong: "forte",
+  strong: "alta",
+  forte: "alta",
+  alta: "alta",
   moderate: "moderada",
+  moderada: "moderada",
   adequate: "adequada",
+  adequada: "adequada",
   weak: "fraca",
-  insufficient: "insuficiente",
+  fraca: "fraca",
+  insufficient: "muito baixa",
+  insuficiente: "muito baixa",
+  "muito baixa": "muito baixa",
 };
 
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
@@ -134,7 +141,8 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
                 {m.expected_value.toFixed(1)}%
               </td>
               <td className="px-3 py-2.5 text-right text-[#A0A0A0]">
-                {RISK_PT[m.risk] ?? m.risk}
+                {RISK_PT[m.risk] ||
+                  (/^unknown$/i.test(m.risk) ? "—" : m.risk)}
               </td>
             </tr>
           ))}
@@ -243,16 +251,24 @@ export function AuroraResponse({
       : [];
 
   const card = response.match_card ?? null;
-  const predictability = card?.predictability;
+  const showMatchHeader =
+    canRenderMatchHeader(card) &&
+    response.entities?.entity_invalid !== true;
+  const predictability = showMatchHeader ? card?.predictability : undefined;
   const metaBits: string[] = [];
-  if (!card) {
-    if (response.match) metaBits.push(`⚽ ${response.match}`);
+  if (!showMatchHeader) {
+    if (response.match && !/^unknown$/i.test(response.match)) {
+      metaBits.push(`⚽ ${response.match}`);
+    }
     if (response.is_live) {
       metaBits.push(
         response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
       );
     } else if (response.status && response.intent === "analyze_match") {
-      if (!/^not\s*started$/i.test(response.status)) {
+      if (
+        !/^not\s*started$/i.test(response.status) &&
+        !/^(unknown|n\/?a)$/i.test(response.status)
+      ) {
         metaBits.push(response.status);
       }
     }
@@ -262,7 +278,7 @@ export function AuroraResponse({
     <article className="w-full max-w-none space-y-5">
       <InsightBadgeRow kinds={badges} className="mb-0.5" />
 
-      {card ? (
+      {showMatchHeader && card ? (
         <MatchHeader card={card} onRefresh={onRefreshMatch} />
       ) : metaBits.length > 0 ? (
         <header className="-mt-1" aria-label="Partida">
@@ -313,7 +329,7 @@ export function AuroraResponse({
       {interesting.length > 0 && (
         <section aria-label="Mercados interessantes">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-            {response.is_live || card?.is_live
+            {response.is_live || (showMatchHeader && card?.is_live)
               ? "Mercados neste momento"
               : "Mercados interessantes"}
           </p>
@@ -365,8 +381,14 @@ export function AuroraResponse({
               </span>
               {" · "}
               {CONF_PT[response.confidence.label] ?? response.confidence.label}
-              {" · Risco "}
-              {RISK_PT[response.risk.level] ?? response.risk.level}
+              {(() => {
+                const riskLabel =
+                  RISK_PT[response.risk.level] ??
+                  (/^unknown$/i.test(response.risk.level)
+                    ? ""
+                    : response.risk.level);
+                return riskLabel ? ` · Risco ${riskLabel}` : "";
+              })()}
             </p>
           )}
 

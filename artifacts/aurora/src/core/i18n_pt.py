@@ -59,11 +59,11 @@ CONFIDENCE_TRANSLATIONS: dict[str, str] = {
     "Limited": "Limitada",
     "Low": "Baixa",
     # _conf_label (copilot router)
-    "strong": "forte",
+    "strong": "alta",
     "moderate": "moderada",
     "adequate": "adequada",
     "weak": "fraca",
-    "insufficient": "insuficiente",
+    "insufficient": "muito baixa",
     "exceptional": "excepcional",
     "solid": "sólida",
     "limited": "limitada",

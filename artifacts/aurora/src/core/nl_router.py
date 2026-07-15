@@ -494,45 +494,58 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     Detect a match-analysis request.
 
     Algorithm:
-      1. Search for a separator token (x, vs, contra, versus).
-      2. Split into left (home) and right (away) parts.
-      3. Strip any command/knowledge prefix from the left side.
-      4. Validate that both parts look like team names (length / word count).
-      5. Resolve aliases → canonical names.
-      6. Score based on: separator present, command prefix used, alias hit.
+      1. Clean conversational stop-words around the fixture (v3.3.1-beta).
+      2. Search for a separator token (x, vs, contra, versus).
+      3. Validate that both parts look like team names (length / word count).
+      4. Resolve aliases → canonical names.
+      5. Score based on: separator present, command prefix used, alias hit.
     """
-    sep_m = _SEP_RE.search(norm)
-    if not sep_m:
-        logger.debug("      _clf_match: no separator in %r", norm)
-        return 0.0, {}
+    from src.core.fixture_input_cleaner import clean_fixture_input
 
-    sep_start, sep_end = sep_m.span()
-    left_raw  = norm[:sep_start].strip()
-    right_raw = norm[sep_end:].strip()
+    # Prefer the cleaner on the normalised message so prefixes like
+    # "aurora quero saber sobre" never reach EntityResolver.
+    cleaned = clean_fixture_input(norm)
+    if cleaned.home_team and cleaned.away_team:
+        left = cleaned.home_team
+        right_raw = cleaned.away_team
+        had_prefix = cleaned.clean_input != norm.strip()
+        is_live_request = bool(cleaned.is_live)
+        logger.warning(
+            "[AUDIT] _clf_match: cleaner home=%r away=%r clean=%r",
+            left, right_raw, cleaned.clean_input,
+        )
+    else:
+        # Fallback to legacy strip path when cleaner cannot isolate teams
+        sep_m = _SEP_RE.search(norm)
+        if not sep_m:
+            logger.debug("      _clf_match: no separator in %r", norm)
+            return 0.0, {}
 
-    # Strip "ao vivo" / "live" / "agora" markers from team fragments so
-    # "noruega ao vivo" resolves to "noruega" → alias "Norway", not "Noruega Ao Vivo".
-    is_live_request = False
-    if _LIVE_SUFFIX_RE.search(right_raw):
-        original_right = right_raw
-        right_raw = _LIVE_SUFFIX_RE.sub("", right_raw).strip()
-        is_live_request = True
-        logger.warning("[AUDIT] _clf_match: stripped live suffix from away: %r → %r", original_right, right_raw)
-    if _LIVE_PREFIX_RE.match(left_raw):
-        original_left = left_raw
-        left_raw = _LIVE_PREFIX_RE.sub("", left_raw).strip()
-        is_live_request = True
-        logger.warning("[AUDIT] _clf_match: stripped live prefix from home: %r → %r", original_left, left_raw)
+        sep_start, sep_end = sep_m.span()
+        left_raw = norm[:sep_start].strip()
+        right_raw = norm[sep_end:].strip()
 
-    logger.debug("      _clf_match: sep=%r left=%r right=%r is_live=%s",
-                 sep_m.group(), left_raw, right_raw, is_live_request)
+        is_live_request = False
+        if _LIVE_SUFFIX_RE.search(right_raw):
+            original_right = right_raw
+            right_raw = _LIVE_SUFFIX_RE.sub("", right_raw).strip()
+            is_live_request = True
+            logger.warning(
+                "[AUDIT] _clf_match: stripped live suffix from away: %r → %r",
+                original_right, right_raw,
+            )
+        if _LIVE_PREFIX_RE.match(left_raw):
+            original_left = left_raw
+            left_raw = _LIVE_PREFIX_RE.sub("", left_raw).strip()
+            is_live_request = True
+            logger.warning(
+                "[AUDIT] _clf_match: stripped live prefix from home: %r → %r",
+                original_left, left_raw,
+            )
 
-    # Strip command/knowledge prefix from the left side
-    stripped_left = _CMD_STRIP_RE.sub("", left_raw, count=1).strip()
-    had_prefix = stripped_left != left_raw
-    if had_prefix:
-        logger.debug("      _clf_match: stripped prefix → left=%r", stripped_left)
-    left = stripped_left
+        stripped_left = _CMD_STRIP_RE.sub("", left_raw, count=1).strip()
+        had_prefix = stripped_left != left_raw
+        left = stripped_left
 
     # Validation
     if not left or not right_raw:
@@ -543,11 +556,10 @@ def _clf_match(norm: str) -> tuple[float, dict]:
         logger.debug("      _clf_match: side too short")
         return 0.0, {}
 
-    left_words  = left.split()
+    left_words = left.split()
     right_words = right_raw.split()
 
     if len(left_words) > 6:
-        # Too many words for a team name — likely a sentence fragment
         logger.debug("      _clf_match: left too many words (%d)", len(left_words))
         return 0.35, {}
 
@@ -558,18 +570,17 @@ def _clf_match(norm: str) -> tuple[float, dict]:
     # Resolve to canonical names
     home = _resolve_team(left)
     away = _resolve_team(right_raw)
-    logger.warning("[AUDIT] _clf_match: raw_home=%r → %r | raw_away=%r → %r | is_live=%s",
-                   left, home, right_raw, away, is_live_request)
+    logger.warning(
+        "[AUDIT] _clf_match: raw_home=%r → %r | raw_away=%r → %r | is_live=%s",
+        left, home, right_raw, away, is_live_request,
+    )
+    logger.warning("HOME_TEAM=%r", home)
+    logger.warning("AWAY_TEAM=%r", away)
 
     if home.lower() == away.lower():
         logger.debug("      _clf_match: home == away after alias resolution (%r)", home)
         return 0.0, {}
 
-    # Confidence scoring
-    #   - bare separator alone:           0.84
-    #   - with command prefix:            0.92
-    #   - live marker present:            boost to ≥0.96 (must beat "ao vivo" live feed)
-    #   - each known-alias hit:          +0.03 each (max +0.06)
     base = 0.92 if had_prefix else 0.84
     alias_boost = 0.0
     if _has_alias(left):
