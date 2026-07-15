@@ -180,6 +180,22 @@ def test_libertad_fc_tecnico_universitario_precheck_ok():
     _assert_precheck_ok("Libertad FC", "Técnico Universitario")
 
 
+def test_universidad_catolica_not_mapped_to_universitario():
+    """Exact Católica aliases must win — never fuzzy into Universitario de Deportes."""
+    from src.core.entity_resolver import normalize_team_name
+
+    home = normalize_team_name("Universidad Católica")
+    away = normalize_team_name("LDU Quito")
+    assert "universitario de deportes" not in home.lower()
+    assert "catolica" in home.lower() or "católica" in home.lower()
+    assert "universitario de deportes" not in away.lower()
+    _assert_precheck_ok("Universidad Católica", "LDU Quito")
+
+
+def test_leones_cuenca_precheck_ok():
+    _assert_precheck_ok("Leones del Norte", "Deportivo Cuenca")
+
+
 def test_required_big_clubs_precheck_ok():
     _assert_precheck_ok("Arsenal", "Chelsea")
     _assert_precheck_ok("Argentina", "Inglaterra")

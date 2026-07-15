@@ -21,6 +21,7 @@ export default function App() {
     togglePinSession,
     sendMessage,
     refreshLiveMatch,
+    lockLiveContext,
   } = useChat();
   const { avatarUrl, setFromFile, clear } = useAuroraAvatar();
 
@@ -35,7 +36,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#171717] text-[#ECECEC] antialiased">
+    <div className="flex h-screen overflow-hidden bg-[#0f0f0f] text-[#ECECEC] antialiased">
       <Sidebar
         sessions={sessions}
         activeId={activeId}
@@ -55,8 +56,8 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#171717]">
-        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#171717] px-3 md:px-5">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#0f0f0f]">
+        <header className="flex h-12 shrink-0 items-center gap-3 bg-[#0f0f0f] px-3 md:px-5">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -80,6 +81,7 @@ export default function App() {
           avatarUrl={avatarUrl}
           onSend={sendMessage}
           onRefreshLiveMatch={refreshLiveMatch}
+          onLockLiveContext={lockLiveContext}
         />
       </main>
     </div>

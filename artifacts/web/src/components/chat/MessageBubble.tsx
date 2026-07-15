@@ -1,11 +1,12 @@
 import { AuroraAvatar, UserAvatar } from "./AuroraAvatar";
 import { AuroraResponse } from "./AuroraResponse";
-import type { Message } from "@/types/chat";
+import type { LiveFixtureCache, LiveStatsSnapshot, Message } from "@/types/chat";
 
 interface MessageBubbleProps {
   message: Message;
   avatarUrl?: string | null;
   onRefreshMatch?: () => void;
+  onLiveContextLock?: (cache: LiveFixtureCache, stats: LiveStatsSnapshot) => void;
 }
 
 export function TypingIndicator({ avatarUrl }: { avatarUrl?: string | null }) {
@@ -25,6 +26,7 @@ export function MessageBubble({
   message,
   avatarUrl,
   onRefreshMatch,
+  onLiveContextLock,
 }: MessageBubbleProps) {
   if (message.role === "user") {
     return (
@@ -63,6 +65,8 @@ export function MessageBubble({
             refreshing={Boolean(message.refreshing)}
             refreshedAt={message.refreshedAt ?? null}
             liveStats={message.liveStats ?? null}
+            liveStatusNote={message.liveStatusNote ?? null}
+            onLiveContextLock={onLiveContextLock}
           />
         ) : null}
       </div>

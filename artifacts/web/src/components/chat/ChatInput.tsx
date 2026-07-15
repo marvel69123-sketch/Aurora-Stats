@@ -61,9 +61,9 @@ export function ChatInput({ onSend, disabled, sessionId = null }: ChatInputProps
     <section className="px-3 pb-5 pt-2 md:px-4" aria-label="Composer">
       <div
         className={cn(
-          "aurora-chat-column flex items-end gap-2 rounded-[26px] border border-white/[0.1]",
-          "bg-[#2f2f2f] px-3.5 py-2.5",
-          "focus-within:border-white/20 focus-within:bg-[#333333]",
+          "aurora-chat-column flex items-end gap-2 rounded-[26px] border border-white/[0.08]",
+          "bg-[#2a2a2a] px-3.5 py-2.5",
+          "focus-within:border-white/20 focus-within:bg-[#303030]",
         )}
       >
         <textarea
@@ -89,7 +89,7 @@ export function ChatInput({ onSend, disabled, sessionId = null }: ChatInputProps
           className={cn(
             "mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
             text.trim() && !disabled
-              ? "bg-[#ECECEC] text-[#212121] hover:bg-white"
+              ? "bg-[#ECECEC] text-[#0f0f0f] hover:bg-white"
               : "bg-white/[0.08] text-[#A0A0A0]/50 cursor-not-allowed",
           )}
           aria-label="Enviar"

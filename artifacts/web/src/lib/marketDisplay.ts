@@ -42,10 +42,15 @@ const MARKET_PT: Array<[RegExp, string]> = [
   [/^draw\s*no\s*bet\s*home$/i, "Empate anula — mandante"],
   [/^draw\s*no\s*bet\s*away$/i, "Empate anula — visitante"],
   [/\basian\s*handicap\b/i, "Handicap asiático"],
+  [/\bover\s*(\d+(?:\.\d+)?)\s*cards?\b/i, "Mais de $1 cartões"],
+  [/\bunder\s*(\d+(?:\.\d+)?)\s*cards?\b/i, "Menos de $1 cartões"],
   [/\bover\s*(\d+(?:\.\d+)?)\s*corners\b/i, "Mais de $1 escanteios"],
   [/\bunder\s*(\d+(?:\.\d+)?)\s*corners\b/i, "Menos de $1 escanteios"],
   [/\bover\s*(\d+(?:\.\d+)?)\s*goals\b/i, "Mais de $1 gols"],
   [/\bunder\s*(\d+(?:\.\d+)?)\s*goals\b/i, "Menos de $1 gols"],
+  [/\bplayer to score\b/i, "Jogador marca"],
+  [/\banytime\b/gi, "a qualquer momento"],
+  [/\bcards?\b/gi, "cartões"],
 ];
 
 /** Phrase-level EN→PT for factors / summaries shown in the main UI. */
@@ -81,6 +86,7 @@ const PROSE_PT: Array<[RegExp, string]> = [
 
 export function classifyMarketFocus(market: string): MarketFocusKind {
   const m = market.toLowerCase();
+  if (/card|cart[aã]o|booking|player|jogador|assist|scorer/.test(m)) return "other";
   if (/corner|escanteio|canto/.test(m)) return "corners";
   if (/btts|ambos/.test(m)) return "btts";
   if (/dnb|draw\s*no\s*bet|empate anula/.test(m)) return "dnb";

@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  buildLiveCacheFromFixture,
   buildLiveStatsView,
+  extractFixtureIdHint,
   fetchLiveFixtures,
-  findLiveFixture,
   momentumFromLive,
+  resolveLiveFixture,
 } from "@/lib/liveMatch";
-import { marketLabelPt, oneLinePt, scrubProsePt } from "@/lib/marketDisplay";
+import {
+  classifyMarketFocus,
+  marketLabelPt,
+  oneLinePt,
+  scrubProsePt,
+} from "@/lib/marketDisplay";
 import type {
   CopilotResponse,
   DebugAudit,
+  LiveFixtureCache,
   LiveStatsSnapshot,
   MarketEntry,
   MatchCard,
@@ -75,7 +83,7 @@ const LOW_CONF_IDEA_RE =
   /confiança\s+(muito\s+)?baixa|manteve a conversa|ainda faltam sinais|previsibilidade\s+(muito\s+)?baixa|aguardar(ia)?\s+mais\s+confirma|prefira\s+acompanhar|sinais\s+(claros\s+)?insuficientes|cenário\s+(de\s+)?(baixa confiança|incerto)|fixture\s+(oficial\s+)?(ainda\s+)?n[aã]o\s+confirm|dados\s+parciais|sem fixture|indispon[ií]vel/i;
 
 const TECH_FACTOR_RE =
-  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|puxando a nota|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%|api[-_\s]?football|data_completeness|market_generation|category pulling|portfolio exposure|regras ao vivo|gest[aã]o de risco|nenhum dado hist[oó]rico|mercado de melhor desempenho/i;
+  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|puxando a nota|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%|api[-_\s]?football|data_completeness|market_generation|category pulling|portfolio exposure|regras ao vivo|gest[aã]o de risco|nenhum dado hist[oó]rico|mercado de melhor desempenho|completude dos dados|dados faltantes|infer[eê]ncias|penalidade de confian|sem dados de xg|nenhum hist[oó]rico|confronto reconhecido|an[aá]lise completa de/i;
 
 /** Strip noisy technical methodology notes from the main/details surface. */
 function publicNotes(notes: string[]): string[] {
@@ -83,7 +91,39 @@ function publicNotes(notes: string[]): string[] {
 }
 
 const INTERESTING_MARKET_RE =
-  /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under|handicap|dnb/i;
+  /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under|handicap|dnb|cart[aã]o|card|dupla|double\s*chance|pr[oó]ximo\s*gol|next\s*goal/i;
+
+/** Non-market CTAs / player props — never featured. */
+const NON_MARKET_FEATURED_RE =
+  /an[aá]lise\s+completa|confronto\s+reconhecido|player|jogador|anytime|scorer|assist\b/i;
+
+function isRealFeaturedMarket(market: string): boolean {
+  const m = (market || "").trim();
+  if (!m || NON_MARKET_FEATURED_RE.test(m)) return false;
+  if (/^analisar\b/i.test(m)) return false;
+
+  const focus = classifyMarketFocus(m);
+  // Cards allowed in featured allowlist (Over/Under cartões)
+  if (/cart[aã]o|\bcards?\b|booking/i.test(m) && /over|under|mais|menos|\d/i.test(m)) {
+    return true;
+  }
+  if (focus === "other") {
+    return (
+      INTERESTING_MARKET_RE.test(m) &&
+      /goal|gol|corner|escanteio|canto|cart[aã]o|card|handicap|dupla|btts|ambos|win|empate|over|under/i.test(
+        m,
+      )
+    );
+  }
+  return (
+    focus === "goals" ||
+    focus === "btts" ||
+    focus === "corners" ||
+    focus === "winner" ||
+    focus === "handicap" ||
+    focus === "dnb"
+  );
+}
 
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
   if (
@@ -128,33 +168,40 @@ function ideaKey(sentence: string): string {
 
 /**
  * Max 2 sentences; skip low-confidence noise (alert owns that idea).
- * Always try to keep at least one useful line.
+ * Live with data: never say “dados limitados”.
  */
 function compactSummary(
   text: string,
   usedIdeas: Set<string>,
   fallbackMatch: string | null,
+  opts?: { isLive?: boolean; hasLiveData?: boolean },
 ): string {
   const out: string[] = [];
   for (const sentence of splitSentences(text)) {
     if (TECH_FACTOR_RE.test(sentence)) continue;
     if (LOW_CONF_IDEA_RE.test(sentence)) continue; // reserved for alert
+    if (/an[aá]lise\s+completa|dados\s+atuais\s+ainda\s+s[aã]o\s+limitados|sem\s+dados\s+de\s+xg|nenhum\s+hist[oó]rico|fixture\s+ainda/i.test(sentence)) {
+      continue;
+    }
     const key = ideaKey(sentence);
     if (usedIdeas.has(key)) continue;
-    // Drop near-empty platitudes alone
     if (/^confronto reconhecido\.?$/i.test(sentence) && out.length === 0) {
-      continue; // wait for a richer second sentence or fallback
+      continue;
     }
     usedIdeas.add(key);
     out.push(sentence.replace(/\s+/g, " ").trim());
     if (out.length >= 2) break;
   }
   if (out.length === 0 && fallbackMatch) {
-    out.push(`Análise de ${fallbackMatch}.`);
-    out.push("Dados atuais ainda são limitados.");
-    usedIdeas.add("summary_fallback");
+    if (opts?.isLive || opts?.hasLiveData) {
+      out.push("Análise baseada nos dados disponíveis no momento.");
+      usedIdeas.add("summary_live_data");
+    } else {
+      out.push("Análise baseada nos dados disponíveis no momento.");
+      usedIdeas.add("summary_fallback");
+    }
   } else if (out.length === 1 && /reconhecido/i.test(out[0])) {
-    out.push("Dados atuais ainda são limitados.");
+    out[0] = "Análise baseada nos dados disponíveis no momento.";
     usedIdeas.add("summary_limited");
   }
   return out.slice(0, 2).join(" ");
@@ -187,9 +234,13 @@ function publicStrengths(response: CopilotResponse): string[] {
   return response.positive_factors || [];
 }
 
-function pickInterestingMarkets(markets: MarketEntry[]): MarketEntry[] {
-  const filtered = markets.filter((m) => INTERESTING_MARKET_RE.test(m.market));
-  return (filtered.length > 0 ? filtered : markets).slice(0, 3);
+function pickInterestingMarkets(
+  markets: MarketEntry[],
+  isLive = false,
+): MarketEntry[] {
+  const filtered = markets.filter((m) => isRealFeaturedMarket(m.market));
+  // No fallback to all markets — featured shows only real lines.
+  return filtered.slice(0, isLive ? 1 : 2);
 }
 
 function humanRationale(text: string, usedIdeas: Set<string>): string | null {
@@ -220,7 +271,8 @@ function decisionAlert(response: CopilotResponse): string | null {
   const noBet = response.bankroll_recommendation.no_bet;
 
   if (partial) {
-    return "Cenário de baixa confiança. Fixture ainda não confirmada.";
+    // Soft / hide — avoid "fixture" / low-confidence noise in main UI
+    return null;
   }
   if (highRisk || (noBet && lowConf)) {
     return "Cenário de risco elevado. Mercados podem sofrer alterações.";
@@ -325,12 +377,16 @@ export function AuroraResponse({
   refreshing = false,
   refreshedAt = null,
   liveStats = null,
+  liveStatusNote = null,
+  onLiveContextLock,
 }: {
   response: CopilotResponse;
   onRefreshMatch?: () => void;
   refreshing?: boolean;
   refreshedAt?: string | null;
   liveStats?: LiveStatsSnapshot | null;
+  liveStatusNote?: string | null;
+  onLiveContextLock?: (cache: LiveFixtureCache, stats: LiveStatsSnapshot) => void;
 }) {
   if (isInvalidFixture(response)) {
     return (
@@ -391,21 +447,31 @@ export function AuroraResponse({
     null,
   );
 
+  const lockedFixtureHint = extractFixtureIdHint({ liveStats, response });
+  const lockRef = useRef(onLiveContextLock);
+  lockRef.current = onLiveContextLock;
+
   useEffect(() => {
     if (!isLiveCard || !baseCard?.home?.name || !baseCard?.away?.name) return;
-    if (liveStats) return;
+    // Already have fixture id from message — no need to re-fetch / re-lock in a loop
+    if (liveStats?.fixtureId) return;
+
     let cancelled = false;
     (async () => {
       try {
         const fixtures = await fetchLiveFixtures();
-        const live = findLiveFixture(
-          fixtures,
-          baseCard.home.name,
-          baseCard.away.name,
-        );
+        const live = resolveLiveFixture(fixtures, {
+          fixtureId: lockedFixtureHint,
+          homeName: baseCard.home.name,
+          awayName: baseCard.away.name,
+          idOnly: Boolean(lockedFixtureHint),
+        });
         if (cancelled || !live) return;
-        setBootStats(buildLiveStatsView(live));
+        const stats = buildLiveStatsView(live);
+        const cache = buildLiveCacheFromFixture(live, baseCard);
+        setBootStats(stats);
         setBootMomentum(momentumFromLive(live));
+        lockRef.current?.(cache, stats);
       } catch {
         // optional enrichment — ignore
       }
@@ -415,9 +481,11 @@ export function AuroraResponse({
     };
   }, [
     isLiveCard,
-    liveStats,
+    liveStats?.fixtureId,
+    lockedFixtureHint,
     baseCard?.home?.name,
     baseCard?.away?.name,
+    baseCard?.competition?.name,
   ]);
 
   const statsView = liveStats || bootStats;
@@ -433,15 +501,22 @@ export function AuroraResponse({
     !isSocial && isAnalysis ? decisionAlert(response) : null;
   if (alertText) usedIdeas.add("low_conf");
 
+  const hasLiveData = Boolean(
+    statsView ||
+      (isLiveCard &&
+        (card?.score != null || (card?.minute != null && card.minute > 0))),
+  );
+
   const summaryText = compactSummary(
     response.executive_summary || "",
     usedIdeas,
-    isAnalysis && !showMatchHeader ? matchLabel : null,
+    isAnalysis ? matchLabel : null,
+    { isLive: isLiveCard, hasLiveData },
   );
 
   const interesting =
     !integrityBlocked && isAnalysis
-      ? pickInterestingMarkets(response.best_markets)
+      ? pickInterestingMarkets(response.best_markets, isLiveCard)
       : [];
   const showMarketsBlock = !integrityBlocked && isAnalysis;
 
@@ -504,6 +579,15 @@ export function AuroraResponse({
         </header>
       ) : null}
 
+      {liveStatusNote ? (
+        <p
+          className="text-[0.875rem] leading-relaxed text-[#A0A0A0]"
+          role="status"
+        >
+          {liveStatusNote}
+        </p>
+      ) : null}
+
       {summaryText ? (
         <section aria-label="Resumo">
           <p className="text-[15px] leading-[1.75] text-[#ECECEC]/92">
@@ -540,9 +624,14 @@ export function AuroraResponse({
               })}
             </ul>
           ) : (
-            <p className="text-[0.875rem] leading-relaxed text-[#A0A0A0]">
-              Nenhum mercado se destacou neste momento.
-            </p>
+            <div className="space-y-1 py-0.5">
+              <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]/95">
+                🔥 Mercado em observação
+              </p>
+              <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+                Nenhuma oportunidade clara identificada neste momento.
+              </p>
+            </div>
           )}
         </section>
       )}
@@ -703,7 +792,8 @@ function clientDebugEnabled(): boolean {
 }
 
 function DeployDebugSnapshot({ response }: { response: CopilotResponse }) {
-  if (!response.debug && !clientDebugEnabled()) return null;
+  // Hard gate: only when user explicitly opts into debug UI (?debug=1 / localStorage).
+  if (!clientDebugEnabled()) return null;
 
   const card = response.match_card ?? null;
   const fixtureQuality =

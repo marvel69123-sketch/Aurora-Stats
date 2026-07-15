@@ -2,14 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { generateConversationTitle } from "@/lib/conversationTitle";
 import {
   applyLiveToMatchCard,
+  buildLiveCacheFromFixture,
   buildLiveStatsView,
+  extractFixtureIdHint,
   fetchLiveFixtures,
-  findLiveFixture,
+  resolveLiveFixture,
 } from "@/lib/liveMatch";
-import type { CopilotResponse, Message, Session } from "@/types/chat";
+import type { CopilotResponse, LiveFixtureCache, Message, Session } from "@/types/chat";
 
 const STORAGE_KEY = "aurora_chat_sessions";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+/** Soft FE guard — late context follow-ups (does not change FollowUp engine). */
+const LATE_FOLLOWUP_MS = 2 * 60 * 60 * 1000;
 
 function isDebugMode(): boolean {
   try {
@@ -36,13 +40,23 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function migrateMessage(m: Message): Message {
+  return {
+    ...m,
+    // Prevent sticky "Atualizando…" after crash / multi-tab race
+    refreshing: false,
+  };
+}
+
 function migrateSession(raw: Session): Session {
   return {
     ...raw,
     pinned: Boolean(raw.pinned),
     titleLocked: Boolean(raw.titleLocked),
     title: raw.title || "Nova conversa",
-    messages: Array.isArray(raw.messages) ? raw.messages : [],
+    messages: Array.isArray(raw.messages)
+      ? raw.messages.map((m) => migrateMessage(m as Message))
+      : [],
   };
 }
 
@@ -71,6 +85,29 @@ function sortSessions(sessions: Session[]): Session[] {
     if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
     return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
   });
+}
+
+function isLiveIdentityMessage(m: Message): boolean {
+  if (m.role !== "aurora" || !m.response?.match_card) return false;
+  if (m.response.match_card.is_live) return true;
+  if (m.liveFixtureId && m.liveFixtureId > 0) return true;
+  if (m.liveCache?.lastFixtureId && m.liveCache.lastFixtureId > 0) return true;
+  return false;
+}
+
+function isLateContextQuery(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(e agora\??|como est[aá]\??|atualiz(?:e|ar)?(?:\s+novamente)?(?:\s+a\s+partida)?|ainda vale\??|ainda v[aá]lido\??)$/i.test(
+    t,
+  );
+}
+
+function messageAgeMs(m: Message): number | null {
+  const stamp = m.refreshedAt || m.response?.generated_at || m.createdAt;
+  if (!stamp) return null;
+  const t = Date.parse(stamp);
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Date.now() - t);
 }
 
 async function callCopilot(
@@ -156,6 +193,22 @@ export function useChat() {
     saveSessions(sessions);
   }, [sessions]);
 
+  // Multi-tab: keep in-memory sessions aligned with localStorage writes from other tabs
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue) as Session[];
+        if (!Array.isArray(parsed)) return;
+        setSessions(sortSessions(parsed.map(migrateSession)));
+      } catch {
+        // ignore corrupt payloads from other tabs
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
   const createSession = useCallback((): string => {
@@ -212,7 +265,7 @@ export function useChat() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
 
-    // FE intercept: avoid FollowUp live_update snapshot (stale minute).
+    // FE intercept: live refresh by identity (live OR locked fixture) — avoid FollowUp wipe
     if (/^atualiza(?:r)?\s+(?:a\s+)?partida\s*$/i.test(text.trim())) {
       const sessionId = activeId;
       const session = sessionId
@@ -220,9 +273,92 @@ export function useChat() {
         : null;
       const liveMsg = [...(session?.messages ?? [])]
         .reverse()
-        .find((m) => m.role === "aurora" && m.response?.match_card?.is_live);
+        .find(isLiveIdentityMessage);
       if (liveMsg) {
         await refreshLiveMatchRef.current(liveMsg.id);
+        return;
+      }
+    }
+
+    // Soft late-context guard (>2h) — friendly FE reply, no MatchHeader wipe
+    if (isLateContextQuery(text) && activeId) {
+      const session = sessionsRef.current.find((s) => s.id === activeId);
+      const lastAurora = [...(session?.messages ?? [])]
+        .reverse()
+        .find((m) => m.role === "aurora" && m.response);
+      const age = lastAurora ? messageAgeMs(lastAurora) : null;
+      if (age != null && age > LATE_FOLLOWUP_MS) {
+        const userMsgId = uid();
+        const auroraId = uid();
+        const soft: CopilotResponse = {
+          intent: "follow_up",
+          entities: { late_context: true },
+          request_id: uid(),
+          generated_at: now(),
+          match: lastAurora?.response?.match ?? null,
+          status: lastAurora?.response?.status ?? null,
+          is_live: false,
+          minute: lastAurora?.response?.minute ?? null,
+          match_card: lastAurora?.response?.match_card
+            ? { ...lastAurora.response.match_card, is_live: false }
+            : null,
+          fixture_quality: lastAurora?.response?.fixture_quality ?? null,
+          fixture_status: lastAurora?.response?.fixture_status ?? null,
+          executive_summary:
+            "Este contexto tem mais de 2 horas. Peça uma nova análise da partida para dados atualizados.",
+          best_markets: [],
+          confidence: {
+            score: 0,
+            label: "indisponível",
+            explanation: "",
+            data_sources: [],
+          },
+          risk: { level: "Unknown", flags: [], invalidation_conditions: [] },
+          bankroll_recommendation: {
+            recommended_stake_pct: 0,
+            method: "",
+            examples: {},
+            reasoning: "",
+            no_bet: true,
+          },
+          positive_factors: [],
+          negative_factors: [],
+          historical_references: [],
+          knowledge_notes: [],
+          final_recommendation:
+            "Contexto antigo — solicite uma nova análise para continuar com segurança.",
+          aurora_version: lastAurora?.response?.aurora_version ?? "Aurora",
+          brain: {},
+        };
+        setSessions((prev) =>
+          sortSessions(
+            prev.map((s) => {
+              if (s.id !== activeId) return s;
+              return {
+                ...s,
+                lastActive: now(),
+                messages: [
+                  ...s.messages,
+                  {
+                    id: userMsgId,
+                    role: "user",
+                    userText: text.trim(),
+                    createdAt: now(),
+                  } satisfies Message,
+                  {
+                    id: auroraId,
+                    role: "aurora",
+                    userText: "",
+                    response: soft,
+                    createdAt: now(),
+                    // Preserve prior live identity on the soft reply? Better leave empty —
+                    // MatchHeader comes from soft.match_card copy above.
+                  } satisfies Message,
+                ],
+              };
+            }),
+          ),
+        );
         return;
       }
     }
@@ -320,7 +456,7 @@ export function useChat() {
       );
     } catch (err) {
       const errorMsg =
-        err instanceof Error ? err.message : "Unknown error. Please try again.";
+        err instanceof Error ? err.message : "Erro desconhecido. Tente novamente.";
       setSessions((prev) =>
         sortSessions(
           prev.map((s) => {
@@ -342,47 +478,73 @@ export function useChat() {
   }, [activeId, loading]);
 
   /**
-   * Real live refresh (FE orchestration):
-   * 1) GET /aurora/live → minute, score, stats, momentum (in-place)
-   * 2) Silent re-analyze → markets / summary (existing copilot path; no FollowUp live_update)
-   * Does not append chat bubbles.
+   * Live refresh — fixture_id → liveCache → nome (último recurso).
+   * Never silent re-analyze. Never wipe to INVALID.
    */
   const refreshLiveMatch = useCallback(async (messageId: string) => {
     const sessionId = activeId;
     if (!sessionId) return;
 
-    const session = sessionsRef.current.find((s) => s.id === sessionId);
+    // Multi-tab: prefer latest persisted snapshot before mutating
+    const latest = sortSessions(loadSessions());
+    sessionsRef.current = latest;
+
+    const session = latest.find((s) => s.id === sessionId);
     const msg = session?.messages.find((m) => m.id === messageId);
     const card = msg?.response?.match_card;
-    if (!msg?.response || !card?.is_live || !card.home?.name || !card.away?.name) {
+    if (!msg?.response || !card?.home?.name || !card?.away?.name) {
       return;
     }
+    const lockedId = extractFixtureIdHint({
+      liveFixtureId: msg.liveFixtureId,
+      liveStats: msg.liveStats,
+      liveCache: msg.liveCache,
+      response: msg.response,
+    });
+    if (!card.is_live && !lockedId) return;
     if (msg.refreshing) return;
 
-    setSessions((prev) =>
-      patchMessage(prev, sessionId, messageId, (m) => ({ ...m, refreshing: true })),
+    setSessions(() =>
+      patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => ({
+        ...m,
+        refreshing: true,
+        liveStatusNote: null,
+        error: undefined,
+      })),
     );
 
     const home = card.home.name;
     const away = card.away.name;
-    const backendId = session?.backendSessionId;
-    let liveApplied = false;
+    const cache = msg.liveCache ?? null;
+    const hasIdentity = Boolean(lockedId || cache?.lastFixtureId);
 
     try {
       const fixtures = await fetchLiveFixtures();
-      const live = findLiveFixture(fixtures, home, away);
+      const live = resolveLiveFixture(fixtures, {
+        fixtureId: lockedId,
+        homeName: home,
+        awayName: away,
+        // Once identity is known, never rematch by free text.
+        idOnly: hasIdentity,
+        cache,
+      });
+
       if (live) {
-        liveApplied = true;
         const nextCard = applyLiveToMatchCard(card, live);
         const liveStats = buildLiveStatsView(live);
+        const liveCache: LiveFixtureCache = buildLiveCacheFromFixture(live, nextCard);
         const stamped = now();
-        setSessions((prev) =>
-          patchMessage(prev, sessionId, messageId, (m) => {
-            if (!m.response) return { ...m, refreshing: true };
+        setSessions(() =>
+          patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => {
+            if (!m.response) return { ...m, refreshing: false };
             return {
               ...m,
+              refreshing: false,
               refreshedAt: stamped,
+              liveFixtureId: live.fixture_id,
+              liveCache,
               liveStats,
+              liveStatusNote: null,
               response: {
                 ...m.response,
                 match_card: nextCard,
@@ -394,88 +556,67 @@ export function useChat() {
             };
           }),
         );
+        return;
       }
-    } catch {
-      // Live feed failed — still try silent re-analyze below
-    }
 
-    try {
-      const fresh = await callCopilot(`Analisar ${home} x ${away}`, backendId);
-      const stamped = now();
-      setSessions((prev) =>
-        patchMessage(prev, sessionId, messageId, (m) => {
+      // Not in live feed — keep MatchHeader/context; never INVALID
+      setSessions(() =>
+        patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => {
           if (!m.response) return { ...m, refreshing: false };
           const prevCard = m.response.match_card;
-          // Prefer live-updated clock/score when we already applied /live
-          const mergedCard =
-            liveApplied && prevCard
-              ? {
-                  ...(fresh.match_card ?? {}),
-                  ...prevCard,
-                  home: {
-                    name: prevCard.home.name,
-                    logo:
-                      prevCard.home.logo ||
-                      fresh.match_card?.home?.logo ||
-                      null,
-                  },
-                  away: {
-                    name: prevCard.away.name,
-                    logo:
-                      prevCard.away.logo ||
-                      fresh.match_card?.away?.logo ||
-                      null,
-                  },
-                  minute: prevCard.minute ?? fresh.match_card?.minute ?? null,
-                  score: prevCard.score ?? fresh.match_card?.score ?? null,
-                  is_live: true,
-                  momentum:
-                    prevCard.momentum ?? fresh.match_card?.momentum ?? null,
-                }
-              : fresh.match_card ?? prevCard;
-
           return {
             ...m,
             refreshing: false,
-            refreshedAt: stamped,
+            refreshedAt: now(),
+            liveStatusNote:
+              "Partida encerrada ou não está mais ao vivo.",
             response: {
               ...m.response,
-              ...fresh,
-              session_id: fresh.session_id || m.response.session_id,
-              match_card: mergedCard,
-              minute: mergedCard?.minute ?? fresh.minute ?? m.response.minute,
-              is_live: mergedCard?.is_live ?? fresh.is_live ?? m.response.is_live,
+              is_live: false,
+              match_card: prevCard
+                ? { ...prevCard, is_live: false }
+                : prevCard,
             },
           };
         }),
       );
-      if (fresh.session_id) {
-        setSessions((prev) =>
-          sortSessions(
-            prev.map((s) =>
-              s.id === sessionId ? { ...s, backendSessionId: fresh.session_id } : s,
-            ),
-          ),
-        );
-      }
-    } catch (err) {
-      setSessions((prev) =>
-        patchMessage(prev, sessionId, messageId, (m) => ({
+    } catch {
+      setSessions(() =>
+        patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => ({
           ...m,
           refreshing: false,
-          // Keep live patch if it succeeded; surface soft error only if nothing worked
-          ...(liveApplied
-            ? {}
-            : {
-                error:
-                  err instanceof Error
-                    ? err.message
-                    : "Não foi possível atualizar a partida.",
-              }),
+          liveStatusNote:
+            "Não foi possível atualizar agora. Tente novamente em instantes.",
         })),
       );
     }
   }, [activeId]);
+
+  /** Lock fixture identity as soon as /live matches (before first refresh). */
+  const lockLiveContext = useCallback(
+    (messageId: string, cache: LiveFixtureCache, stats?: Message["liveStats"]) => {
+      const sessionId = activeId;
+      if (!sessionId || !cache.lastFixtureId) return;
+      setSessions(() =>
+        patchMessage(sortSessions(loadSessions()), sessionId, messageId, (m) => {
+          if (m.liveFixtureId && m.liveFixtureId === cache.lastFixtureId) {
+            return {
+              ...m,
+              liveCache: m.liveCache ?? cache,
+              liveStats: stats ?? m.liveStats,
+            };
+          }
+          return {
+            ...m,
+            liveFixtureId: cache.lastFixtureId,
+            liveCache: cache,
+            liveStats: stats ?? m.liveStats,
+          };
+        }),
+      );
+    },
+    [activeId],
+  );
 
   refreshLiveMatchRef.current = refreshLiveMatch;
 
@@ -491,5 +632,6 @@ export function useChat() {
     togglePinSession,
     sendMessage,
     refreshLiveMatch,
+    lockLiveContext,
   };
 }

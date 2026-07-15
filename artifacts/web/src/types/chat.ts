@@ -122,6 +122,15 @@ export interface LiveStatsSnapshot {
   minute: number | null;
 }
 
+/** FE-only live identity cache — survives refresh without re-resolving by free text. */
+export interface LiveFixtureCache {
+  lastFixtureId: number;
+  lastHome: string;
+  lastAway: string;
+  lastCompetition?: string | null;
+  kickoff?: string | null;
+}
+
 export interface Message {
   id: string;
   role: "user" | "aurora";
@@ -132,6 +141,12 @@ export interface Message {
   loading?: boolean;
   /** FE-only: last successful live refresh timestamp (ISO). */
   refreshedAt?: string;
+  /** FE-only: locked fixture id for stable live refresh (from /aurora/live). */
+  liveFixtureId?: number | null;
+  /** FE-only: richer identity cache for refresh (id → cache → name). */
+  liveCache?: LiveFixtureCache | null;
+  /** FE-only: soft status after refresh (e.g. match ended) — never INVALID wipe. */
+  liveStatusNote?: string | null;
   /** FE-only: live statistics table from GET /aurora/live. */
   liveStats?: LiveStatsSnapshot | null;
   /** FE-only: refresh in progress for this message. */

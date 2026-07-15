@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { AuroraAvatar } from "./AuroraAvatar";
-import type { Session } from "@/types/chat";
+import type { LiveFixtureCache, LiveStatsSnapshot, Session } from "@/types/chat";
 
 interface ChatWindowProps {
   session: Session | null;
@@ -10,6 +10,11 @@ interface ChatWindowProps {
   avatarUrl: string | null;
   onSend: (text: string) => void;
   onRefreshLiveMatch?: (messageId: string) => void;
+  onLockLiveContext?: (
+    messageId: string,
+    cache: LiveFixtureCache,
+    stats?: LiveStatsSnapshot,
+  ) => void;
 }
 
 const STARTERS = [
@@ -51,7 +56,7 @@ function EmptyState({
             key={p.text}
             type="button"
             onClick={() => onSend(p.text)}
-            className="rounded-2xl border border-white/[0.06] bg-[#1f1f1f]/40 px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03] hover:border-white/[0.10]"
+            className="rounded-2xl border border-white/[0.08] bg-[#1b1b1d]/80 px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03] hover:border-white/[0.10]"
           >
             <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]/92">
               {p.label}
@@ -77,6 +82,7 @@ export function ChatWindow({
   avatarUrl,
   onSend,
   onRefreshLiveMatch,
+  onLockLiveContext,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLElement>(null);
   const messages = session?.messages ?? [];
@@ -90,7 +96,7 @@ export function ChatWindow({
 
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col bg-[#171717]"
+      className="flex min-h-0 flex-1 flex-col bg-[#0f0f0f]"
       aria-label="Conversa"
     >
       <section
@@ -112,13 +118,18 @@ export function ChatWindow({
                     ? () => onRefreshLiveMatch(msg.id)
                     : undefined
                 }
+                onLiveContextLock={
+                  onLockLiveContext
+                    ? (cache, stats) => onLockLiveContext(msg.id, cache, stats)
+                    : undefined
+                }
               />
             ))}
           </section>
         )}
       </section>
 
-      <footer className="bg-gradient-to-t from-[#171717] via-[#171717]/95 to-transparent">
+      <footer className="bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/95 to-transparent">
         <ChatInput
           onSend={onSend}
           disabled={loading}
