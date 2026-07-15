@@ -1,5 +1,6 @@
 #!/bin/bash
-# Post-merge for Replit workspace — install only; DB push is opt-in.
+# Post-merge for Replit workspace — install only (NO git commit / NO publish).
+# Source of truth remains GitHub. See DEPLOY.md.
 set -e
 cd "$(dirname "$0")/.."
 

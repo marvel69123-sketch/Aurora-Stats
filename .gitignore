@@ -17,6 +17,10 @@ artifacts/aurora/.venv/
 
 # dependencies
 node_modules
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-error.log*
 
 # IDEs and editors
 /.idea

@@ -37,6 +37,8 @@ stack = "PNPM_WORKSPACE"
 expertMode = true
 
 [postMerge]
+# Install-only after git merge in the Replit workspace. Does NOT auto-commit.
+# Deploy SoT: GitHub push + Republish — see DEPLOY.md
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
@@ -48,3 +50,4 @@ timeoutMs = 20000
 #   → runs code from artifacts/aurora (historical ID; do not relocate randomly)
 # Optional mirror: aurora/  ← bash scripts/sync-aurora-mirror.sh
 # Before install/build: bash scripts/verify-layout.sh
+# Deploy procedure: DEPLOY.md (never rely on Replit Agent auto-commits)

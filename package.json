@@ -4,17 +4,20 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "preinstall": "node scripts/ensure-pnpm.cjs",
+    "install:deps": "pnpm install",
     "verify:layout": "node -e \"require('child_process').execSync(process.platform==='win32'?'\\\"C:\\\\Program Files\\\\Git\\\\bin\\\\bash.exe\\\" scripts/verify-layout.sh':'bash scripts/verify-layout.sh',{stdio:'inherit'})\"",
     "sync:aurora": "node -e \"require('child_process').execSync(process.platform==='win32'?'\\\"C:\\\\Program Files\\\\Git\\\\bin\\\\bash.exe\\\" scripts/sync-aurora-mirror.sh':'bash scripts/sync-aurora-mirror.sh',{stdio:'inherit'})\"",
-    "build:web": "pnpm --filter @workspace/web run build",
-    "build:web:prod": "node scripts/build-web-production.cjs",
     "dev:web": "pnpm --filter @workspace/web run dev",
     "dev:api": "pnpm --filter @workspace/api-server run dev",
+    "build:web": "pnpm --filter @workspace/web run build",
+    "build:web:prod": "node scripts/build-web-production.cjs",
     "build:api": "pnpm --filter @workspace/api-server run build",
     "build": "pnpm run build:web:prod && pnpm --filter @workspace/api-server run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter @workspace/web --filter @workspace/api-server --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter @workspace/web --filter @workspace/api-server --filter \"./scripts\" --if-present run typecheck",
+    "deploy": "node scripts/deploy.cjs",
+    "deploy:build": "node scripts/deploy.cjs"
   },
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.1"
@@ -25,6 +28,6 @@
   },
   "engines": {
     "node": ">=20",
-    "pnpm": ">=10"
+    "pnpm": ">=9.15.0"
   }
 }

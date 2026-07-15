@@ -1,14 +1,16 @@
-name: Aurora Auto CI
+name: Aurora CI
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  aurora-check:
+  infra-check:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,8 +20,24 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install || true
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
 
-      - name: Finished
-        run: echo "Aurora synchronized successfully"
+      - name: Install (pnpm only — never npm install)
+        env:
+          COREPACK_ENABLE_STRICT: "0"
+          COREPACK_ENABLE_AUTO_PIN: "0"
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify layout
+        run: bash scripts/verify-layout.sh
+
+      - name: Typecheck web
+        run: pnpm --filter @workspace/web run typecheck
+
+      - name: Build web (production)
+        run: pnpm run build:web:prod

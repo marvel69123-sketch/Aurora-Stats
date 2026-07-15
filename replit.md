@@ -13,6 +13,7 @@ Deploy tree: `artifacts/aurora/` (must stay in sync with `aurora/` for live fixe
 ## Run & Operate
 
 
+- **Deploy (único):** ver `DEPLOY.md` — `pnpm run deploy` depois push + Republish
 - `cd artifacts/aurora && uvicorn main:app --host 0.0.0.0 --port 8080` — run Aurora (deploy path)
 - `bash scripts/verify-layout.sh` — fail-fast if monorepo layout is broken
 - `pnpm --filter @workspace/web run dev` — frontend Vite
@@ -21,7 +22,7 @@ Deploy tree: `artifacts/aurora/` (must stay in sync with `aurora/` for live fixe
 - `pnpm run build` — typecheck + build all packages
 - Required env: `API_FOOTBALL_KEY` — API-Football API key
 - Required env: `DATABASE_URL` — Postgres (Node API server only)
-
+- Install: **pnpm only** (`npm install` is blocked on purpose)
 ## Stack
 
 - **Aurora**: Python 3.12, FastAPI, uvicorn, httpx, openai
