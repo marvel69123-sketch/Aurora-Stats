@@ -17,6 +17,11 @@ function isDebugMode(): boolean {
   return import.meta.env.DEV === true && import.meta.env.VITE_AURORA_DEBUG === "1";
 }
 
+function messageRequestsDebug(message: string): boolean {
+  const msg = message.toLowerCase();
+  return msg.includes("#debug") || msg.includes("modo debug");
+}
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -72,7 +77,7 @@ async function callCopilot(
     body: JSON.stringify({
       message,
       ...(backendSessionId ? { session_id: backendSessionId } : {}),
-      ...(isDebugMode() ? { debug: true } : {}),
+      ...(isDebugMode() || messageRequestsDebug(message) ? { debug: true } : {}),
     }),
   });
   if (!res.ok) {
@@ -81,7 +86,38 @@ async function callCopilot(
       typeof err.detail === "string" ? err.detail : `HTTP ${res.status}`,
     );
   }
-  return res.json() as Promise<CopilotResponse>;
+  const data = (await res.json()) as CopilotResponse;
+  // Temporary audit: stamp JS bundle id when API cannot see the static build file.
+  const bundleId =
+    typeof __AURORA_UI_BUILD__ === "string" && __AURORA_UI_BUILD__
+      ? __AURORA_UI_BUILD__
+      : null;
+  if (
+    bundleId &&
+    (!data.frontend_commit ||
+      data.frontend_commit === "unknown" ||
+      data.frontend_commit === "DATA_MISSING")
+  ) {
+    data.frontend_commit = bundleId;
+  }
+  // If backend is old and omitted debug but user asked #debug, still flag for UI
+  if (
+    (isDebugMode() || messageRequestsDebug(message)) &&
+    !data.debug
+  ) {
+    data.debug = {
+      fixture_quality: data.fixture_quality ?? "DATA_MISSING",
+      market_generation_enabled:
+        typeof data.entities?.market_generation_enabled === "boolean"
+          ? data.entities.market_generation_enabled
+          : "DATA_MISSING",
+      fixture_found:
+        typeof data.fixture_found === "boolean"
+          ? data.fixture_found
+          : "DATA_MISSING",
+    };
+  }
+  return data;
 }
 
 export function useChat() {

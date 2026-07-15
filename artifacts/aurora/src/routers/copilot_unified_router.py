@@ -184,6 +184,15 @@ class CopilotResponse(BaseModel):
         default=None,
         description="VALID | PARTIAL | INVALID — blocks markets/confidence when INVALID.",
     )
+    # Temporary production audit — remove after version confirmation
+    backend_commit: str | None = Field(
+        default=None,
+        description="Short git SHA of the running backend (audit only).",
+    )
+    frontend_commit: str | None = Field(
+        default=None,
+        description="UI build id / bundle hash when known to the API host (audit only).",
+    )
 
     # ── 10 response sections ────────────────────────────────────────────────
     executive_summary:       str
@@ -2254,6 +2263,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     if _out_found is None:
         _out_found = False if _invalid else None
 
+    # Temporary audit identity — presentation only, no integrity/market changes
+    try:
+        from src.core.deploy_identity import deploy_identity_dict as _deploy_id
+
+        _identity = _deploy_id()
+    except Exception:
+        _identity = {"backend_commit": "unknown", "frontend_commit": "unknown"}
+
     return CopilotResponse(
         intent             = payload["intent"],
         entities           = payload.get("entities", entities),
@@ -2279,6 +2296,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             if _out_quality in ("VALID", "PARTIAL", "INVALID")
             else None
         ),
+        backend_commit     = _identity.get("backend_commit"),
+        frontend_commit    = _identity.get("frontend_commit"),
 
         executive_summary       = payload["executive_summary"],
         best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],

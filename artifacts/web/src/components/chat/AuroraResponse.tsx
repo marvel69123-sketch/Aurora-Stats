@@ -239,12 +239,13 @@ export function AuroraResponse({
   // v3.3.3 — INVALID fixtures: minimal warning only (ChatGPT-like error state)
   if (isInvalidFixture(response)) {
     return (
-      <article className="w-full max-w-none" aria-label="Confronto inválido">
+      <article className="w-full max-w-none space-y-3" aria-label="Confronto inválido">
         <WarningCard
           variant="warning"
           title={INVALID_FIXTURE_TITLE}
           description={INVALID_FIXTURE_HINT}
         />
+        <DeployDebugSnapshot response={response} />
       </article>
     );
   }
@@ -529,8 +530,106 @@ export function AuroraResponse({
         </Details>
       )}
 
-      {response.debug ? <DebugAuditPanel debug={response.debug} /> : null}
+      <DeployDebugSnapshot response={response} />
     </article>
+  );
+}
+
+/** Temporary #debug UI — deploy / fixture snapshot (no analysis logic). */
+function clientDebugEnabled(): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("debug") === "1" || q.get("debug") === "true") return true;
+    if (localStorage.getItem("aurora_debug") === "1") return true;
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+function DeployDebugSnapshot({ response }: { response: CopilotResponse }) {
+  // #debug in message → backend sets response.debug; also show for ?debug=1
+  if (!response.debug && !clientDebugEnabled()) return null;
+
+  const card = response.match_card ?? null;
+  const fixtureQuality =
+    response.fixture_quality ||
+    (typeof response.entities?.fixture_quality === "string"
+      ? response.entities.fixture_quality
+      : null) ||
+    (typeof response.debug?.fixture_quality === "string"
+      ? response.debug.fixture_quality
+      : null) ||
+    "DATA_MISSING";
+
+  const competition =
+    card?.competition?.name ||
+    (typeof response.entities?.league === "string"
+      ? response.entities.league
+      : null) ||
+    "DATA_MISSING";
+
+  const logosPresent = Boolean(card?.home?.logo && card?.away?.logo);
+
+  const rows: { label: string; value: string }[] = [
+    {
+      label: "backend_commit",
+      value: formatDebugValue(response.backend_commit),
+    },
+    {
+      label: "frontend_commit",
+      value: formatDebugValue(response.frontend_commit),
+    },
+    {
+      label: "fixture_quality",
+      value: formatDebugValue(fixtureQuality),
+    },
+    {
+      label: "best_markets.length",
+      value: String(response.best_markets?.length ?? 0),
+    },
+    {
+      label: "match_card_present",
+      value: card ? "true" : "false",
+    },
+    {
+      label: "competition",
+      value: formatDebugValue(competition),
+    },
+    {
+      label: "logos_present",
+      value: logosPresent ? "true" : "false",
+    },
+  ];
+
+  return (
+    <section
+      className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-3"
+      aria-label="DEBUG deploy snapshot"
+    >
+      <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-amber-400/90">
+        DEBUG · deploy snapshot
+      </p>
+      <dl className="grid gap-1.5 font-mono text-[0.75rem] leading-relaxed">
+        {rows.map(({ label, value }) => {
+          const missing = value === "DATA_MISSING";
+          return (
+            <div key={label} className="grid grid-cols-[12.5rem_1fr] gap-2">
+              <dt className="text-[#8A8A8A]">{label}:</dt>
+              <dd
+                className={
+                  missing ? "text-amber-400/90" : "break-all text-[#ECECEC]"
+                }
+              >
+                {value}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      {response.debug ? <DebugAuditPanel debug={response.debug} /> : null}
+    </section>
   );
 }
 
@@ -561,8 +660,8 @@ function formatDebugValue(value: unknown): string {
 
 function DebugAuditPanel({ debug }: { debug: DebugAudit }) {
   return (
-    <Details title="DEBUG · auditoria" defaultOpen>
-      <dl className="grid gap-1.5 font-mono text-[0.75rem] leading-relaxed text-[#A0A0A0]">
+    <Details title="DEBUG · auditoria completa" defaultOpen={false}>
+      <dl className="mt-2 grid gap-1.5 font-mono text-[0.75rem] leading-relaxed text-[#A0A0A0]">
         {DEBUG_ROWS.map(({ key, label }) => {
           const raw = debug[key];
           const text = formatDebugValue(raw);

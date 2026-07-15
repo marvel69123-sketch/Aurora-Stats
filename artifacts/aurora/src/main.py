@@ -151,11 +151,22 @@ async def health():
         logger.warning("healthz: brain meta unavailable: %s", exc)
         brain_meta = {"brain_version": "unavailable", "error": str(exc)}
 
+    # Temporary audit fields — remove after production version check
+    identity: dict = {"backend_commit": "unknown", "frontend_commit": "unknown"}
+    try:
+        from src.core.deploy_identity import deploy_identity_dict
+
+        identity = deploy_identity_dict()
+    except Exception as exc:
+        logger.warning("healthz: deploy identity unavailable: %s", exc)
+
     return {
         "status": "ok",
         "service": "Aurora",
         "version": "1.1.0",
         "brain": brain_meta,
+        "backend_commit": identity.get("backend_commit", "unknown"),
+        "frontend_commit": identity.get("frontend_commit", "unknown"),
     }
 
 

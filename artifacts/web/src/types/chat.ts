@@ -52,6 +52,10 @@ export interface CopilotResponse {
   fixture_found?: boolean | null;
   /** VALID | PARTIAL | INVALID */
   fixture_quality?: "VALID" | "PARTIAL" | "INVALID" | string | null;
+  /** Temporary production audit — short backend git SHA */
+  backend_commit?: string | null;
+  /** Temporary production audit — UI build id / bundle hash */
+  frontend_commit?: string | null;
   executive_summary: string;
   best_markets: MarketEntry[];
   confidence: {
