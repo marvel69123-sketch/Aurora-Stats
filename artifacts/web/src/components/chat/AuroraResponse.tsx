@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { marketLabelPt, oneLinePt, scrubProsePt } from "@/lib/marketDisplay";
 import type { CopilotResponse, DebugAudit, MarketEntry } from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
-import { Markdown, MarkdownInline } from "./Markdown";
+import { MarkdownInline } from "./Markdown";
 import { MatchHeader, canRenderMatchHeader } from "./MatchHeader";
 import { WarningCard } from "./WarningCard";
 
@@ -23,7 +24,6 @@ function isInvalidFixture(response: CopilotResponse): boolean {
     (typeof response.entities?.fixture_status === "string"
       ? response.entities.fixture_status
       : null);
-  // PARTIAL keeps full UX (MatchHeader, markets, fallback analysis)
   if (quality === "PARTIAL" || status === "PARTIAL") return false;
   if (quality === "INVALID") return true;
   if (status === "NOT_FOUND" || status === "FICTIONAL") return true;
@@ -48,16 +48,25 @@ const CONF_PT: Record<string, string> = {
   adequada: "adequada",
   weak: "fraca",
   fraca: "fraca",
-  insufficient: "muito baixa",
-  insuficiente: "muito baixa",
-  "muito baixa": "muito baixa",
+  insufficient: "baixa",
+  insuficiente: "baixa",
+  "muito baixa": "baixa",
   unavailable: "indisponível",
   indisponível: "indisponível",
   indisponivel: "indisponível",
 };
 
+/** Ideas reserved for the single decision alert — never in summary/bullets. */
+const LOW_CONF_IDEA_RE =
+  /confiança\s+(muito\s+)?baixa|manteve a conversa|ainda faltam sinais|previsibilidade\s+(muito\s+)?baixa|aguardar(ia)?\s+mais\s+confirma|prefira\s+acompanhar|sinais\s+(claros\s+)?insuficientes|cenário\s+(de\s+)?(baixa confiança|incerto)|fixture\s+(oficial\s+)?(ainda\s+)?n[aã]o\s+confirm|dados\s+parciais|sem fixture|indispon[ií]vel/i;
+
+const TECH_FACTOR_RE =
+  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|puxando a nota|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%|api[-_\s]?football|data_completeness|market_generation|category pulling|portfolio exposure/i;
+
+const INTERESTING_MARKET_RE =
+  /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under|handicap|dnb/i;
+
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
-  // Social / help chrome: never show analysis badges
   if (
     response.intent === "greeting" ||
     response.intent === "identity" ||
@@ -69,30 +78,142 @@ function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
   ) {
     return [];
   }
-  if (response.intent !== "analyze_match" && response.intent !== "live_opportunities") {
-    // Follow-ups: only high-risk / no-bet caution, never REGRA DE OURO spam
-    const kinds: InsightBadgeKind[] = [];
-    if (response.risk.level === "High") kinds.push("high_risk");
-    else if (response.bankroll_recommendation.no_bet) kinds.push("caution");
-    return kinds;
+  if (response.intent === "analyze_match" || response.intent === "live_opportunities") {
+    const riskHigh = response.risk.level === "High";
+    const noBet = response.bankroll_recommendation.no_bet;
+    const strong =
+      response.confidence.label === "strong" || response.confidence.score >= 7.5;
+    if (!riskHigh && !noBet && strong) return ["opportunity"];
+    return [];
   }
-
   const kinds: InsightBadgeKind[] = [];
-  const riskHigh = response.risk.level === "High";
+  if (response.risk.level === "High") kinds.push("high_risk");
+  else if (response.bankroll_recommendation.no_bet) kinds.push("caution");
+  return kinds;
+}
+
+function splitSentences(text: string): string[] {
+  return scrubProsePt(text || "")
+    .replace(/\*\*/g, "")
+    .split(/(?<=[.!?…])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function ideaKey(sentence: string): string {
+  const s = sentence.toLowerCase();
+  if (LOW_CONF_IDEA_RE.test(s)) return "low_conf";
+  if (/mercado|escanteio|gol|btts|handicap/i.test(s)) return `mkt:${s.slice(0, 40)}`;
+  return s.replace(/\s+/g, " ").slice(0, 80);
+}
+
+/**
+ * Max 2 sentences; skip low-confidence noise (alert owns that idea).
+ * Always try to keep at least one useful line.
+ */
+function compactSummary(
+  text: string,
+  usedIdeas: Set<string>,
+  fallbackMatch: string | null,
+): string {
+  const out: string[] = [];
+  for (const sentence of splitSentences(text)) {
+    if (TECH_FACTOR_RE.test(sentence)) continue;
+    if (LOW_CONF_IDEA_RE.test(sentence)) continue; // reserved for alert
+    const key = ideaKey(sentence);
+    if (usedIdeas.has(key)) continue;
+    // Drop near-empty platitudes alone
+    if (/^confronto reconhecido\.?$/i.test(sentence) && out.length === 0) {
+      continue; // wait for a richer second sentence or fallback
+    }
+    usedIdeas.add(key);
+    out.push(sentence.replace(/\s+/g, " ").trim());
+    if (out.length >= 2) break;
+  }
+  if (out.length === 0 && fallbackMatch) {
+    out.push(`Análise de ${fallbackMatch}.`);
+    out.push("Dados atuais ainda são limitados.");
+    usedIdeas.add("summary_fallback");
+  } else if (out.length === 1 && /reconhecido/i.test(out[0])) {
+    out.push("Dados atuais ainda são limitados.");
+    usedIdeas.add("summary_limited");
+  }
+  return out.slice(0, 2).join(" ");
+}
+
+function humanBullet(raw: string): string | null {
+  let t = oneLinePt((raw || "").replace(/^•\s*/, "").replace(/\*\*/g, ""), 72);
+  if (!t || TECH_FACTOR_RE.test(t)) return null;
+  if (LOW_CONF_IDEA_RE.test(t)) return null;
+  return t || null;
+}
+
+function uniqueBullets(items: string[], usedIdeas: Set<string>, limit = 3): string[] {
+  const out: string[] = [];
+  for (const raw of items) {
+    const bullet = humanBullet(raw);
+    if (!bullet) continue;
+    const key = ideaKey(bullet);
+    if (usedIdeas.has(key)) continue;
+    usedIdeas.add(key);
+    out.push(bullet);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function publicStrengths(response: CopilotResponse): string[] {
+  const meta = response.response_metadata;
+  if (meta?.public_strengths?.length) return meta.public_strengths;
+  return response.positive_factors || [];
+}
+
+function pickInterestingMarkets(markets: MarketEntry[]): MarketEntry[] {
+  const filtered = markets.filter((m) => INTERESTING_MARKET_RE.test(m.market));
+  return (filtered.length > 0 ? filtered : markets).slice(0, 3);
+}
+
+function humanRationale(text: string, usedIdeas: Set<string>): string | null {
+  const clean = oneLinePt(text || "", 90);
+  if (!clean || TECH_FACTOR_RE.test(clean) || LOW_CONF_IDEA_RE.test(clean)) {
+    return null;
+  }
+  const key = ideaKey(clean);
+  if (usedIdeas.has(key)) return null;
+  usedIdeas.add(key);
+  return clean;
+}
+
+function decisionAlert(response: CopilotResponse): string | null {
+  const quality =
+    response.fixture_quality ||
+    (typeof response.entities?.fixture_quality === "string"
+      ? response.entities.fixture_quality
+      : null);
+  const partial = quality === "PARTIAL" || response.fixture_status === "PARTIAL";
+  const lowConf =
+    response.confidence.score > 0 &&
+    (response.confidence.score < 5 ||
+      ["insufficient", "weak", "insuficiente", "fraca", "muito baixa"].includes(
+        response.confidence.label,
+      ));
+  const highRisk = response.risk.level === "High";
   const noBet = response.bankroll_recommendation.no_bet;
-  const strong =
-    response.confidence.label === "strong" || response.confidence.score >= 7.5;
-  const moderate =
-    response.confidence.label === "moderate" ||
-    response.confidence.label === "adequate" ||
-    (response.confidence.score >= 5 && response.confidence.score < 7.5);
 
-  if (riskHigh) kinds.push("high_risk");
-  else if (noBet) kinds.push("caution");
-  else if (strong) kinds.push("opportunity");
-  else if (moderate) kinds.push("caution");
+  if (partial) {
+    return "Cenário de baixa confiança. Fixture ainda não confirmada.";
+  }
+  if (highRisk || (noBet && lowConf)) {
+    return "Cenário de risco elevado. Mercados podem sofrer alterações.";
+  }
+  if (lowConf) {
+    return "Confiança baixa neste momento.";
+  }
+  return null;
+}
 
-  return [...new Set(kinds)].slice(0, 1); // max one badge
+function confLabelPt(label: string): string {
+  return CONF_PT[label] || scrubProsePt(label) || "—";
 }
 
 function Details({
@@ -107,18 +228,18 @@ function Details({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <details
-      className="border-t border-white/[0.07] pt-3"
+      className="pt-1"
       open={open}
       onToggle={(e) => {
         const next = e.currentTarget.open;
         if (next !== open) setOpen(next);
       }}
     >
-      <summary className="flex w-full cursor-pointer list-none items-center justify-between py-2 text-left text-sm text-[#A0A0A0] transition-colors hover:text-[#ECECEC] [&::-webkit-details-marker]:hidden">
+      <summary className="flex w-full cursor-pointer list-none items-center justify-between py-1.5 text-left text-[0.8125rem] text-[#A0A0A0] transition-colors hover:text-[#ECECEC] [&::-webkit-details-marker]:hidden">
         <span className="font-medium tracking-wide">{title}</span>
-        {open ? <ChevronUpIcon size={15} /> : <ChevronDownIcon size={15} />}
+        {open ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
       </summary>
-      {open && <div className="mt-3.5 space-y-5">{children}</div>}
+      {open && <div className="mt-3 space-y-5">{children}</div>}
     </details>
   );
 }
@@ -129,12 +250,9 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
       <ul className="space-y-2.5">
         {markets.map((m) => (
           <li key={m.rank}>
-            <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]">{m.market}</p>
-            {m.rationale && (
-              <p className="mt-1 text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
-                {m.rationale}
-              </p>
-            )}
+            <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]">
+              {marketLabelPt(m.market)}
+            </p>
           </li>
         ))}
       </ul>
@@ -142,35 +260,36 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
-      <table className="w-full text-[0.8125rem]">
+    <div className="overflow-x-auto -mx-0.5">
+      <table className="w-full min-w-[280px] text-[0.8125rem]">
         <thead>
-          <tr className="border-b border-white/[0.06] bg-white/[0.02] text-white/40">
-            <th className="px-3 py-2.5 text-left font-medium">Mercado</th>
-            <th className="px-3 py-2.5 text-right font-medium">Prob.</th>
-            <th className="px-3 py-2.5 text-right font-medium">VE</th>
-            <th className="px-3 py-2.5 text-right font-medium">Risco</th>
+          <tr className="border-b border-white/[0.05] text-[#A0A0A0]/80">
+            <th className="px-1 py-2 text-left font-medium">Mercado</th>
+            <th className="px-1 py-2 text-right font-medium">Prob.</th>
+            <th className="px-1 py-2 text-right font-medium">VE</th>
+            <th className="px-1 py-2 text-right font-medium">Risco</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/[0.04]">
           {markets.map((m) => (
-            <tr key={m.rank} className="hover:bg-white/[0.02]">
-              <td className="max-w-[220px] truncate px-3 py-2.5 text-[#ECECEC]/85">{m.market}</td>
-              <td className="px-3 py-2.5 text-right text-[#A0A0A0]">
+            <tr key={m.rank}>
+              <td className="max-w-[11rem] truncate px-1 py-2 text-[#ECECEC]/85 sm:max-w-[220px]">
+                {marketLabelPt(m.market)}
+              </td>
+              <td className="whitespace-nowrap px-1 py-2 text-right text-[#A0A0A0]">
                 {m.probability.toFixed(0)}%
               </td>
               <td
                 className={cn(
-                  "px-3 py-2.5 text-right font-medium",
-                  m.expected_value > 0 ? "text-emerald-400" : "text-rose-400",
+                  "whitespace-nowrap px-1 py-2 text-right font-medium",
+                  m.expected_value > 0 ? "text-emerald-400/90" : "text-rose-400/90",
                 )}
               >
                 {m.expected_value > 0 ? "+" : ""}
                 {m.expected_value.toFixed(1)}%
               </td>
-              <td className="px-3 py-2.5 text-right text-[#A0A0A0]">
-                {RISK_PT[m.risk] ||
-                  (/^unknown$/i.test(m.risk) ? "—" : m.risk)}
+              <td className="whitespace-nowrap px-1 py-2 text-right text-[#A0A0A0]">
+                {RISK_PT[m.risk] || (/^unknown$/i.test(m.risk) ? "—" : scrubProsePt(m.risk))}
               </td>
             </tr>
           ))}
@@ -180,55 +299,7 @@ function MarketsTable({ markets, isLiveList }: { markets: MarketEntry[]; isLiveL
   );
 }
 
-const INTERESTING_MARKET_RE =
-  /gol|btts|ambos|escanteio|canto|1x2|vit[oó]r|win|empate|vencedor|over|under/i;
-
-const TECH_FACTOR_RE =
-  /\d+[.,]?\d*\s*\/\s*10|best[-_\s]?mercado|best[-_\s]?market|over_\d+|λ\s*=|ve\s*[+\-]|puxando a pontua|modo degradado|fixture oficial|precis[aã]o\s+\d|≥\s*60%/i;
-
-function pickInterestingMarkets(markets: MarketEntry[]): MarketEntry[] {
-  const filtered = markets.filter((m) => INTERESTING_MARKET_RE.test(m.market));
-  return (filtered.length > 0 ? filtered : markets).slice(0, 4);
-}
-
-function publicStrengths(response: CopilotResponse): string[] {
-  const meta = response.response_metadata;
-  if (meta?.public_strengths?.length) {
-    return meta.public_strengths.slice(0, 3);
-  }
-  const out: string[] = [];
-  for (const f of response.positive_factors.slice(0, 6)) {
-    if (TECH_FACTOR_RE.test(f)) {
-      if (/escanteio|corner/i.test(f)) {
-        const tip = "O histórico recente favorece atenção aos escanteios.";
-        if (!out.includes(tip)) out.push(tip);
-      }
-      continue;
-    }
-    const clean = f.replace(/^•\s*/, "").trim();
-    if (clean) out.push(clean);
-    if (out.length >= 3) break;
-  }
-  return out;
-}
-
-function looksTechnicalProse(text: string): boolean {
-  return /(?:\bVE\b|λ\s*=|\/\s*10|Best[-_\s]?mercado|não foi confirmada na API|over_\d+)/i.test(
-    text,
-  );
-}
-
-function humanRationale(text: string): string | null {
-  const t = (text || "").trim();
-  if (!t) return null;
-  if (/(?:\bVE\b|λ\s*=|\/\s*10|Best[-_\s]?mercado|over_\d+|metodol)/i.test(t)) {
-    return null;
-  }
-  const first = t.split(/(?<=[.!?])\s+/)[0] || t;
-  return first.length > 140 ? `${first.slice(0, 137)}…` : first;
-}
-
-/** Clean ChatGPT-style Aurora reply — prose first, details collapsed. */
+/** Aurora v3.4 — product UX: opportunity > risk > details; no repeated ideas. */
 export function AuroraResponse({
   response,
   onRefreshMatch,
@@ -236,10 +307,9 @@ export function AuroraResponse({
   response: CopilotResponse;
   onRefreshMatch?: () => void;
 }) {
-  // v3.3.3 — INVALID fixtures: minimal warning only (ChatGPT-like error state)
   if (isInvalidFixture(response)) {
     return (
-      <article className="w-full max-w-none space-y-3" aria-label="Confronto inválido">
+      <article className="w-full max-w-none space-y-4" aria-label="Confronto inválido">
         <WarningCard
           variant="warning"
           title={INVALID_FIXTURE_TITLE}
@@ -250,9 +320,8 @@ export function AuroraResponse({
     );
   }
 
+  const usedIdeas = new Set<string>();
   const hasMarkets = response.best_markets.length > 0;
-  const hasFactors =
-    response.positive_factors.length > 0 || response.negative_factors.length > 0;
   const hasNotes = response.knowledge_notes.length > 0;
   const hasHistory = response.historical_references.length > 0;
 
@@ -271,19 +340,6 @@ export function AuroraResponse({
     response.intent === "live_opportunities" ||
     response.intent === "live_team_analysis";
 
-  const conclusionRaw = response.final_recommendation || "";
-  const showRec =
-    !isSocial &&
-    isAnalysis &&
-    Boolean(conclusionRaw) &&
-    !conclusionRaw.startsWith("Por favor") &&
-    !conclusionRaw.startsWith("Please") &&
-    !looksTechnicalProse(conclusionRaw);
-
-  const showCautionBanner =
-    showRec &&
-    (response.bankroll_recommendation.no_bet || response.risk.level === "High");
-
   const card = response.match_card ?? null;
   const fixtureStatus =
     response.fixture_status ||
@@ -300,169 +356,199 @@ export function AuroraResponse({
     fixtureStatus === "NOT_FOUND" ||
     fixtureStatus === "FICTIONAL" ||
     response.entities?.entity_invalid === true;
-  // PARTIAL restores full card UX (logos, markets, fallback analysis)
-  const showMatchHeader =
-    !integrityBlocked && canRenderMatchHeader(card);
-  const predictability = showMatchHeader ? card?.predictability : undefined;
+
+  const showMatchHeader = !integrityBlocked && canRenderMatchHeader(card);
+
+  const matchLabel =
+    response.match && !/^unknown$/i.test(response.match) ? response.match : null;
+
+  // Alert claims low_conf first so summary never repeats it
+  const alertText =
+    !isSocial && isAnalysis ? decisionAlert(response) : null;
+  if (alertText) usedIdeas.add("low_conf");
+
+  const summaryText = compactSummary(
+    response.executive_summary || "",
+    usedIdeas,
+    isAnalysis ? matchLabel : null,
+  );
+
   const interesting =
     !integrityBlocked && isAnalysis
-      ? pickInterestingMarkets(response.best_markets).slice(0, 4)
+      ? pickInterestingMarkets(response.best_markets)
       : [];
-  const softPositives =
+  const showMarketsBlock = !integrityBlocked && isAnalysis;
+
+  const favorBullets =
     !integrityBlocked &&
     (response.intent === "analyze_match" || response.intent === "follow_up")
-      ? publicStrengths(response)
+      ? uniqueBullets(publicStrengths(response), usedIdeas, 3)
       : [];
+
+  const attentionBullets =
+    !integrityBlocked &&
+    (response.intent === "analyze_match" || response.intent === "follow_up")
+      ? uniqueBullets(response.negative_factors || [], usedIdeas, 3)
+      : [];
+
   const metaBits: string[] = [];
   if (!showMatchHeader) {
-    if (
-      response.match &&
-      !/^unknown$/i.test(response.match) &&
-      !integrityBlocked
-    ) {
-      metaBits.push(`⚽ ${response.match}`);
-    }
+    if (matchLabel && !integrityBlocked) metaBits.push(matchLabel);
     if (response.is_live) {
       metaBits.push(
         response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
       );
-    } else if (response.status && response.intent === "analyze_match") {
-      if (
-        !/^not\s*started$/i.test(response.status) &&
-        !/^(unknown|n\/?a|NOT_FOUND|FICTIONAL|PARTIAL|INVALID)$/i.test(
-          response.status,
-        )
-      ) {
-        metaBits.push(response.status);
-      }
     }
   }
 
+  const showDetails =
+    !isSocial &&
+    (response.confidence.score > 0 ||
+      !response.bankroll_recommendation.no_bet ||
+      hasMarkets ||
+      (response.positive_factors?.length ?? 0) > 0 ||
+      (response.negative_factors?.length ?? 0) > 0 ||
+      hasNotes ||
+      hasHistory);
+
   return (
-    <article className="w-full max-w-none space-y-5">
-      <InsightBadgeRow kinds={badges} className="mb-0.5" />
+    <article className="w-full max-w-none space-y-6 sm:space-y-7">
+      <InsightBadgeRow kinds={badges} />
 
       {showMatchHeader && card ? (
         <MatchHeader card={card} onRefresh={onRefreshMatch} />
       ) : metaBits.length > 0 ? (
-        <header className="-mt-1" aria-label="Partida">
-          <p className="text-[0.9375rem] font-medium leading-relaxed tracking-wide text-[#ECECEC]">
-            {metaBits[0]}
+        <header aria-label="Partida">
+          <p className="text-[0.9375rem] font-medium leading-relaxed text-[#ECECEC]">
+            {metaBits.join(" · ")}
           </p>
-          {metaBits.length > 1 && (
-            <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
-              {metaBits.slice(1).join(" · ")}
-            </p>
-          )}
         </header>
       ) : null}
 
-      <section className="pt-0.5" aria-label="Resumo">
-        <Markdown text={response.executive_summary} />
-      </section>
+      {summaryText ? (
+        <section aria-label="Resumo">
+          <p className="text-[15px] leading-[1.7] text-[#ECECEC]/92">{summaryText}</p>
+        </section>
+      ) : null}
 
-      {predictability ? (
+      {/* Oportunidade */}
+      {showMarketsBlock && (
         <section
-          className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
-          aria-label="Previsibilidade"
+          className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3"
+          aria-label="Destaque"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-            {predictability.label}
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/75">
+            {response.is_live || (showMatchHeader && card?.is_live)
+              ? "Neste momento"
+              : "Destaque"}
           </p>
-          <p className="mt-1.5 text-[0.875rem] leading-[1.65] text-[#ECECEC]/90">
-            {predictability.summary}
+          {interesting.length > 0 ? (
+            <ul className="space-y-2.5">
+              {interesting.map((m) => {
+                const why = humanRationale(m.rationale, usedIdeas);
+                return (
+                  <li key={m.rank}>
+                    <p className="text-[0.9rem] font-medium leading-snug text-[#ECECEC]">
+                      {marketLabelPt(m.market)}
+                    </p>
+                    {why ? (
+                      <p className="mt-0.5 text-[0.75rem] leading-relaxed text-[#A0A0A0]">
+                        {why}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-[0.875rem] leading-relaxed text-[#A0A0A0]">
+              Nenhum mercado se destacou neste momento.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Risco — um alerta */}
+      {alertText ? (
+        <section
+          className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
+          aria-label="Alerta"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
+            Alerta
+          </p>
+          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
+            {alertText}
           </p>
         </section>
       ) : null}
 
-      {softPositives.length > 0 && (
-        <section aria-label="Pontos fortes">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-            Pontos que se destacam
-          </p>
-          <ul className="space-y-1.5">
-            {softPositives.map((f, i) => (
-              <li key={i} className="text-[0.875rem] leading-[1.65] text-[#ECECEC]/85">
-                • <MarkdownInline text={f} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {interesting.length > 0 && (
-        <section aria-label="Mercados interessantes">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-            {response.is_live || (showMatchHeader && card?.is_live)
-              ? "Mercados neste momento"
-              : "Mercados interessantes"}
-          </p>
-          <ul className="space-y-2.5">
-            {interesting.map((m) => {
-              const why = humanRationale(m.rationale);
-              return (
-                <li key={m.rank} className="text-[0.9375rem] leading-snug text-[#ECECEC]">
-                  • {m.market}
-                  {why ? (
-                    <span className="mt-0.5 block text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
-                      {why}
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {showRec && (
+      {(favorBullets.length > 0 || attentionBullets.length > 0) && (
         <section
-          className={cn(
-            "text-[15px] leading-[1.8]",
-            showCautionBanner
-              ? "rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-5 py-4 text-amber-100/90"
-              : "text-[#ECECEC]/90",
-          )}
-          aria-label="Conclusão"
+          className="grid gap-4 sm:grid-cols-2 sm:gap-6"
+          aria-label="Pontos rápidos"
         >
-          <MarkdownInline text={conclusionRaw} />
+          {favorBullets.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+                A favor
+              </p>
+              <ul className="space-y-1">
+                {favorBullets.map((f, i) => (
+                  <li
+                    key={i}
+                    className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
+                  >
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {attentionBullets.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+                Atenção
+              </p>
+              <ul className="space-y-1">
+                {attentionBullets.map((f, i) => (
+                  <li
+                    key={i}
+                    className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
+                  >
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
-      {!isSocial &&
-        (response.confidence.score > 0 ||
-          !response.bankroll_recommendation.no_bet ||
-          hasMarkets ||
-          hasFactors ||
-          hasNotes ||
-          hasHistory) && (
-        <Details title="Detalhes da análise" defaultOpen={false}>
+      {showDetails && (
+        <Details title="Ver análise completa" defaultOpen={false}>
           {response.confidence.score > 0 && (
-            <p className="text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
+            <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
               Confiança{" "}
-              <span className="font-medium text-[#ECECEC]">
+              <span className="text-[#ECECEC]">
                 {response.confidence.score.toFixed(1)}/10
               </span>
               {" · "}
-              {CONF_PT[response.confidence.label] ?? response.confidence.label}
+              {confLabelPt(response.confidence.label)}
               {(() => {
-                const riskLabel =
-                  RISK_PT[response.risk.level] ??
-                  (/^unknown$/i.test(response.risk.level)
-                    ? ""
-                    : response.risk.level);
+                const riskLabel = RISK_PT[response.risk.level] ?? "";
                 return riskLabel ? ` · Risco ${riskLabel}` : "";
               })()}
             </p>
           )}
 
           {!response.bankroll_recommendation.no_bet && (
-            <p className="text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
+            <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
               Stake sugerida:{" "}
-              <span className="font-medium text-[#ECECEC]">
+              <span className="text-[#ECECEC]">
                 {response.bankroll_recommendation.recommended_stake_pct.toFixed(1)}%
               </span>{" "}
-              da banca ({response.bankroll_recommendation.method})
+              da banca
             </p>
           )}
 
@@ -475,41 +561,12 @@ export function AuroraResponse({
             </section>
           )}
 
-          {hasFactors && (
-            <section className="grid gap-4 sm:grid-cols-2" aria-label="Fatores">
-              {response.positive_factors.length > 0 && (
-                <ul className="space-y-2">
-                  <li className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-400/70">
-                    A favor
-                  </li>
-                  {response.positive_factors.map((f, i) => (
-                    <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#ECECEC]/80">
-                      <MarkdownInline text={f} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {response.negative_factors.length > 0 && (
-                <ul className="space-y-2">
-                  <li className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-400/70">
-                    Atenção
-                  </li>
-                  {response.negative_factors.map((f, i) => (
-                    <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#ECECEC]/80">
-                      <MarkdownInline text={f} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
           {hasNotes && (
             <section aria-label="Notas">
-              <ul className="space-y-2">
-                {response.knowledge_notes.map((n, i) => (
-                  <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
-                    <MarkdownInline text={n} />
+              <ul className="space-y-1.5">
+                {response.knowledge_notes.slice(0, 4).map((n, i) => (
+                  <li key={i} className="text-[0.75rem] leading-relaxed text-[#A0A0A0]">
+                    <MarkdownInline text={scrubProsePt(n)} />
                   </li>
                 ))}
               </ul>
@@ -518,10 +575,10 @@ export function AuroraResponse({
 
           {hasHistory && (
             <section aria-label="Histórico">
-              <ul className="space-y-2">
-                {response.historical_references.map((r, i) => (
-                  <li key={i} className="text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
-                    <MarkdownInline text={r} />
+              <ul className="space-y-1.5">
+                {response.historical_references.slice(0, 3).map((r, i) => (
+                  <li key={i} className="text-[0.75rem] leading-relaxed text-[#A0A0A0]">
+                    <MarkdownInline text={scrubProsePt(r)} />
                   </li>
                 ))}
               </ul>
@@ -535,7 +592,6 @@ export function AuroraResponse({
   );
 }
 
-/** Temporary #debug UI — deploy / fixture snapshot (no analysis logic). */
 function clientDebugEnabled(): boolean {
   try {
     if (typeof window === "undefined") return false;
@@ -549,7 +605,6 @@ function clientDebugEnabled(): boolean {
 }
 
 function DeployDebugSnapshot({ response }: { response: CopilotResponse }) {
-  // #debug in message → backend sets response.debug; also show for ?debug=1
   if (!response.debug && !clientDebugEnabled()) return null;
 
   const card = response.match_card ?? null;
@@ -573,39 +628,21 @@ function DeployDebugSnapshot({ response }: { response: CopilotResponse }) {
   const logosPresent = Boolean(card?.home?.logo && card?.away?.logo);
 
   const rows: { label: string; value: string }[] = [
-    {
-      label: "backend_commit",
-      value: formatDebugValue(response.backend_commit),
-    },
-    {
-      label: "frontend_commit",
-      value: formatDebugValue(response.frontend_commit),
-    },
-    {
-      label: "fixture_quality",
-      value: formatDebugValue(fixtureQuality),
-    },
+    { label: "backend_commit", value: formatDebugValue(response.backend_commit) },
+    { label: "frontend_commit", value: formatDebugValue(response.frontend_commit) },
+    { label: "fixture_quality", value: formatDebugValue(fixtureQuality) },
     {
       label: "best_markets.length",
       value: String(response.best_markets?.length ?? 0),
     },
-    {
-      label: "match_card_present",
-      value: card ? "true" : "false",
-    },
-    {
-      label: "competition",
-      value: formatDebugValue(competition),
-    },
-    {
-      label: "logos_present",
-      value: logosPresent ? "true" : "false",
-    },
+    { label: "match_card_present", value: card ? "true" : "false" },
+    { label: "competition", value: formatDebugValue(competition) },
+    { label: "logos_present", value: logosPresent ? "true" : "false" },
   ];
 
   return (
     <section
-      className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-3"
+      className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-3"
       aria-label="DEBUG deploy snapshot"
     >
       <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-amber-400/90">
@@ -663,8 +700,7 @@ function DebugAuditPanel({ debug }: { debug: DebugAudit }) {
     <Details title="DEBUG · auditoria completa" defaultOpen={false}>
       <dl className="mt-2 grid gap-1.5 font-mono text-[0.75rem] leading-relaxed text-[#A0A0A0]">
         {DEBUG_ROWS.map(({ key, label }) => {
-          const raw = debug[key];
-          const text = formatDebugValue(raw);
+          const text = formatDebugValue(debug[key]);
           const missing = text === "DATA_MISSING";
           return (
             <div key={key} className="grid grid-cols-[11rem_1fr] gap-2">

@@ -50,7 +50,7 @@ function EmptyState({
             key={p.text}
             type="button"
             onClick={() => onSend(p.text)}
-            className="rounded-2xl border border-white/[0.08] bg-[#1f1f1f]/60 px-4 py-4 text-left transition-colors hover:bg-white/[0.04] hover:border-white/[0.14]"
+            className="rounded-2xl border border-white/[0.06] bg-[#1f1f1f]/50 px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03] hover:border-white/[0.10]"
           >
             <p className="text-[0.9375rem] font-medium leading-snug text-[#ECECEC]/92">
               {p.label}
@@ -88,7 +88,7 @@ export function ChatWindow({
 
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col bg-[#212121]"
+      className="flex min-h-0 flex-1 flex-col bg-[#171717]"
       aria-label="Conversa"
     >
       <section
@@ -99,7 +99,7 @@ export function ChatWindow({
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <section className="aurora-chat-column space-y-10 px-4 py-9 md:px-6 md:py-11">
+          <section className="aurora-chat-column mx-auto w-full max-w-3xl space-y-11 px-3 py-8 sm:space-y-12 sm:px-5 md:px-6 md:py-11">
             {messages.map((msg) => (
               <MessageBubble
                 key={msg.id}
@@ -116,7 +116,7 @@ export function ChatWindow({
         )}
       </section>
 
-      <footer className="bg-gradient-to-t from-[#212121] via-[#212121]/92 to-transparent">
+      <footer className="bg-gradient-to-t from-[#171717] via-[#171717]/95 to-transparent">
         <ChatInput onSend={onSend} disabled={loading} />
       </footer>
     </section>

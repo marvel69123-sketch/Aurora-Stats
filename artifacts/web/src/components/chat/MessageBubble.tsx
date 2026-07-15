@@ -30,7 +30,7 @@ export function MessageBubble({
     return (
       <article className="flex justify-end" aria-label="Você">
         <div className="flex max-w-[min(100%,48rem)] items-start gap-3">
-          <p className="rounded-[1.35rem] bg-[#2f2f2f] px-5 py-3.5 text-[15px] leading-[1.8] tracking-[0.01em] text-[#ECECEC]">
+          <p className="rounded-[1.25rem] bg-[#2a2a2a] px-4 py-3 text-[15px] leading-[1.75] tracking-[0.01em] text-[#ECECEC] sm:px-5 sm:py-3.5">
             {message.userText}
           </p>
           <UserAvatar size="md" className="mt-0.5" />
