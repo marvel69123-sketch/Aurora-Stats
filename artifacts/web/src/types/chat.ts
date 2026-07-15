@@ -46,6 +46,8 @@ export interface CopilotResponse {
   is_live: boolean;
   minute: number | null;
   match_card?: MatchCard | null;
+  /** FOUND | PARTIAL | NOT_FOUND | FICTIONAL */
+  fixture_status?: "FOUND" | "PARTIAL" | "NOT_FOUND" | "FICTIONAL" | string | null;
   executive_summary: string;
   best_markets: MarketEntry[];
   confidence: {

@@ -164,6 +164,10 @@ class CopilotResponse(BaseModel):
         default=None,
         description="Rich match header: logos, score, competition, venue, momentum.",
     )
+    fixture_status: str | None = Field(
+        default=None,
+        description="FOUND | PARTIAL | NOT_FOUND | FICTIONAL — Fixture Integrity Guard.",
+    )
 
     # ── 10 response sections ────────────────────────────────────────────────
     executive_summary:       str
@@ -602,6 +606,12 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "status":    final_status,
         "is_live":   final_is_live,
         "minute":    final_minute,
+        "fixture_id": int(fixture_id or 0),
+        "_partial": bool(is_partial),
+        "fixture_status": (
+            "NOT_FOUND" if (is_partial or not fixture_located)
+            else ("PARTIAL" if degraded else "FOUND")
+        ),
 
         "executive_summary": executive,
         "best_markets":      best_markets,
@@ -1624,24 +1634,20 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         "Digite os dois times: **\"Analisar [Time A] x [Time B]\"**."
                     )
                 else:
-                    from src.core.entity_validator import (
-                        invalid_fixture_payload as _invalid_fx,
-                        validate_fixture_entities as _validate_ents,
+                    from src.core.fixture_integrity import (
+                        apply_integrity_to_payload as _apply_integrity,
+                        assess_analyze_result as _assess_fx,
+                        assess_named_fixture as _assess_named,
+                        blocked_integrity_payload as _blocked_fx,
                     )
 
-                    _ents_ok, _hv, _av = _validate_ents(home, away)
-                    if not _ents_ok:
-                        _reasons = list(_hv.reasons) + list(_av.reasons)
-                        logger.warning(
-                            "[AUDIT] entity_validator: REJECT home=%r away=%r reasons=%s",
-                            home, away, _reasons,
-                        )
-                        payload = _invalid_fx(
-                            home=home,
-                            away=away,
-                            brain=brain,
-                            reasons=_reasons,
-                        )
+                    _integrity = _assess_named(home, away)
+                    logger.warning(
+                        "[AUDIT] FixtureIntegrity: precheck status=%s home=%r away=%r reasons=%s",
+                        _integrity.status, home, away, _integrity.reasons,
+                    )
+                    if _integrity.is_blocked:
+                        payload = _blocked_fx(_integrity, brain=brain)
                     else:
                         try:
                             logger.warning(
@@ -1650,11 +1656,34 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                             )
                             prefer_live = bool(entities.get("is_live"))
                             payload = await _run_analyze(home, away, prefer_live=prefer_live)
-                            _save_analysis_context(ctx, payload, home, away)
-                            _db_upd_session(session_id, home=home, away=away, intent=intent)
+                            _post = _assess_fx(
+                                home,
+                                away,
+                                fixture_id=payload.get("fixture_id"),
+                                is_partial=bool(payload.get("_partial")),
+                                data_completeness=float(
+                                    ((payload.get("brain") or {}).get("inference") or {}).get(
+                                        "data_completeness", 1.0
+                                    )
+                                ),
+                            )
+                            payload = _apply_integrity(payload, _post)
                             logger.warning(
-                                "[AUDIT] copilot dispatch: _run_analyze succeeded, match=%r",
+                                "[AUDIT] FixtureIntegrity: postcheck status=%s markets=%d",
+                                _post.status,
+                                len(payload.get("best_markets") or []),
+                            )
+                            if not _post.is_blocked:
+                                _save_analysis_context(ctx, payload, home, away)
+                                _db_upd_session(session_id, home=home, away=away, intent=intent)
+                            else:
+                                # Do not poison follow-up context with fictional/generic markets
+                                ctx["last_analysis"] = None
+                                ctx["last_market"] = None
+                            logger.warning(
+                                "[AUDIT] copilot dispatch: _run_analyze done, match=%r status=%r",
                                 payload.get("match"),
+                                payload.get("fixture_status"),
                             )
                             logger.warning(
                                 "[AUDIT] ctx_after: last_match=%r last_intent=%r",
@@ -1664,71 +1693,27 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                             # Soft analyze already avoids 404; this catches engine crashes.
                             logger.warning(
                                 "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
-                                "Inference V2 continues with degraded payload",
+                                "Fixture Integrity Guard returns NOT_FOUND",
                                 type(_analyze_exc).__name__, _analyze_exc,
                             )
-                            from src.brain import get_brain_meta as _gbm_inf
-                            from src.core.inference_context import InferenceContext
+                            from src.core.fixture_integrity import FixtureIntegrityResult
 
-                            _eictx = InferenceContext(soft_mode=True)
-                            _eictx.register_failure(
-                                "analyze_pipeline",
-                                str(_analyze_exc),
-                                signal="fixture",
-                            )
-                            _eictx.finalize()
-                            payload = {
-                                "intent": "analyze_match",
-                                "entities": {"home": home, "away": away},
-                                "match": f"{home} x {away}",
-                                "status": "Partial",
-                                "is_live": False,
-                                "minute": None,
-                                "executive_summary": (
-                                    f"Não foi possível completar a análise de **{home} x {away}**, "
-                                    f"mas a Aurora registrou a falha e manteve a conversa ativa.\n\n"
-                                    f"Detalhe técnico: {_analyze_exc}"
-                                ),
-                                "best_markets": [],
-                                "confidence": {
-                                    "score": _eictx.apply_to_score(2.0),
-                                    "label": "insufficient",
-                                    "explanation": (
-                                        f"Inference V2: falha no pipeline — "
-                                        f"penalidade −{_eictx.total_penalty():.1f}"
+                            payload = _blocked_fx(
+                                FixtureIntegrityResult(
+                                    status="NOT_FOUND",
+                                    home=home,
+                                    away=away,
+                                    markets_blocked=True,
+                                    header_blocked=True,
+                                    confidence_label="unavailable",
+                                    confidence_score=0.0,
+                                    message=(
+                                        "Confronto não localizado em bases esportivas."
                                     ),
-                                    "data_sources": ["Inference Layer V2"],
-                                },
-                                "risk": {
-                                    "level": "High",
-                                    "flags": list(_eictx.missing_signals),
-                                    "invalidation_conditions": [
-                                        "Confirmar nomes oficiais dos times",
-                                    ],
-                                },
-                                "bankroll_recommendation": {
-                                    "recommended_stake_pct": 0.0,
-                                    "method": "quarter-Kelly",
-                                    "examples": {},
-                                    "reasoning": "Dados insuficientes para stake.",
-                                    "no_bet": True,
-                                },
-                                "positive_factors": [],
-                                "negative_factors": [
-                                    "Falha registrada — confiança reduzida (sem abort duro).",
-                                ],
-                                "historical_references": [],
-                                "knowledge_notes": _eictx.knowledge_notes_pt(),
-                                "final_recommendation": (
-                                    f"Tente novamente com nomes oficiais: "
-                                    f"\"Analisar {home} x {away}\"."
+                                    reasons=(f"analyze_error:{type(_analyze_exc).__name__}",),
                                 ),
-                                "aurora_version": "Copilot v1.0",
-                                "brain": {
-                                    **_gbm_inf(),
-                                    "inference": _eictx.explainability(),
-                                },
-                            }
+                                brain=brain,
+                            )
 
             elif intent == "live_team_analysis":
                 # FIX 1 — "analise jogo do [team]" → search live for that team
@@ -1998,17 +1983,26 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         from src.core.conversation_llm import needs_llm as _needs_llm
 
         if _needs_llm(intent, message, ctx):
-            has_structure = bool(payload.get("best_markets") or payload.get("positive_factors"))
-            if has_structure:
-                # Enhance the narrative of a structured Aurora payload
-                payload = _llm_enhance(payload, message, ctx, intent)
+            _blocked = bool(
+                (payload.get("entities") or {}).get("markets_blocked")
+                or payload.get("fixture_status") in ("NOT_FOUND", "FICTIONAL")
+            )
+            if _blocked:
+                logger.warning(
+                    "copilot: LLM skipped — Fixture Integrity Guard blocked markets"
+                )
             else:
-                # Pure conversational — replace entirely with LLM response
-                llm_payload = _llm_chat(message, ctx, intent, brain)
-                if llm_payload.get("executive_summary"):
-                    # Merge: keep any structured fields from the rule engine
-                    for k in ("executive_summary", "final_recommendation", "aurora_version"):
-                        payload[k] = llm_payload[k]
+                has_structure = bool(payload.get("best_markets") or payload.get("positive_factors"))
+                if has_structure:
+                    # Enhance the narrative of a structured Aurora payload
+                    payload = _llm_enhance(payload, message, ctx, intent)
+                else:
+                    # Pure conversational — replace entirely with LLM response
+                    llm_payload = _llm_chat(message, ctx, intent, brain)
+                    if llm_payload.get("executive_summary"):
+                        # Merge: keep any structured fields from the rule engine
+                        for k in ("executive_summary", "final_recommendation", "aurora_version"):
+                            payload[k] = llm_payload[k]
     except Exception as _llm_exc:
         logger.warning("copilot: LLM layer skipped (%s) — using Aurora rule engine response", _llm_exc)
 
@@ -2059,6 +2053,26 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception:
         suggested_follow_ups = []
 
+    # Integrity: never expose sports MatchHeader / markets for blocked fixtures
+    _fx_status = payload.get("fixture_status") or (payload.get("entities") or {}).get(
+        "fixture_status"
+    )
+    _header_blocked = bool(
+        (payload.get("response_metadata") or {}).get("header_blocked")
+        or (payload.get("entities") or {}).get("markets_blocked")
+        or _fx_status in ("NOT_FOUND", "FICTIONAL")
+    )
+    if _header_blocked:
+        payload["match_card"] = None
+    if (payload.get("entities") or {}).get("markets_blocked") or _fx_status in (
+        "NOT_FOUND",
+        "FICTIONAL",
+        "PARTIAL",
+    ):
+        # PARTIAL also blocks auto-markets; FOUND only keeps engine markets
+        if _fx_status != "FOUND":
+            payload["best_markets"] = []
+
     return CopilotResponse(
         intent             = payload["intent"],
         entities           = payload.get("entities", entities),
@@ -2071,6 +2085,11 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         is_live            = payload.get("is_live", False),
         minute             = payload.get("minute"),
         match_card         = _parse_match_card_model(payload.get("match_card")),
+        fixture_status     = (
+            str(_fx_status)
+            if _fx_status in ("FOUND", "PARTIAL", "NOT_FOUND", "FICTIONAL")
+            else None
+        ),
 
         executive_summary       = payload["executive_summary"],
         best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],

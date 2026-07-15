@@ -26,6 +26,9 @@ const CONF_PT: Record<string, string> = {
   insufficient: "muito baixa",
   insuficiente: "muito baixa",
   "muito baixa": "muito baixa",
+  unavailable: "indisponível",
+  indisponível: "indisponível",
+  indisponivel: "indisponível",
 };
 
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
@@ -242,22 +245,34 @@ export function AuroraResponse({
     showRec &&
     (response.bankroll_recommendation.no_bet || response.risk.level === "High");
 
-  const interesting = isAnalysis
-    ? pickInterestingMarkets(response.best_markets).slice(0, 4)
-    : [];
+  const card = response.match_card ?? null;
+  const fixtureStatus =
+    response.fixture_status ||
+    (typeof response.entities?.fixture_status === "string"
+      ? response.entities.fixture_status
+      : null);
+  const integrityBlocked =
+    fixtureStatus === "NOT_FOUND" ||
+    fixtureStatus === "FICTIONAL" ||
+    response.entities?.markets_blocked === true ||
+    response.entities?.entity_invalid === true;
+  const showMatchHeader =
+    !integrityBlocked &&
+    canRenderMatchHeader(card) &&
+    fixtureStatus !== "PARTIAL";
+  const predictability = showMatchHeader ? card?.predictability : undefined;
+  const interesting =
+    !integrityBlocked && fixtureStatus !== "PARTIAL" && isAnalysis
+      ? pickInterestingMarkets(response.best_markets).slice(0, 4)
+      : [];
   const softPositives =
-    response.intent === "analyze_match" || response.intent === "follow_up"
+    !integrityBlocked &&
+    (response.intent === "analyze_match" || response.intent === "follow_up")
       ? publicStrengths(response)
       : [];
-
-  const card = response.match_card ?? null;
-  const showMatchHeader =
-    canRenderMatchHeader(card) &&
-    response.entities?.entity_invalid !== true;
-  const predictability = showMatchHeader ? card?.predictability : undefined;
   const metaBits: string[] = [];
   if (!showMatchHeader) {
-    if (response.match && !/^unknown$/i.test(response.match)) {
+    if (response.match && !/^unknown$/i.test(response.match) && !integrityBlocked) {
       metaBits.push(`⚽ ${response.match}`);
     }
     if (response.is_live) {
@@ -267,7 +282,7 @@ export function AuroraResponse({
     } else if (response.status && response.intent === "analyze_match") {
       if (
         !/^not\s*started$/i.test(response.status) &&
-        !/^(unknown|n\/?a)$/i.test(response.status)
+        !/^(unknown|n\/?a|NOT_FOUND|FICTIONAL|PARTIAL)$/i.test(response.status)
       ) {
         metaBits.push(response.status);
       }

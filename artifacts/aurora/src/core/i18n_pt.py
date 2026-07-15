@@ -64,6 +64,7 @@ CONFIDENCE_TRANSLATIONS: dict[str, str] = {
     "adequate": "adequada",
     "weak": "fraca",
     "insufficient": "muito baixa",
+    "unavailable": "indisponível",
     "exceptional": "excepcional",
     "solid": "sólida",
     "limited": "limitada",
