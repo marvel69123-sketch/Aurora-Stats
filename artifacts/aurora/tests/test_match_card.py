@@ -113,6 +113,47 @@ def test_predictability_labels():
     assert "firme" in p["summary"].lower() or "Alta" in p["label"]
 
 
+def test_round_int_coerced_for_pydantic():
+    """API-Football sometimes returns round as int — must not drop match_card."""
+    from src.routers.copilot_unified_router import MatchCard
+
+    data = _analyze_fixture()
+    data["league"]["round"] = 30
+    card = build_match_card_from_analyze(
+        data,
+        is_live=True,
+        minute=32,
+        status_label="First Half",
+        confidence={"score": 6.5, "label": "moderate"},
+    )
+    assert card is not None
+    assert card["competition"]["round"] == "30"
+    mc = MatchCard(**card)
+    assert mc.competition is not None
+    assert mc.competition.round == "30"
+
+
+def test_normalize_match_card_repairs_bad_types():
+    from src.communication.match_card import normalize_match_card
+    from src.routers.copilot_unified_router import MatchCard
+
+    raw = {
+        "home": {"name": "England", "logo": 123},
+        "away": {"name": "Argentina", "logo": None},
+        "competition": {"name": "Friendly", "round": 1, "country": "World"},
+        "venue": {"name": "Wembley", "city": "London"},
+        "is_live": False,
+        "minute": "12",
+        "predictability": {"score": "7", "label": "Alta", "summary": "ok"},
+    }
+    cleaned = normalize_match_card(raw)
+    assert cleaned is not None
+    assert cleaned["home"]["logo"] is None  # non-string logos dropped
+    assert cleaned["competition"]["round"] == "1"
+    assert cleaned["minute"] == 12
+    MatchCard(**cleaned)
+
+
 def test_followup_reuses_match_card():
     from src.core.follow_up_engine import resolve
 
@@ -161,3 +202,31 @@ def test_followup_reuses_match_card():
     assert out["match_card"]["home"]["name"] == "France"
     assert out["match_card"]["home"]["logo"] == "https://fr.png"
     assert out["aurora_version"] == AURORA_MATCH_VERSION
+
+
+def test_timbuense_agora_not_false_followup():
+    """Regression: team names ending in 'e' must not match 'e agora'."""
+    from src.core.follow_up_engine import _detect_followup_type, is_followup
+
+    msg = "como está Sportivo Las Parejas x Timbuense agora?"
+    assert _detect_followup_type(msg) is None
+    assert is_followup(msg) is False
+
+
+def test_fixtures_equivalent_helper():
+    from src.routers.copilot_unified_router import _fixtures_equivalent
+
+    assert _fixtures_equivalent(
+        "England",
+        "Argentina",
+        last_match="England x Argentina",
+        last_home="England",
+        last_away="Argentina",
+    )
+    assert not _fixtures_equivalent(
+        "Sportivo Las Parejas",
+        "Timbuense",
+        last_match="England x Argentina",
+        last_home="England",
+        last_away="Argentina",
+    )

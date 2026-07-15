@@ -53,10 +53,29 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _safe_str(value: Any) -> str | None:
+    """Coerce API scalars to str for Pydantic MatchCard fields."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    return None
+
+
+def _logo_str(value: Any) -> str | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    return None
+
+
 def _team_block(name: str, logo: Any = None) -> dict[str, Any]:
     return {
         "name": (name or "").strip() or "Time",
-        "logo": logo if isinstance(logo, str) and logo.strip() else None,
+        "logo": _logo_str(logo),
     }
 
 
@@ -150,19 +169,21 @@ def build_match_card_from_analyze(
         momentum = _momentum_from_score(sh, sa)
 
     competition = None
-    if league.get("name"):
+    league_name = _safe_str(league.get("name"))
+    if league_name:
         competition = {
-            "name": league.get("name"),
-            "logo": league.get("logo") if isinstance(league.get("logo"), str) else None,
-            "country": league.get("country"),
-            "round": league.get("round"),
+            "name": league_name,
+            "logo": _logo_str(league.get("logo")),
+            "country": _safe_str(league.get("country")),
+            "round": _safe_str(league.get("round")),
         }
 
     venue_out = None
-    if venue.get("name"):
+    venue_name = _safe_str(venue.get("name"))
+    if venue_name:
         venue_out = {
-            "name": venue.get("name"),
-            "city": venue.get("city"),
+            "name": venue_name,
+            "city": _safe_str(venue.get("city")),
         }
 
     score_out = None
@@ -175,8 +196,8 @@ def build_match_card_from_analyze(
         "score": score_out,
         "competition": competition,
         "venue": venue_out,
-        "status_label": status_label,
-        "minute": minute,
+        "status_label": _safe_str(status_label),
+        "minute": _safe_int(minute),
         "is_live": bool(is_live),
         "momentum": momentum,
         "predictability": build_predictability(confidence, is_live=bool(is_live)),
@@ -222,12 +243,13 @@ def build_match_card_from_live_fixture(
     momentum = dict(_MOMENTUM_UI[key]) if key in _MOMENTUM_UI else None
 
     competition = None
-    if league.get("name"):
+    league_name = _safe_str(league.get("name"))
+    if league_name:
         competition = {
-            "name": league.get("name"),
-            "logo": league.get("logo") if isinstance(league.get("logo"), str) else None,
-            "country": league.get("country"),
-            "round": league.get("round"),
+            "name": league_name,
+            "logo": _logo_str(league.get("logo")),
+            "country": _safe_str(league.get("country")),
+            "round": _safe_str(league.get("round")),
         }
 
     score_out = None
@@ -240,7 +262,11 @@ def build_match_card_from_live_fixture(
         "score": score_out,
         "competition": competition,
         "venue": None,  # live feed does not include venue
-        "status_label": status.get("long") or status.get("short") or "Ao vivo",
+        "status_label": (
+            _safe_str(status.get("long"))
+            or _safe_str(status.get("short"))
+            or "Ao vivo"
+        ),
         "minute": minute,
         "is_live": True,
         "momentum": momentum,
@@ -248,11 +274,86 @@ def build_match_card_from_live_fixture(
     }
 
 
+def normalize_match_card(card: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Re-coerce a match_card dict so CopilotResponse/MatchCard always validates."""
+    if not isinstance(card, dict):
+        return None
+    home = card.get("home") if isinstance(card.get("home"), dict) else {}
+    away = card.get("away") if isinstance(card.get("away"), dict) else {}
+    hn = _safe_str(home.get("name"))
+    an = _safe_str(away.get("name"))
+    if not hn and not an:
+        return None
+
+    score = card.get("score")
+    score_out = None
+    if isinstance(score, dict):
+        sh, sa = _safe_int(score.get("home")), _safe_int(score.get("away"))
+        if sh is not None and sa is not None:
+            score_out = {"home": sh, "away": sa}
+
+    competition = card.get("competition")
+    competition_out = None
+    if isinstance(competition, dict) and _safe_str(competition.get("name")):
+        competition_out = {
+            "name": _safe_str(competition.get("name")),
+            "logo": _logo_str(competition.get("logo")),
+            "country": _safe_str(competition.get("country")),
+            "round": _safe_str(competition.get("round")),
+        }
+
+    venue = card.get("venue")
+    venue_out = None
+    if isinstance(venue, dict) and _safe_str(venue.get("name")):
+        venue_out = {
+            "name": _safe_str(venue.get("name")),
+            "city": _safe_str(venue.get("city")),
+        }
+
+    momentum = card.get("momentum")
+    momentum_out = None
+    if isinstance(momentum, dict) and _safe_str(momentum.get("label")):
+        momentum_out = {
+            "label": _safe_str(momentum.get("label")),
+            "side": _safe_str(momentum.get("side")),
+            "detail": _safe_str(momentum.get("detail")),
+        }
+
+    predictability = card.get("predictability")
+    predictability_out = None
+    if isinstance(predictability, dict) and _safe_str(predictability.get("label")):
+        try:
+            pscore = float(predictability.get("score") or 0.0)
+        except (TypeError, ValueError):
+            pscore = 0.0
+        predictability_out = {
+            "score": round(pscore, 1),
+            "label": _safe_str(predictability.get("label")) or "",
+            "summary": _safe_str(predictability.get("summary")) or "",
+        }
+
+    return {
+        "home": _team_block(hn or "Time", home.get("logo")),
+        "away": _team_block(an or "Time", away.get("logo")),
+        "score": score_out,
+        "competition": competition_out,
+        "venue": venue_out,
+        "status_label": _safe_str(card.get("status_label")),
+        "minute": _safe_int(card.get("minute")),
+        "is_live": bool(card.get("is_live")),
+        "momentum": momentum_out,
+        "predictability": predictability_out,
+    }
+
+
 def attach_match_card(payload: dict[str, Any], card: dict[str, Any] | None) -> dict[str, Any]:
     """Attach match_card + version bump when card is present."""
-    if not isinstance(payload, dict) or not card:
+    if not isinstance(payload, dict):
+        return payload
+    cleaned = normalize_match_card(card) if isinstance(card, dict) else None
+    if not cleaned:
         return payload
     payload = dict(payload)
-    payload["match_card"] = card
+    payload["match_card"] = cleaned
     payload["aurora_version"] = AURORA_MATCH_VERSION
     return payload

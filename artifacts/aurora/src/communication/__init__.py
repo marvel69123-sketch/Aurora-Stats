@@ -6,6 +6,7 @@ from src.communication.match_card import (
     build_match_card_from_analyze,
     build_match_card_from_live_fixture,
     build_predictability,
+    normalize_match_card,
 )
 from src.communication.personality_layer import (
     AURORA_TAGLINE,
@@ -27,4 +28,5 @@ __all__ = [
     "build_match_card_from_live_fixture",
     "build_predictability",
     "attach_match_card",
+    "normalize_match_card",
 ]

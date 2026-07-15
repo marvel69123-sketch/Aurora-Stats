@@ -83,8 +83,8 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     (r"mantem\s+(?:a\s+)?recomendacao",              "still_valid"),
     # Live update from context (Phase 5B) — no full re-analyze
     (r"como\s+est[a]?\s+agora\s*$",                  "live_update"),
-    (r"e\s+agora\s*$",                               "live_update"),
-    (r"e\s+agora\s*\?",                              "live_update"),
+    (r"(?:^|(?<=\s))e\s+agora\s*$",                  "live_update"),
+    (r"(?:^|(?<=\s))e\s+agora\s*\?",                 "live_update"),
     (r"atualiza(?:r)?\s+(?:o\s+)?(?:status|jogo)",   "live_update"),
     (r"atualiza(?:r)?\s+(?:a\s+)?partida",           "live_update"),
     (r"status\s+atual\s*$",                          "live_update"),

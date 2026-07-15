@@ -1220,6 +1220,48 @@ def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> No
     ctx["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _fixtures_equivalent(
+    home: str,
+    away: str,
+    *,
+    last_match: str = "",
+    last_home: str = "",
+    last_away: str = "",
+) -> bool:
+    """True when named teams refer to the same fixture already in context."""
+    try:
+        from src.core.entity_resolver import fold
+    except Exception:
+        def fold(text: str) -> str:  # type: ignore[misc]
+            return (text or "").strip().lower()
+
+    fh, fa = fold(home or ""), fold(away or "")
+    if not fh or not fa:
+        return False
+    if last_home and last_away:
+        lh, la = fold(last_home), fold(last_away)
+        if {fh, fa} == {lh, la}:
+            return True
+    lm = fold(last_match or "")
+    return bool(lm) and fh in lm and fa in lm
+
+
+def _parse_match_card_model(raw: object) -> MatchCard | None:
+    """Safely coerce payload match_card into the response model."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        from src.communication import normalize_match_card
+
+        cleaned = normalize_match_card(raw)
+        if not cleaned:
+            return None
+        return MatchCard(**cleaned)
+    except Exception as exc:
+        logger.warning("copilot: match_card response coerce skipped (%s)", exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # POST /aurora/copilot
 # ---------------------------------------------------------------------------
@@ -1330,22 +1372,50 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # LIMITATION: Autoscale has no sticky sessions; SQLite is per-instance.
     # Context here is best-effort (memory → local SQLite). Cross-node miss
     # falls through to normal NL — never invent fixture context.
+    #
+    # v3.3.0-beta: if the message names a *different* A x B fixture, do NOT
+    # reuse prior context — prefer analyze_match with the new entities.
     _ctx_last_match = ctx.get("last_match") or ctx.get("last_fixture")
     if payload is None and _ctx_last_match and _is_followup(message):
         logger.warning(
             "[AUDIT] QuickFollowUpGate: ENTER (before NL) last_match=%r message=%r",
             _ctx_last_match, message,
         )
-        fu_payload = _fu_resolve(message, ctx, brain)
-        if fu_payload:
-            payload = fu_payload
-            intent = "follow_up"
-            entities = dict(fu_payload.get("entities") or {})
-            routing_confidence = 0.90
+        _peek = _nl_route(message)
+        _ph = str((_peek.entities or {}).get("home") or "").strip()
+        _pa = str((_peek.entities or {}).get("away") or "").strip()
+        _new_fixture = (
+            _peek.intent == "analyze_match"
+            and bool(_ph)
+            and bool(_pa)
+            and not _fixtures_equivalent(
+                _ph,
+                _pa,
+                last_match=str(_ctx_last_match or ""),
+                last_home=str(ctx.get("last_home") or ""),
+                last_away=str(ctx.get("last_away") or ""),
+            )
+        )
+        if _new_fixture:
+            intent = _peek.intent
+            entities = dict(_peek.entities or {})
+            routing_confidence = _peek.confidence
             skipped_nl = True
-            logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
+            logger.warning(
+                "[AUDIT] QuickFollowUpGate: NEW FIXTURE %r x %r overrides context %r → analyze",
+                _ph, _pa, _ctx_last_match,
+            )
         else:
-            logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
+            fu_payload = _fu_resolve(message, ctx, brain)
+            if fu_payload:
+                payload = fu_payload
+                intent = "follow_up"
+                entities = dict(fu_payload.get("entities") or {})
+                routing_confidence = 0.90
+                skipped_nl = True
+                logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
+            else:
+                logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
 
     # ── NL Routing (skipped on quick follow-up hit) ───────────────────────
     if not skipped_nl:
@@ -1365,12 +1435,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     try:
         # ── 1. Emotional / conversational (only if not already answered) ──
         if payload is None:
-            em = _conv_detect(message)
-            if em and em[1] >= 0.80:
-                emotional_intent, em_conf = em
-                payload = _conv_respond(emotional_intent, ctx, brain)
-                intent = emotional_intent
-                routing_confidence = em_conf
+            _has_fixture_ents = bool(entities.get("home")) and bool(entities.get("away"))
+            if not (intent == "analyze_match" and _has_fixture_ents):
+                em = _conv_detect(message)
+                if em and em[1] >= 0.80:
+                    emotional_intent, em_conf = em
+                    payload = _conv_respond(emotional_intent, ctx, brain)
+                    intent = emotional_intent
+                    routing_confidence = em_conf
 
         # ── 2. Legacy follow-up after NL (compat if QuickGate missed) ─────
         _ctx_last_match  = ctx.get("last_match") or ctx.get("last_fixture")
@@ -1382,18 +1454,39 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             intent, _ctx_last_match, _ctx_last_intent, _followup_check, payload is not None,
         )
         if payload is None and _ctx_last_match and _followup_check:
-            logger.warning(
-                "[AUDIT] follow-up gate: ENTERING follow-up engine "
-                "(has_last_match=True, follow_up_detected=True)"
+            _fh = str(entities.get("home") or "").strip()
+            _fa = str(entities.get("away") or "").strip()
+            _nl_new_fixture = (
+                intent == "analyze_match"
+                and bool(_fh)
+                and bool(_fa)
+                and not _fixtures_equivalent(
+                    _fh,
+                    _fa,
+                    last_match=str(_ctx_last_match or ""),
+                    last_home=str(ctx.get("last_home") or ""),
+                    last_away=str(ctx.get("last_away") or ""),
+                )
             )
-            fu_payload = _fu_resolve(message, ctx, brain)
-            if fu_payload:
-                payload = fu_payload
-                intent = "follow_up"
-                routing_confidence = 0.88
-                logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
+            if _nl_new_fixture:
+                logger.warning(
+                    "[AUDIT] follow-up gate: SKIPPED — NL named new fixture %r x %r "
+                    "(ctx was %r)",
+                    _fh, _fa, _ctx_last_match,
+                )
             else:
-                logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
+                logger.warning(
+                    "[AUDIT] follow-up gate: ENTERING follow-up engine "
+                    "(has_last_match=True, follow_up_detected=True)"
+                )
+                fu_payload = _fu_resolve(message, ctx, brain)
+                if fu_payload:
+                    payload = fu_payload
+                    intent = "follow_up"
+                    routing_confidence = 0.88
+                    logger.warning("[AUDIT] follow-up gate: engine returned payload → intent=follow_up ✅")
+                else:
+                    logger.warning("[AUDIT] follow-up gate: engine returned None — falling through to normal routing")
         elif payload is None and not _ctx_last_match:
             logger.warning("[AUDIT] follow-up gate: SKIPPED — ctx.last_match is empty (no prior analysis in session)")
         elif payload is None and not _followup_check:
@@ -1887,11 +1980,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         status             = payload.get("status"),
         is_live            = payload.get("is_live", False),
         minute             = payload.get("minute"),
-        match_card         = (
-            MatchCard(**payload["match_card"])
-            if isinstance(payload.get("match_card"), dict)
-            else None
-        ),
+        match_card         = _parse_match_card_model(payload.get("match_card")),
 
         executive_summary       = payload["executive_summary"],
         best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],
