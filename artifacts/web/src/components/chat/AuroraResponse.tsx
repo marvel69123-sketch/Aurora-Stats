@@ -23,18 +23,12 @@ function isInvalidFixture(response: CopilotResponse): boolean {
     (typeof response.entities?.fixture_status === "string"
       ? response.entities.fixture_status
       : null);
+  // PARTIAL keeps full UX (MatchHeader, markets, fallback analysis)
+  if (quality === "PARTIAL" || status === "PARTIAL") return false;
   if (quality === "INVALID") return true;
   if (status === "NOT_FOUND" || status === "FICTIONAL") return true;
   if (response.entities?.entity_invalid === true) return true;
-  // fixture_found=false covers INVALID paths; skip PARTIAL (different UX)
-  if (quality === "PARTIAL" || status === "PARTIAL") return false;
-  const found =
-    typeof response.fixture_found === "boolean"
-      ? response.fixture_found
-      : typeof response.entities?.fixture_found === "boolean"
-        ? (response.entities.fixture_found as boolean)
-        : null;
-  return found === false;
+  return false;
 }
 
 const RISK_PT: Record<string, string> = {
@@ -300,30 +294,17 @@ export function AuroraResponse({
     (typeof response.entities?.fixture_quality === "string"
       ? response.entities.fixture_quality
       : null);
-  const fixtureFound =
-    typeof response.fixture_found === "boolean"
-      ? response.fixture_found
-      : typeof response.entities?.fixture_found === "boolean"
-        ? (response.entities.fixture_found as boolean)
-        : null;
   const integrityBlocked =
-    fixtureFound === false ||
     fixtureQuality === "INVALID" ||
     fixtureStatus === "NOT_FOUND" ||
     fixtureStatus === "FICTIONAL" ||
-    response.entities?.markets_blocked === true ||
     response.entities?.entity_invalid === true;
+  // PARTIAL restores full card UX (logos, markets, fallback analysis)
   const showMatchHeader =
-    !integrityBlocked &&
-    fixtureQuality !== "PARTIAL" &&
-    canRenderMatchHeader(card) &&
-    fixtureStatus !== "PARTIAL";
+    !integrityBlocked && canRenderMatchHeader(card);
   const predictability = showMatchHeader ? card?.predictability : undefined;
   const interesting =
-    !integrityBlocked &&
-    fixtureQuality !== "PARTIAL" &&
-    fixtureStatus !== "PARTIAL" &&
-    isAnalysis
+    !integrityBlocked && isAnalysis
       ? pickInterestingMarkets(response.best_markets).slice(0, 4)
       : [];
   const softPositives =

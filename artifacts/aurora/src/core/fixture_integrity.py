@@ -23,8 +23,8 @@ INTEGRITY_NOT_FOUND_MESSAGE = (
 )
 
 INTEGRITY_PARTIAL_MESSAGE = (
-    "Confronto reconhecido, mas a partida não foi localizada no momento. "
-    "Dados parciais — sem mercados automáticos."
+    "Confronto reconhecido — partida oficial não localizada no momento. "
+    "Análise com dados parciais / estimativas."
 )
 
 # Entity score below this (and not fiction) → INVALID / unknown entity
@@ -176,7 +176,8 @@ class FixtureIntegrityResult:
 
     @property
     def market_generation_enabled(self) -> bool:
-        return self.status == "FOUND" and not self.markets_blocked
+        # PARTIAL keeps estimated markets / fallback analysis (UX restore)
+        return self.status in ("FOUND", "PARTIAL") and not self.markets_blocked
 
 
 def _blocked(
@@ -209,15 +210,15 @@ def _partial(
     reasons: tuple[str, ...],
     entity_match_score: float = 0.0,
 ) -> FixtureIntegrityResult:
-    """Known entities, but no current fixture / incomplete data."""
+    """Known entities, but no current fixture — keep card + estimated markets."""
     return FixtureIntegrityResult(
         status="PARTIAL",
         home=home,
         away=away,
-        markets_blocked=True,
-        header_blocked=False,  # allow soft match label; no sports MatchHeader card
-        confidence_label="insufficient",
-        confidence_score=1.5,
+        markets_blocked=False,
+        header_blocked=False,
+        confidence_label="adequate",
+        confidence_score=4.5,
         message=INTEGRITY_PARTIAL_MESSAGE,
         reasons=reasons,
         entity_match_score=entity_match_score,
@@ -501,12 +502,20 @@ def partial_integrity_payload(
     result: FixtureIntegrityResult,
     *,
     brain: dict | None = None,
+    analyze_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Known teams, but no current API fixture — PARTIAL quality.
-    Markets blocked; soft match label kept; not the INVALID WarningCard path.
+    Known teams without current API fixture — PARTIAL quality.
+
+    Prefer a full analyze_payload (markets + match_card) when provided.
+    Falls back to a light branded card so logos/names still render.
     """
     from src.brain import get_brain_meta
+    from src.core.team_branding import enrich_analyze_teams, logo_url_for_team
+
+    if isinstance(analyze_payload, dict) and analyze_payload.get("best_markets") is not None:
+        out = apply_integrity_to_payload(dict(analyze_payload), result)
+        return out
 
     msg = result.message or INTEGRITY_PARTIAL_MESSAGE
     label = (
@@ -514,6 +523,43 @@ def partial_integrity_payload(
         if result.home and result.away
         else None
     )
+    # Minimal branded card so UX still shows crests
+    synth = {
+        "teams": {
+            "home": {"name": result.home, "logo": logo_url_for_team(result.home)},
+            "away": {"name": result.away, "logo": logo_url_for_team(result.away)},
+        },
+        "league": {"name": None},
+        "fixture": {"venue": {}},
+    }
+    enrich_analyze_teams(synth, home=result.home, away=result.away)
+    try:
+        from src.communication.match_card import build_match_card_from_analyze
+
+        card = build_match_card_from_analyze(
+            synth,
+            is_live=False,
+            minute=None,
+            status_label="Pré-jogo (dados parciais)",
+            confidence={
+                "score": float(result.confidence_score),
+                "label": result.confidence_label,
+            },
+        )
+    except Exception:
+        card = {
+            "home": synth["teams"]["home"],
+            "away": synth["teams"]["away"],
+            "score": None,
+            "competition": synth.get("league"),
+            "venue": None,
+            "status_label": "Pré-jogo (dados parciais)",
+            "minute": None,
+            "is_live": False,
+            "momentum": None,
+            "predictability": None,
+        }
+
     return {
         "intent": "analyze_match",
         "entities": {
@@ -523,8 +569,8 @@ def partial_integrity_payload(
             "fixture_quality": "PARTIAL",
             "fixture_found": False,
             "entity_invalid": False,
-            "markets_blocked": True,
-            "market_generation_enabled": False,
+            "markets_blocked": False,
+            "market_generation_enabled": True,
             "entity_match_score": result.entity_match_score,
         },
         "match": label,
@@ -537,28 +583,25 @@ def partial_integrity_payload(
         "_audit": {
             "fixture_found": False,
             "fixture_id": None,
-            "data_source": None,
-            "markets_source": None,
-            "market_reasoning": None,
             "fallback_used": True,
             "confidence_source": "Fixture Integrity Guard",
             "fixture_resolver": "partial_no_fixture",
             "entity_match_score": result.entity_match_score,
-            "market_generation_enabled": False,
+            "market_generation_enabled": True,
             "fixture_quality": "PARTIAL",
         },
         "executive_summary": msg,
         "best_markets": [],
         "confidence": {
             "score": float(result.confidence_score),
-            "label": "insufficient",
+            "label": result.confidence_label,
             "explanation": (
-                "Confiança muito baixa — confronto reconhecido, fixture ausente no momento."
+                "Dados parciais — confronto reconhecido; fixture oficial ausente no momento."
             ),
             "data_sources": ["Fixture Integrity Guard", "Entity Resolver"],
         },
         "risk": {
-            "level": "High",
+            "level": "Medium",
             "flags": list(result.reasons) or ["fixture_partial"],
             "invalidation_conditions": [],
         },
@@ -571,21 +614,21 @@ def partial_integrity_payload(
         },
         "positive_factors": [],
         "negative_factors": [
-            "Fixture oficial não localizada no momento — análise parcial.",
+            "Fixture oficial não localizada no momento — usando análise estimada.",
         ],
         "historical_references": [],
         "knowledge_notes": [],
         "final_recommendation": msg,
         "aurora_version": "Aurora v3.3.2-beta",
         "brain": brain or get_brain_meta(),
-        "match_card": None,
+        "match_card": card,
         "response_metadata": {
             "fixture_status": "PARTIAL",
             "fixture_quality": "PARTIAL",
             "fixture_found": False,
-            "markets_blocked": True,
-            "header_blocked": bool(result.header_blocked),
-            "market_generation_enabled": False,
+            "markets_blocked": False,
+            "header_blocked": False,
+            "market_generation_enabled": True,
             "entity_match_score": result.entity_match_score,
         },
     }
@@ -595,10 +638,13 @@ def integrity_response_payload(
     result: FixtureIntegrityResult,
     *,
     brain: dict | None = None,
+    analyze_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Route to INVALID vs PARTIAL payload builders."""
     if result.status == "PARTIAL":
-        return partial_integrity_payload(result, brain=brain)
+        return partial_integrity_payload(
+            result, brain=brain, analyze_payload=analyze_payload,
+        )
     return blocked_integrity_payload(result, brain=brain)
 
 
@@ -622,6 +668,7 @@ def apply_integrity_to_payload(
     ents["markets_blocked"] = bool(result.markets_blocked)
     ents["market_generation_enabled"] = bool(result.market_generation_enabled)
     ents["entity_match_score"] = result.entity_match_score
+    ents["entity_invalid"] = bool(result.is_blocked)
     out["entities"] = ents
 
     meta = dict(out.get("response_metadata") or {})
@@ -671,39 +718,40 @@ def apply_integrity_to_payload(
         return out
 
     if result.status == "PARTIAL" or quality == "PARTIAL":
-        out["best_markets"] = []
+        # Keep markets + match_card (fallback analysis / estimated markets)
         out["fixture_found"] = False
         out["fixture_quality"] = "PARTIAL"
         out["fixture_status"] = "PARTIAL"
-        msg = result.message or INTEGRITY_PARTIAL_MESSAGE
-        # Keep a soft narrative — do NOT swap to INVALID WarningCard copy
-        if not (out.get("executive_summary") or "").strip():
-            out["executive_summary"] = msg
-        out["final_recommendation"] = msg
+        note = result.message or INTEGRITY_PARTIAL_MESSAGE
         audit = dict(out.get("_audit") or {})
-        audit["markets_source"] = None
-        audit["market_reasoning"] = None
-        audit["market_generation_enabled"] = False
+        audit["fallback_used"] = True
+        audit["market_generation_enabled"] = True
         audit["fixture_quality"] = "PARTIAL"
         audit["fixture_found"] = False
         out["_audit"] = audit
+        # Soften confidence slightly but keep analysis usable
         conf = dict(out.get("confidence") or {})
-        conf["score"] = min(float(conf.get("score") or 10), 1.5)
-        conf["label"] = "insufficient"
+        try:
+            conf["score"] = min(float(conf.get("score") or 10), 5.5)
+        except (TypeError, ValueError):
+            conf["score"] = float(result.confidence_score)
+        if conf.get("label") in ("strong", "forte", "alta"):
+            conf["label"] = "adequate"
         conf["explanation"] = (
-            "Confiança muito baixa — confronto reconhecido, fixture ausente / parcial."
-        )
+            (conf.get("explanation") or "")
+            + " [PARTIAL: fixture oficial ausente — estimativas.]"
+        ).strip()
         out["confidence"] = conf
-        bank = dict(out.get("bankroll_recommendation") or {})
-        bank["recommended_stake_pct"] = 0.0
-        bank["examples"] = {}
-        bank["no_bet"] = True
-        bank["reasoning"] = msg
-        out["bankroll_recommendation"] = bank
+        # Append note once; do not wipe executive_summary / markets / card
+        kn = list(out.get("knowledge_notes") or [])
+        if note not in kn:
+            kn.insert(0, note)
+        out["knowledge_notes"] = kn
+        ents["entity_invalid"] = False
+        ents["markets_blocked"] = False
+        ents["market_generation_enabled"] = True
+        out["entities"] = ents
         if result.header_blocked:
             out["match_card"] = None
-        # PARTIAL is not entity_invalid
-        ents["entity_invalid"] = False
-        out["entities"] = ents
 
     return out

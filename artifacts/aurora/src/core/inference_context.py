@@ -373,7 +373,7 @@ def build_partial_analyze_data(
         "red_cards": 0,
     }
 
-    return {
+    payload = {
         "fixture": {
             "id": 0,
             "date": None,
@@ -425,3 +425,10 @@ def build_partial_analyze_data(
         "_partial": True,
         "_partial_reason": reason,
     }
+    try:
+        from src.core.team_branding import enrich_analyze_teams
+
+        payload = enrich_analyze_teams(payload, home=home, away=away)
+    except Exception:
+        pass
+    return payload

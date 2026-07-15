@@ -439,28 +439,26 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         an,
     )
 
-    # Known teams without a current API fixture → PARTIAL (not INVALID).
-    # Fiction / unknown entities → INVALID via integrity_response_payload.
-    if not fixture_located_early:
-        from src.core.fixture_integrity import (
-            assess_analyze_result as _assess_missing,
-            integrity_response_payload as _integrity_payload,
-        )
+    # INVALID only (fiction / unknown) — abort before engines.
+    # PARTIAL (known teams, no fixture): continue with fallback analysis + markets.
+    from src.core.fixture_integrity import (
+        assess_named_fixture as _assess_named_early,
+        blocked_integrity_payload as _blocked_early,
+    )
+    from src.core.team_branding import enrich_analyze_teams as _enrich_teams
 
-        _miss = _assess_missing(
-            home or hn,
-            away or an,
-            fixture_id=fixture_id_early,
-            is_partial=True,
-            data_completeness=float(ictx.data_completeness or 0.0),
-        )
+    _pre_early = _assess_named_early(home or hn, away or an)
+    if _pre_early.is_blocked:
         logger.warning(
-            "[DEBUG] fixture_resolver=early_abort fixture_found=false "
-            "fixture_quality=%s market_generation_enabled=false reasons=%s",
-            _miss.quality,
-            _miss.reasons,
+            "[DEBUG] fixture_resolver=early_abort fixture_quality=INVALID reasons=%s",
+            _pre_early.reasons,
         )
-        return _integrity_payload(_miss, brain=get_brain_meta())
+        return _blocked_early(_pre_early, brain=get_brain_meta())
+
+    # Enrich logos / league hints on soft/partial payloads before engines + card
+    data = _enrich_teams(data, home=home or hn, away=away or an)
+    hn = (data.get("teams") or {}).get("home", {}).get("name") or hn
+    an = (data.get("teams") or {}).get("away", {}).get("name") or an
 
     logger.info(
         "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
@@ -693,10 +691,10 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
             "league": league,
             "fixture_found": bool(fixture_located and not degraded),
             "fixture_quality": (
-                "INVALID" if (is_partial or not fixture_located)
-                else ("PARTIAL" if degraded else "VALID")
+                "PARTIAL" if (is_partial or not fixture_located or degraded)
+                else "VALID"
             ),
-            "market_generation_enabled": bool(fixture_located and not degraded),
+            "market_generation_enabled": True,
         },
         "match":     report.match or f"{hn} x {an}",
         "status":    final_status,
@@ -707,20 +705,20 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "_audit": {
             **_audit_raw,
             "fixture_resolver": "analyze_pipeline",
-            "market_generation_enabled": bool(fixture_located and not degraded),
+            "market_generation_enabled": True,
             "fixture_quality": (
-                "INVALID" if (is_partial or not fixture_located)
-                else ("PARTIAL" if degraded else "VALID")
+                "PARTIAL" if (is_partial or not fixture_located or degraded)
+                else "VALID"
             ),
         },
         "fixture_status": (
-            "NOT_FOUND" if (is_partial or not fixture_located)
-            else ("PARTIAL" if degraded else "FOUND")
+            "PARTIAL" if (is_partial or not fixture_located or degraded)
+            else "FOUND"
         ),
         "fixture_found": bool(fixture_located and not degraded),
         "fixture_quality": (
-            "INVALID" if (is_partial or not fixture_located)
-            else ("PARTIAL" if degraded else "VALID")
+            "PARTIAL" if (is_partial or not fixture_located or degraded)
+            else "VALID"
         ),
 
         "executive_summary": executive,
@@ -2217,35 +2215,28 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception:
         suggested_follow_ups = []
 
-    # Integrity: never expose sports MatchHeader / markets for blocked fixtures
+    # Integrity: strip MatchHeader / markets only for INVALID (fiction / unknown).
+    # PARTIAL keeps logos, estimated markets and fallback analysis.
     _fx_status = payload.get("fixture_status") or (payload.get("entities") or {}).get(
         "fixture_status"
     )
     _fx_quality = payload.get("fixture_quality") or (payload.get("entities") or {}).get(
         "fixture_quality"
     )
-    _fx_found = payload.get("fixture_found")
-    if _fx_found is None:
-        _fx_found = (payload.get("entities") or {}).get("fixture_found")
     _invalid = (
-        _fx_found is False
-        or _fx_quality == "INVALID"
+        _fx_quality == "INVALID"
         or _fx_status in ("NOT_FOUND", "FICTIONAL")
-        or (payload.get("entities") or {}).get("markets_blocked")
+        or (payload.get("entities") or {}).get("entity_invalid") is True
     )
     _header_blocked = bool(
         (payload.get("response_metadata") or {}).get("header_blocked")
         or _invalid
-        or _fx_quality == "PARTIAL"
     )
     if _header_blocked or _invalid:
         payload["match_card"] = None
-    if _invalid or _fx_status in ("NOT_FOUND", "FICTIONAL", "PARTIAL") or _fx_quality in (
-        "INVALID",
-        "PARTIAL",
-    ):
+    if _invalid:
         payload["best_markets"] = []
-        payload["fixture_found"] = False if _invalid else payload.get("fixture_found", False)
+        payload["fixture_found"] = False
 
     # ── DEBUG audit block (optional) ─────────────────────────────────────
     try:
