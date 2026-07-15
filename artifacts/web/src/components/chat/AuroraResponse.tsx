@@ -5,6 +5,37 @@ import type { CopilotResponse, DebugAudit, MarketEntry } from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
 import { Markdown, MarkdownInline } from "./Markdown";
 import { MatchHeader, canRenderMatchHeader } from "./MatchHeader";
+import { WarningCard } from "./WarningCard";
+
+const INVALID_FIXTURE_TITLE =
+  "Não consegui localizar um confronto esportivo válido.";
+const INVALID_FIXTURE_HINT =
+  "Verifique os nomes das equipes ou tente outro confronto.";
+
+function isInvalidFixture(response: CopilotResponse): boolean {
+  const quality =
+    response.fixture_quality ||
+    (typeof response.entities?.fixture_quality === "string"
+      ? response.entities.fixture_quality
+      : null);
+  const status =
+    response.fixture_status ||
+    (typeof response.entities?.fixture_status === "string"
+      ? response.entities.fixture_status
+      : null);
+  if (quality === "INVALID") return true;
+  if (status === "NOT_FOUND" || status === "FICTIONAL") return true;
+  if (response.entities?.entity_invalid === true) return true;
+  // fixture_found=false covers INVALID paths; skip PARTIAL (different UX)
+  if (quality === "PARTIAL" || status === "PARTIAL") return false;
+  const found =
+    typeof response.fixture_found === "boolean"
+      ? response.fixture_found
+      : typeof response.entities?.fixture_found === "boolean"
+        ? (response.entities.fixture_found as boolean)
+        : null;
+  return found === false;
+}
 
 const RISK_PT: Record<string, string> = {
   Low: "Baixo",
@@ -211,6 +242,19 @@ export function AuroraResponse({
   response: CopilotResponse;
   onRefreshMatch?: () => void;
 }) {
+  // v3.3.3 — INVALID fixtures: minimal warning only (ChatGPT-like error state)
+  if (isInvalidFixture(response)) {
+    return (
+      <article className="w-full max-w-none" aria-label="Confronto inválido">
+        <WarningCard
+          variant="warning"
+          title={INVALID_FIXTURE_TITLE}
+          description={INVALID_FIXTURE_HINT}
+        />
+      </article>
+    );
+  }
+
   const hasMarkets = response.best_markets.length > 0;
   const hasFactors =
     response.positive_factors.length > 0 || response.negative_factors.length > 0;
