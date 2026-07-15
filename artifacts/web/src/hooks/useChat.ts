@@ -5,6 +5,18 @@ import type { CopilotResponse, Message, Session } from "@/types/chat";
 const STORAGE_KEY = "aurora_chat_sessions";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function isDebugMode(): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("debug") === "1" || q.get("debug") === "true") return true;
+    if (localStorage.getItem("aurora_debug") === "1") return true;
+  } catch {
+    // ignore
+  }
+  return import.meta.env.DEV === true && import.meta.env.VITE_AURORA_DEBUG === "1";
+}
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -60,6 +72,7 @@ async function callCopilot(
     body: JSON.stringify({
       message,
       ...(backendSessionId ? { session_id: backendSessionId } : {}),
+      ...(isDebugMode() ? { debug: true } : {}),
     }),
   });
   if (!res.ok) {

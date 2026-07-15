@@ -32,6 +32,7 @@ __all__ = [
     "compact",
     "alias_keys",
     "normalize_team_name",
+    "fuzzy_correct_team",
     "search_variants",
     "name_match",
     "team_score",
@@ -78,21 +79,119 @@ def alias_keys(name: str) -> list[str]:
     return out
 
 
-def normalize_team_name(name: str) -> str:
-    """Resolve aliases / accented variants to the canonical display name."""
-    keys = alias_keys(name)
-    for candidate in keys:
+def has_alias(name: str) -> bool:
+    """True when any alias key maps in TEAM_ALIASES."""
+    return any(k in TEAM_ALIASES for k in alias_keys(name))
+
+
+# Fuzzy typo correction (difflib) — argentin→argentina, flamngo→flamengo, etc.
+_FUZZY_CUTOFF = 0.78
+_FUZZY_CANDIDATES: list[tuple[str, str]] | None = None
+
+
+def _fuzzy_candidates() -> list[tuple[str, str]]:
+    """(folded_candidate, canonical_display) pairs from TEAM_ALIASES."""
+    global _FUZZY_CANDIDATES
+    if _FUZZY_CANDIDATES is not None:
+        return _FUZZY_CANDIDATES
+
+    pairs: dict[str, str] = {}
+    for key, canonical in TEAM_ALIASES.items():
+        canon = str(canonical or "").strip()
+        if not canon:
+            continue
+        for raw in (key, canon):
+            f = fold(str(raw))
+            c = compact(str(raw))
+            if f and len(f) >= 4:
+                pairs.setdefault(f, canon)
+            if c and len(c) >= 4:
+                pairs.setdefault(c, canon)
+    _FUZZY_CANDIDATES = sorted(pairs.items(), key=lambda x: x[0])
+    return _FUZZY_CANDIDATES
+
+
+def _alias_canonical(name: str) -> str | None:
+    for candidate in alias_keys(name):
         if candidate in TEAM_ALIASES:
-            canonical = TEAM_ALIASES[candidate]
-            logger.warning(
-                "[AUDIT] entity_resolver.normalize: %r → %r (alias key=%r)",
-                name, canonical, candidate,
-            )
-            return canonical
+            return TEAM_ALIASES[candidate]
+    return None
+
+
+def fuzzy_correct_team(
+    name: str,
+    *,
+    cutoff: float = _FUZZY_CUTOFF,
+) -> tuple[str | None, float]:
+    """
+    Correct typos against the alias base via difflib.SequenceMatcher.
+
+    Returns (canonical, score) or (None, best_score). Never invents names
+    outside TEAM_ALIASES. Skips very short / empty queries.
+    """
+    from difflib import SequenceMatcher
+
+    raw = (name or "").strip()
+    q = fold(raw)
+    qc = compact(raw)
+    if not q or len(q) < 4:
+        return None, 0.0
+
+    exact = _alias_canonical(raw)
+    if exact:
+        return exact, 1.0
+
+    best_canon: str | None = None
+    best_score = 0.0
+    for cand, canon in _fuzzy_candidates():
+        if abs(len(q) - len(cand)) > max(3, len(q) // 2):
+            continue
+        ratio = SequenceMatcher(None, q, cand).ratio()
+        if qc and len(qc) >= 4:
+            ratio = max(ratio, SequenceMatcher(None, qc, compact(cand)).ratio())
+        # Strong prefix boost for truncated names (argentin→argentina)
+        if cand.startswith(q) and len(q) >= 5:
+            ratio = max(ratio, 0.90)
+        if q.startswith(cand) and len(cand) >= 5:
+            ratio = max(ratio, 0.88)
+        if ratio > best_score:
+            best_score = ratio
+            best_canon = canon
+            if best_score >= 0.97:
+                break
+
+    if best_canon and best_score >= cutoff:
+        logger.warning(
+            "[DEBUG] fixture_resolver=fuzzy entity_match_score=%.3f query=%r → %r",
+            best_score, raw, best_canon,
+        )
+        return best_canon, round(best_score, 3)
+    logger.warning(
+        "[DEBUG] fixture_resolver=fuzzy_miss entity_match_score=%.3f query=%r",
+        best_score, raw,
+    )
+    return None, round(best_score, 3)
+
+
+def normalize_team_name(name: str) -> str:
+    """Resolve aliases / accented variants / typos to the canonical display name."""
+    exact = _alias_canonical(name)
+    if exact:
+        logger.warning(
+            "[AUDIT] entity_resolver.normalize: %r → %r (alias)",
+            name, exact,
+        )
+        return exact
+
+    fuzzy_hit, fuzzy_score = fuzzy_correct_team(name)
+    if fuzzy_hit:
+        logger.warning(
+            "[AUDIT] entity_resolver.normalize: %r → %r (fuzzy score=%.3f)",
+            name, fuzzy_hit, fuzzy_score,
+        )
+        return fuzzy_hit
 
     # Prefer the spaced form for title-case display.
-    # alias_keys() de-dupes; when key==ascii_spaced, keys[1] is the *compact*
-    # key — never use that for display (v3.3.1-beta stabilization).
     key = (name or "").lower().strip()
     key = re.sub(r"[''`´’]", "", key)
     key_spaced = re.sub(r"[-_]+", " ", key)
@@ -108,11 +207,6 @@ def normalize_team_name(name: str) -> str:
         "[AUDIT] entity_resolver.normalize: %r → NO ALIAS → %r", name, display,
     )
     return display
-
-
-def has_alias(name: str) -> bool:
-    """True when any alias key maps in TEAM_ALIASES."""
-    return any(k in TEAM_ALIASES for k in alias_keys(name))
 
 
 def search_variants(name: str) -> list[str]:
@@ -134,7 +228,11 @@ def search_variants(name: str) -> list[str]:
 
 
 def name_match(api_name: str, query: str) -> bool:
-    """Fuzzy / contains match against API-Football team names."""
+    """Fuzzy / contains match against API-Football team names.
+
+    Tightened for short single-token queries (e.g. \"marte\") so they cannot
+    match arbitrary clubs via weak half-word hits.
+    """
     api_f = fold(api_name)
     q_f = fold(query)
     api_c = compact(api_name)
@@ -143,9 +241,16 @@ def name_match(api_name: str, query: str) -> bool:
         return False
     if q_f == api_f or q_c == api_c:
         return True
+    q_words = [w for w in q_f.split() if len(w) > 1]
+    # Short single token: require strong contains / near-equality only
+    if len(q_words) <= 1 and len(q_c) <= 5:
+        if q_c == api_c:
+            return True
+        if len(q_c) >= 4 and (api_c.startswith(q_c) or q_c.startswith(api_c)):
+            return abs(len(api_c) - len(q_c)) <= 2
+        return False
     if q_f in api_f or api_f in q_f or q_c in api_c or api_c in q_c:
         return True
-    q_words = [w for w in q_f.split() if len(w) > 1]
     if q_words and all(w in api_f or w in api_c for w in q_words):
         return True
     hits = sum(1 for w in q_words if w in api_f or w in api_c)
@@ -268,18 +373,26 @@ class EntityResolver:
             return self._cache[key]
 
         alias_hit = has_alias(raw)
-        canonical = normalize_team_name(raw)
-        confidence = 0.95 if alias_hit else 0.55
+        fuzzy_hit, fuzzy_score = fuzzy_correct_team(raw)
+        if alias_hit:
+            canonical = normalize_team_name(raw)
+            confidence = 0.95
+            source = "alias"
+        elif fuzzy_hit:
+            canonical = fuzzy_hit
+            confidence = float(fuzzy_score)
+            source = "fuzzy"
+            alias_hit = True  # treat as resolved identity
+        else:
+            canonical = normalize_team_name(raw)
+            confidence = 0.55
+            source = "titlecase"
 
         # Ambiguity signal for known collisions (e.g. bare "botafogo" vs PB)
-        # — currently exact alias wins; flag only when multiple distinct
-        # canonicals share overlapping compact prefixes (rare).
         ambiguity = False
-        candidates: list[dict[str, Any]] = []
-        if alias_hit:
-            candidates.append({"name": canonical, "source": "alias", "score": confidence})
-        else:
-            candidates.append({"name": canonical, "source": "titlecase", "score": confidence})
+        candidates: list[dict[str, Any]] = [
+            {"name": canonical, "source": source, "score": confidence}
+        ]
 
         result = TeamResolveResult(
             canonical=canonical,
@@ -291,6 +404,11 @@ class EntityResolver:
             query=raw,
         )
         self._cache[key] = result
+        logger.warning(
+            "[DEBUG] fixture_resolver=resolve_team entity_match_score=%.3f "
+            "query=%r canonical=%r source=%s",
+            confidence, raw, canonical, source,
+        )
         return result
 
     async def resolve_team_async(

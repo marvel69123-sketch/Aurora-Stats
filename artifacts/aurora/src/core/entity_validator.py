@@ -100,10 +100,13 @@ def team_similarity(name: str) -> float:
     if not folded:
         return 0.0
     try:
-        from src.core.entity_resolver import has_alias
+        from src.core.entity_resolver import fuzzy_correct_team, has_alias
 
         if has_alias(name):
             return 1.0
+        fuzzy_hit, fuzzy_score = fuzzy_correct_team(name)
+        if fuzzy_hit:
+            return max(float(fuzzy_score), 0.85)
     except Exception:
         pass
 

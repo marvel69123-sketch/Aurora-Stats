@@ -48,6 +48,10 @@ export interface CopilotResponse {
   match_card?: MatchCard | null;
   /** FOUND | PARTIAL | NOT_FOUND | FICTIONAL */
   fixture_status?: "FOUND" | "PARTIAL" | "NOT_FOUND" | "FICTIONAL" | string | null;
+  /** True only when a real sports fixture was resolved */
+  fixture_found?: boolean | null;
+  /** VALID | PARTIAL | INVALID */
+  fixture_quality?: "VALID" | "PARTIAL" | "INVALID" | string | null;
   executive_summary: string;
   best_markets: MarketEntry[];
   confidence: {
@@ -82,6 +86,27 @@ export interface CopilotResponse {
     mode?: string;
     source?: string;
   };
+  /** Present when request.debug / AURORA_DEBUG / #debug — audit provenance */
+  debug?: DebugAudit | null;
+}
+
+export interface DebugAudit {
+  fixture_found?: boolean | "DATA_MISSING" | string;
+  fixture_id?: number | "DATA_MISSING" | string;
+  data_source?: string;
+  markets_source?: string;
+  market_reasoning?: string;
+  fallback_used?: boolean | "DATA_MISSING" | string;
+  confidence_source?: string;
+  corner_average?: number | "DATA_MISSING" | string;
+  goal_average?: number | "DATA_MISSING" | string;
+  xg_home?: number | "DATA_MISSING" | string;
+  xg_away?: number | "DATA_MISSING" | string;
+  form_score?: number | "DATA_MISSING" | string;
+  fixture_resolver?: string;
+  entity_match_score?: number | "DATA_MISSING" | string;
+  market_generation_enabled?: boolean | "DATA_MISSING" | string;
+  fixture_quality?: string;
 }
 
 export interface Message {

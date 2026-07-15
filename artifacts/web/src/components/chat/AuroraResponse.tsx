@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CopilotResponse, MarketEntry } from "@/types/chat";
+import type { CopilotResponse, DebugAudit, MarketEntry } from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
 import { Markdown, MarkdownInline } from "./Markdown";
 import { MatchHeader, canRenderMatchHeader } from "./MatchHeader";
@@ -251,18 +251,35 @@ export function AuroraResponse({
     (typeof response.entities?.fixture_status === "string"
       ? response.entities.fixture_status
       : null);
+  const fixtureQuality =
+    response.fixture_quality ||
+    (typeof response.entities?.fixture_quality === "string"
+      ? response.entities.fixture_quality
+      : null);
+  const fixtureFound =
+    typeof response.fixture_found === "boolean"
+      ? response.fixture_found
+      : typeof response.entities?.fixture_found === "boolean"
+        ? (response.entities.fixture_found as boolean)
+        : null;
   const integrityBlocked =
+    fixtureFound === false ||
+    fixtureQuality === "INVALID" ||
     fixtureStatus === "NOT_FOUND" ||
     fixtureStatus === "FICTIONAL" ||
     response.entities?.markets_blocked === true ||
     response.entities?.entity_invalid === true;
   const showMatchHeader =
     !integrityBlocked &&
+    fixtureQuality !== "PARTIAL" &&
     canRenderMatchHeader(card) &&
     fixtureStatus !== "PARTIAL";
   const predictability = showMatchHeader ? card?.predictability : undefined;
   const interesting =
-    !integrityBlocked && fixtureStatus !== "PARTIAL" && isAnalysis
+    !integrityBlocked &&
+    fixtureQuality !== "PARTIAL" &&
+    fixtureStatus !== "PARTIAL" &&
+    isAnalysis
       ? pickInterestingMarkets(response.best_markets).slice(0, 4)
       : [];
   const softPositives =
@@ -272,7 +289,11 @@ export function AuroraResponse({
       : [];
   const metaBits: string[] = [];
   if (!showMatchHeader) {
-    if (response.match && !/^unknown$/i.test(response.match) && !integrityBlocked) {
+    if (
+      response.match &&
+      !/^unknown$/i.test(response.match) &&
+      !integrityBlocked
+    ) {
       metaBits.push(`⚽ ${response.match}`);
     }
     if (response.is_live) {
@@ -282,7 +303,9 @@ export function AuroraResponse({
     } else if (response.status && response.intent === "analyze_match") {
       if (
         !/^not\s*started$/i.test(response.status) &&
-        !/^(unknown|n\/?a|NOT_FOUND|FICTIONAL|PARTIAL)$/i.test(response.status)
+        !/^(unknown|n\/?a|NOT_FOUND|FICTIONAL|PARTIAL|INVALID)$/i.test(
+          response.status,
+        )
       ) {
         metaBits.push(response.status);
       }
@@ -480,6 +503,59 @@ export function AuroraResponse({
           )}
         </Details>
       )}
+
+      {response.debug ? <DebugAuditPanel debug={response.debug} /> : null}
     </article>
+  );
+}
+
+const DEBUG_ROWS: { key: keyof DebugAudit; label: string }[] = [
+  { key: "fixture_found", label: "fixture_found" },
+  { key: "fixture_id", label: "fixture_id" },
+  { key: "fixture_quality", label: "fixture_quality" },
+  { key: "fixture_resolver", label: "fixture_resolver" },
+  { key: "entity_match_score", label: "entity_match_score" },
+  { key: "market_generation_enabled", label: "market_generation_enabled" },
+  { key: "data_source", label: "data_source" },
+  { key: "markets_source", label: "markets_source" },
+  { key: "market_reasoning", label: "market_reasoning" },
+  { key: "fallback_used", label: "fallback_used" },
+  { key: "confidence_source", label: "confidence_source" },
+  { key: "corner_average", label: "corner_average" },
+  { key: "goal_average", label: "goal_average" },
+  { key: "xg_home", label: "xg_home" },
+  { key: "xg_away", label: "xg_away" },
+  { key: "form_score", label: "form_score" },
+];
+
+function formatDebugValue(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "DATA_MISSING";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function DebugAuditPanel({ debug }: { debug: DebugAudit }) {
+  return (
+    <Details title="DEBUG · auditoria" defaultOpen>
+      <dl className="grid gap-1.5 font-mono text-[0.75rem] leading-relaxed text-[#A0A0A0]">
+        {DEBUG_ROWS.map(({ key, label }) => {
+          const raw = debug[key];
+          const text = formatDebugValue(raw);
+          const missing = text === "DATA_MISSING";
+          return (
+            <div key={key} className="grid grid-cols-[11rem_1fr] gap-2">
+              <dt className="text-[#6B6B6B]">{label}:</dt>
+              <dd
+                className={
+                  missing ? "text-amber-400/90" : "break-all text-[#ECECEC]/85"
+                }
+              >
+                {text}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </Details>
   );
 }

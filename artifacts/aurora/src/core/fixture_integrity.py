@@ -1,5 +1,5 @@
 """
-Aurora v3.3.1-beta — Fixture Integrity Guard.
+Aurora v3.3.2-beta — Fixture Integrity Guard.
 
 Classifies confrontation quality before markets / confidence / MatchHeader
 are exposed. Does NOT change methodology / market / confidence engines.
@@ -16,9 +16,10 @@ from typing import Any, Literal
 logger = logging.getLogger(__name__)
 
 FixtureStatus = Literal["FOUND", "PARTIAL", "NOT_FOUND", "FICTIONAL"]
+FixtureQuality = Literal["VALID", "PARTIAL", "INVALID"]
 
 INTEGRITY_NOT_FOUND_MESSAGE = (
-    "Confronto não localizado em bases esportivas."
+    "Não consegui localizar um confronto esportivo válido."
 )
 
 # Tokens that are never valid football clubs/national teams for this product.
@@ -49,6 +50,13 @@ _FICTION_TOKENS: frozenset[str] = frozenset(
         "sonic",
         "zelda",
         "link",
+        # Planets / nonsense "clubs"
+        "marte",
+        "jupiter",
+        "saturno",
+        "plutao",
+        "venus",
+        "mercurio",
         # Famous players used as fake "teams"
         "messi",
         "cristiano",
@@ -67,7 +75,8 @@ _FICTION_PHRASES: tuple[str, ...] = (
     "one piece",
     "harry potter",
     "star wars",
-    "real madrid de cartorio",  # nonsense guard
+    "marte fc",
+    "real madrid de cartorio",
 )
 
 
@@ -116,6 +125,14 @@ def looks_garbage_name(name: str | None) -> bool:
     return False
 
 
+def status_to_quality(status: str | None) -> FixtureQuality:
+    if status == "FOUND":
+        return "VALID"
+    if status == "PARTIAL":
+        return "PARTIAL"
+    return "INVALID"
+
+
 @dataclass(frozen=True)
 class FixtureIntegrityResult:
     status: FixtureStatus
@@ -127,6 +144,15 @@ class FixtureIntegrityResult:
     confidence_score: float
     message: str | None
     reasons: tuple[str, ...]
+    entity_match_score: float = 0.0
+
+    @property
+    def quality(self) -> FixtureQuality:
+        return status_to_quality(self.status)
+
+    @property
+    def fixture_found(self) -> bool:
+        return self.status == "FOUND"
 
     @property
     def is_usable(self) -> bool:
@@ -135,6 +161,33 @@ class FixtureIntegrityResult:
     @property
     def is_blocked(self) -> bool:
         return self.status in ("NOT_FOUND", "FICTIONAL")
+
+    @property
+    def market_generation_enabled(self) -> bool:
+        return self.status == "FOUND" and not self.markets_blocked
+
+
+def _blocked(
+    *,
+    status: FixtureStatus,
+    home: str | None,
+    away: str | None,
+    reasons: tuple[str, ...],
+    entity_match_score: float = 0.0,
+) -> FixtureIntegrityResult:
+    # INVALID → confiança muito baixa (insufficient), never moderate
+    return FixtureIntegrityResult(
+        status=status,
+        home=home,
+        away=away,
+        markets_blocked=True,
+        header_blocked=True,
+        confidence_label="insufficient",
+        confidence_score=1.0,
+        message=INTEGRITY_NOT_FOUND_MESSAGE,
+        reasons=reasons,
+        entity_match_score=entity_match_score,
+    )
 
 
 def assess_named_fixture(home: str | None, away: str | None) -> FixtureIntegrityResult:
@@ -146,17 +199,11 @@ def assess_named_fixture(home: str | None, away: str | None) -> FixtureIntegrity
     reasons: list[str] = []
 
     if not h or not a:
-        return FixtureIntegrityResult(
-            status="NOT_FOUND",
-            home=h,
-            away=a,
-            markets_blocked=True,
-            header_blocked=True,
-            confidence_label="unavailable",
-            confidence_score=0.0,
-            message=INTEGRITY_NOT_FOUND_MESSAGE,
-            reasons=("missing_teams",),
+        result = _blocked(
+            status="NOT_FOUND", home=h, away=a, reasons=("missing_teams",),
         )
+        _log_integrity(result, stage="precheck")
+        return result
 
     fic_h = looks_fictional_name(h)
     fic_a = looks_fictional_name(a)
@@ -168,58 +215,61 @@ def assess_named_fixture(home: str | None, away: str | None) -> FixtureIntegrity
             reasons.append(f"fiction_home:{h}")
         if fic_a:
             reasons.append(f"fiction_away:{a}")
-        return FixtureIntegrityResult(
+        result = _blocked(
             status="FICTIONAL",
             home=h,
             away=a,
-            markets_blocked=True,
-            header_blocked=True,
-            confidence_label="unavailable",
-            confidence_score=0.0,
-            message=INTEGRITY_NOT_FOUND_MESSAGE,
             reasons=tuple(reasons),
         )
+        _log_integrity(result, stage="precheck")
+        return result
 
     if gar_h or gar_a:
         if gar_h:
             reasons.append(f"garbage_home:{h}")
         if gar_a:
             reasons.append(f"garbage_away:{a}")
-        return FixtureIntegrityResult(
+        result = _blocked(
             status="NOT_FOUND",
             home=h,
             away=a,
-            markets_blocked=True,
-            header_blocked=True,
-            confidence_label="unavailable",
-            confidence_score=0.0,
-            message=INTEGRITY_NOT_FOUND_MESSAGE,
             reasons=tuple(reasons),
         )
+        _log_integrity(result, stage="precheck")
+        return result
 
-    # Fall back to entity validator (stop words / similarity / length)
+    # Entity validator — fail CLOSED on errors (v3.3.2-beta)
     try:
         from src.core.entity_validator import validate_fixture_entities
 
         ok, hv, av = validate_fixture_entities(h, a)
+        score = min(float(hv.similarity), float(av.similarity))
         if not ok:
             reasons.extend(list(hv.reasons) + list(av.reasons))
-            # Both sides low similarity without fiction tokens → NOT_FOUND
-            return FixtureIntegrityResult(
+            result = _blocked(
                 status="NOT_FOUND",
                 home=h,
                 away=a,
-                markets_blocked=True,
-                header_blocked=True,
-                confidence_label="unavailable",
-                confidence_score=0.0,
-                message=INTEGRITY_NOT_FOUND_MESSAGE,
                 reasons=tuple(reasons) or ("entity_invalid",),
+                entity_match_score=score,
             )
+            _log_integrity(result, stage="precheck")
+            return result
+        entity_score = score
     except Exception as exc:
-        logger.warning("fixture_integrity: entity_validator skipped (%s)", exc)
+        logger.error(
+            "fixture_integrity: entity_validator FAILED CLOSED (%s)", exc,
+        )
+        result = _blocked(
+            status="NOT_FOUND",
+            home=h,
+            away=a,
+            reasons=(f"validator_error:{type(exc).__name__}",),
+        )
+        _log_integrity(result, stage="precheck")
+        return result
 
-    return FixtureIntegrityResult(
+    result = FixtureIntegrityResult(
         status="FOUND",
         home=h,
         away=a,
@@ -229,7 +279,10 @@ def assess_named_fixture(home: str | None, away: str | None) -> FixtureIntegrity
         confidence_score=6.0,
         message=None,
         reasons=("precheck_ok",),
+        entity_match_score=entity_score,
     )
+    _log_integrity(result, stage="precheck")
+    return result
 
 
 def assess_analyze_result(
@@ -253,20 +306,22 @@ def assess_analyze_result(
         fid = 0
 
     if is_partial or fid <= 0:
-        return FixtureIntegrityResult(
+        result = _blocked(
             status="NOT_FOUND",
             home=home,
             away=away,
-            markets_blocked=True,
-            header_blocked=True,
-            confidence_label="unavailable",
-            confidence_score=0.0,
-            message=INTEGRITY_NOT_FOUND_MESSAGE,
-            reasons=("api_fixture_missing", f"fixture_id={fid}", f"partial={is_partial}"),
+            reasons=(
+                "api_fixture_missing",
+                f"fixture_id={fid}",
+                f"partial={is_partial}",
+            ),
+            entity_match_score=pre.entity_match_score,
         )
+        _log_integrity(result, stage="postcheck")
+        return result
 
     if data_completeness < 0.35:
-        return FixtureIntegrityResult(
+        result = FixtureIntegrityResult(
             status="PARTIAL",
             home=home,
             away=away,
@@ -276,9 +331,12 @@ def assess_analyze_result(
             confidence_score=1.5,
             message=None,
             reasons=(f"low_completeness:{data_completeness:.2f}",),
+            entity_match_score=pre.entity_match_score,
         )
+        _log_integrity(result, stage="postcheck")
+        return result
 
-    return FixtureIntegrityResult(
+    result = FixtureIntegrityResult(
         status="FOUND",
         home=home,
         away=away,
@@ -288,6 +346,26 @@ def assess_analyze_result(
         confidence_score=6.0,
         message=None,
         reasons=("fixture_found", f"fixture_id={fid}"),
+        entity_match_score=pre.entity_match_score,
+    )
+    _log_integrity(result, stage="postcheck")
+    return result
+
+
+def _log_integrity(result: FixtureIntegrityResult, *, stage: str) -> None:
+    logger.warning(
+        "[DEBUG] fixture_resolver=%s fixture_found=%s fixture_quality=%s "
+        "fixture_status=%s entity_match_score=%.3f market_generation_enabled=%s "
+        "home=%r away=%r reasons=%s",
+        stage,
+        result.fixture_found,
+        result.quality,
+        result.status,
+        result.entity_match_score,
+        result.market_generation_enabled,
+        result.home,
+        result.away,
+        result.reasons,
     )
 
 
@@ -298,6 +376,7 @@ def blocked_integrity_payload(
 ) -> dict[str, Any]:
     """Copilot payload for NOT_FOUND / FICTIONAL — no markets, no sports header."""
     from src.brain import get_brain_meta
+    from src.core.debug_audit import audit_blocked
 
     msg = result.message or INTEGRITY_NOT_FOUND_MESSAGE
     label = (
@@ -307,29 +386,46 @@ def blocked_integrity_payload(
     )
     conf_label = result.confidence_label
     conf_score = float(result.confidence_score)
+    quality = result.quality
+
     return {
         "intent": "analyze_match",
         "entities": {
             "home": result.home,
             "away": result.away,
             "fixture_status": result.status,
+            "fixture_quality": quality,
+            "fixture_found": False,
             "entity_invalid": True,
             "markets_blocked": True,
+            "market_generation_enabled": False,
+            "entity_match_score": result.entity_match_score,
         },
         "match": label,
         "status": result.status,
         "is_live": False,
         "minute": None,
         "fixture_status": result.status,
+        "fixture_quality": quality,
+        "fixture_found": False,
+        "_audit": {
+            **audit_blocked(
+                fixture_status=result.status,
+                home=result.home,
+                away=result.away,
+            ),
+            "fixture_resolver": "integrity_blocked",
+            "entity_match_score": result.entity_match_score,
+            "market_generation_enabled": False,
+            "fixture_quality": quality,
+        },
         "executive_summary": msg,
         "best_markets": [],
         "confidence": {
             "score": conf_score,
             "label": conf_label,
             "explanation": (
-                "Confiança indisponível — confronto sem fixture esportiva válida."
-                if conf_label == "unavailable"
-                else "Confiança muito baixa — dados de fixture incompletos."
+                "Confiança muito baixa — confronto sem fixture esportiva válida."
             ),
             "data_sources": ["Fixture Integrity Guard"],
         },
@@ -350,13 +446,17 @@ def blocked_integrity_payload(
         "historical_references": [],
         "knowledge_notes": [],
         "final_recommendation": msg,
-        "aurora_version": "Aurora v3.3.1-beta",
+        "aurora_version": "Aurora v3.3.2-beta",
         "brain": brain or get_brain_meta(),
         "match_card": None,
         "response_metadata": {
             "fixture_status": result.status,
+            "fixture_quality": quality,
+            "fixture_found": False,
             "markets_blocked": True,
             "header_blocked": True,
+            "market_generation_enabled": False,
+            "entity_match_score": result.entity_match_score,
         },
     }
 
@@ -369,29 +469,55 @@ def apply_integrity_to_payload(
     if not isinstance(payload, dict):
         return payload
     out = dict(payload)
+    quality = result.quality
     out["fixture_status"] = result.status
+    out["fixture_quality"] = quality
+    out["fixture_found"] = bool(result.fixture_found)
+
     ents = dict(out.get("entities") or {})
     ents["fixture_status"] = result.status
+    ents["fixture_quality"] = quality
+    ents["fixture_found"] = bool(result.fixture_found)
     ents["markets_blocked"] = bool(result.markets_blocked)
+    ents["market_generation_enabled"] = bool(result.market_generation_enabled)
+    ents["entity_match_score"] = result.entity_match_score
     out["entities"] = ents
 
     meta = dict(out.get("response_metadata") or {})
     meta["fixture_status"] = result.status
+    meta["fixture_quality"] = quality
+    meta["fixture_found"] = bool(result.fixture_found)
     meta["markets_blocked"] = bool(result.markets_blocked)
     meta["header_blocked"] = bool(result.header_blocked)
+    meta["market_generation_enabled"] = bool(result.market_generation_enabled)
+    meta["entity_match_score"] = result.entity_match_score
     out["response_metadata"] = meta
 
-    if result.is_blocked:
+    if result.is_blocked or quality == "INVALID":
+        from src.core.debug_audit import audit_blocked
+
         out["best_markets"] = []
         out["match_card"] = None
+        out["fixture_found"] = False
         out["executive_summary"] = result.message or INTEGRITY_NOT_FOUND_MESSAGE
         out["final_recommendation"] = result.message or INTEGRITY_NOT_FOUND_MESSAGE
         out["status"] = result.status
+        out["_audit"] = {
+            **audit_blocked(
+                fixture_status=result.status,
+                home=result.home,
+                away=result.away,
+            ),
+            "fixture_resolver": "integrity_blocked",
+            "entity_match_score": result.entity_match_score,
+            "market_generation_enabled": False,
+            "fixture_quality": quality,
+        }
         out["confidence"] = {
             "score": result.confidence_score,
-            "label": result.confidence_label,
+            "label": "insufficient",
             "explanation": (
-                "Confiança indisponível — confronto sem fixture esportiva válida."
+                "Confiança muito baixa — confronto sem fixture esportiva válida."
             ),
             "data_sources": ["Fixture Integrity Guard"],
         }
@@ -403,8 +529,16 @@ def apply_integrity_to_payload(
         out["bankroll_recommendation"] = bank
         return out
 
-    if result.status == "PARTIAL":
+    if result.status == "PARTIAL" or quality == "PARTIAL":
         out["best_markets"] = []
+        out["fixture_found"] = False
+        audit = dict(out.get("_audit") or {})
+        audit["markets_source"] = None
+        audit["market_reasoning"] = None
+        audit["market_generation_enabled"] = False
+        audit["fixture_quality"] = "PARTIAL"
+        audit["fixture_found"] = False
+        out["_audit"] = audit
         conf = dict(out.get("confidence") or {})
         conf["score"] = min(float(conf.get("score") or 10), 1.5)
         conf["label"] = "insufficient"

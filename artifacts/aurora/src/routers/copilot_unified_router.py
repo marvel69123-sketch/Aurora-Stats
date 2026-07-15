@@ -59,6 +59,14 @@ class CopilotRequest(BaseModel):
             "The session_id returned in each response should be sent back in the next request."
         ),
     )
+    debug: bool = Field(
+        False,
+        description=(
+            "When true, include a `debug` audit block "
+            "(fixture_found, markets_source, xg_*, DATA_MISSING markers, etc.). "
+            "Also enabled via AURORA_DEBUG=1 or `#debug` in the message."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +176,14 @@ class CopilotResponse(BaseModel):
         default=None,
         description="FOUND | PARTIAL | NOT_FOUND | FICTIONAL — Fixture Integrity Guard.",
     )
+    fixture_found: bool | None = Field(
+        default=None,
+        description="True only when a real sports fixture was resolved.",
+    )
+    fixture_quality: str | None = Field(
+        default=None,
+        description="VALID | PARTIAL | INVALID — blocks markets/confidence when INVALID.",
+    )
 
     # ── 10 response sections ────────────────────────────────────────────────
     executive_summary:       str
@@ -199,6 +215,17 @@ class CopilotResponse(BaseModel):
     response_metadata: dict = Field(
         default_factory=dict,
         description="Presentation-only metadata (public_strengths, mode, etc.).",
+    )
+
+    # ── DEBUG audit (optional) ───────────────────────────────────────────────
+    debug: dict | None = Field(
+        default=None,
+        description=(
+            "Audit provenance when debug mode is on: fixture_found, fixture_id, "
+            "data_source, markets_source, market_reasoning, fallback_used, "
+            "confidence_source, corner_average, goal_average, xg_home, xg_away, "
+            "form_score. Missing values are the string DATA_MISSING."
+        ),
     )
 
 
@@ -393,6 +420,46 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     status_short = str(status_block.get("short") or "")
     api_is_live = fixture_is_live(status_block)
     api_minute = status_block.get("minute")
+
+    fixture_id_early = (data.get("fixture") or {}).get("id") or fx.get("id") or 0
+    try:
+        fixture_id_early = int(fixture_id_early or 0)
+    except (TypeError, ValueError):
+        fixture_id_early = 0
+    fixture_located_early = (not is_partial) and fixture_id_early > 0
+
+    logger.warning(
+        "[DEBUG] fixture_resolver=analyze_soft fixture_found=%s fixture_id=%s "
+        "market_generation_enabled=%s partial=%s home=%r away=%r",
+        fixture_located_early,
+        fixture_id_early or None,
+        fixture_located_early,
+        is_partial,
+        hn,
+        an,
+    )
+
+    # v3.3.2-beta: never generate generic markets / analysis narrative
+    # when the sports fixture was not located.
+    if not fixture_located_early:
+        from src.core.fixture_integrity import (
+            assess_analyze_result as _assess_missing,
+            blocked_integrity_payload as _blocked_missing,
+        )
+
+        _miss = _assess_missing(
+            home or hn,
+            away or an,
+            fixture_id=fixture_id_early,
+            is_partial=True,
+            data_completeness=float(ictx.data_completeness or 0.0),
+        )
+        logger.warning(
+            "[DEBUG] fixture_resolver=early_abort fixture_found=false "
+            "market_generation_enabled=false reasons=%s",
+            _miss.reasons,
+        )
+        return _blocked_missing(_miss, brain=get_brain_meta())
 
     logger.info(
         "intent=analyze_match fixture=%s vs %s status=%s minute=%s is_live=%s "
@@ -599,18 +666,60 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "inference": ictx.explainability(),
     }
 
+    # Baseline market explanations (no live corner/card pace) ⇒ fallback flag
+    used_baseline_markets = (not meth.is_live) or (not meth.has_stats) or (not meth.has_xg)
+
+    from src.core.debug_audit import audit_from_analyze as _audit_from_analyze
+
+    _audit_raw = _audit_from_analyze(
+        fixture_located=fixture_located,
+        fixture_id=fixture_id,
+        is_partial=bool(is_partial),
+        best_markets=best_markets,
+        data_sources=data_sources,
+        meth=meth,
+        ictx=ictx,
+        standings_home=(data.get("standings") or {}).get("home"),
+        standings_away=(data.get("standings") or {}).get("away"),
+        used_baseline_markets=used_baseline_markets,
+    )
+
     result = {
         "intent":    "analyze_match",
-        "entities":  {"home": hn, "away": an, "league": league},
+        "entities": {
+            "home": hn,
+            "away": an,
+            "league": league,
+            "fixture_found": bool(fixture_located and not degraded),
+            "fixture_quality": (
+                "INVALID" if (is_partial or not fixture_located)
+                else ("PARTIAL" if degraded else "VALID")
+            ),
+            "market_generation_enabled": bool(fixture_located and not degraded),
+        },
         "match":     report.match or f"{hn} x {an}",
         "status":    final_status,
         "is_live":   final_is_live,
         "minute":    final_minute,
         "fixture_id": int(fixture_id or 0),
         "_partial": bool(is_partial),
+        "_audit": {
+            **_audit_raw,
+            "fixture_resolver": "analyze_pipeline",
+            "market_generation_enabled": bool(fixture_located and not degraded),
+            "fixture_quality": (
+                "INVALID" if (is_partial or not fixture_located)
+                else ("PARTIAL" if degraded else "VALID")
+            ),
+        },
         "fixture_status": (
             "NOT_FOUND" if (is_partial or not fixture_located)
             else ("PARTIAL" if degraded else "FOUND")
+        ),
+        "fixture_found": bool(fixture_located and not degraded),
+        "fixture_quality": (
+            "INVALID" if (is_partial or not fixture_located)
+            else ("PARTIAL" if degraded else "VALID")
         ),
 
         "executive_summary": executive,
@@ -1387,6 +1496,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     message = body.message.strip()
 
+    from src.core.debug_audit import debug_mode_enabled as _debug_mode_enabled
+
+    debug_mode = _debug_mode_enabled(getattr(body, "debug", False), message=message)
+
     # ── Session management ────────────────────────────────────────────────
     session_id = body.session_id or secrets.token_hex(8)
     _db_create(session_id)
@@ -1705,10 +1818,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                                     away=away,
                                     markets_blocked=True,
                                     header_blocked=True,
-                                    confidence_label="unavailable",
-                                    confidence_score=0.0,
+                                    confidence_label="insufficient",
+                                    confidence_score=1.0,
                                     message=(
-                                        "Confronto não localizado em bases esportivas."
+                                        "Não consegui localizar um confronto esportivo válido."
                                     ),
                                     reasons=(f"analyze_error:{type(_analyze_exc).__name__}",),
                                 ),
@@ -1738,10 +1851,37 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
                         break
                 if _lt_home and _lt_away:
-                    payload = await _run_analyze(_lt_home, _lt_away, prefer_live=True)
-                    _save_analysis_context(ctx, payload, _lt_home, _lt_away)
+                    from src.core.fixture_integrity import (
+                        apply_integrity_to_payload as _apply_lt,
+                        assess_analyze_result as _assess_lt,
+                        assess_named_fixture as _assess_named_lt,
+                        blocked_integrity_payload as _blocked_lt,
+                    )
+
+                    _lt_pre = _assess_named_lt(_lt_home, _lt_away)
+                    if _lt_pre.is_blocked:
+                        payload = _blocked_lt(_lt_pre, brain=brain)
+                    else:
+                        payload = await _run_analyze(_lt_home, _lt_away, prefer_live=True)
+                        _lt_post = _assess_lt(
+                            _lt_home,
+                            _lt_away,
+                            fixture_id=payload.get("fixture_id"),
+                            is_partial=bool(payload.get("_partial")),
+                            data_completeness=float(
+                                ((payload.get("brain") or {}).get("inference") or {}).get(
+                                    "data_completeness", 1.0
+                                )
+                            ),
+                        )
+                        payload = _apply_lt(payload, _lt_post)
+                        if not _lt_post.is_blocked:
+                            _save_analysis_context(ctx, payload, _lt_home, _lt_away)
                     logger.warning(
-                        "[AUDIT] live_team_analysis: _run_analyze succeeded match=%r", payload.get("match")
+                        "[AUDIT] live_team_analysis: done match=%r status=%r found=%r",
+                        payload.get("match"),
+                        payload.get("fixture_status"),
+                        payload.get("fixture_found"),
                     )
                 else:
                     logger.warning(
@@ -1882,9 +2022,32 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         _octx.finalize()
 
         if is_404 and home_q and away_q:
-            # Prefer soft analyze (continues engines) over static error page
+            # Soft analyze — integrity guard still applies (no generic markets)
             try:
-                payload = await _run_analyze(home_q, away_q, prefer_live=False)
+                from src.core.fixture_integrity import (
+                    apply_integrity_to_payload as _apply_404,
+                    assess_analyze_result as _assess_404,
+                    assess_named_fixture as _assess_named_404,
+                    blocked_integrity_payload as _blocked_404,
+                )
+
+                _pre404 = _assess_named_404(home_q, away_q)
+                if _pre404.is_blocked:
+                    payload = _blocked_404(_pre404, brain=brain)
+                else:
+                    payload = await _run_analyze(home_q, away_q, prefer_live=False)
+                    _post404 = _assess_404(
+                        home_q,
+                        away_q,
+                        fixture_id=payload.get("fixture_id"),
+                        is_partial=bool(payload.get("_partial")),
+                        data_completeness=float(
+                            ((payload.get("brain") or {}).get("inference") or {}).get(
+                                "data_completeness", 1.0
+                            )
+                        ),
+                    )
+                    payload = _apply_404(payload, _post404)
             except Exception:
                 summary = (
                     f"Não consegui localizar a partida **{home_q} x {away_q}** "
@@ -2057,21 +2220,47 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     _fx_status = payload.get("fixture_status") or (payload.get("entities") or {}).get(
         "fixture_status"
     )
+    _fx_quality = payload.get("fixture_quality") or (payload.get("entities") or {}).get(
+        "fixture_quality"
+    )
+    _fx_found = payload.get("fixture_found")
+    if _fx_found is None:
+        _fx_found = (payload.get("entities") or {}).get("fixture_found")
+    _invalid = (
+        _fx_found is False
+        or _fx_quality == "INVALID"
+        or _fx_status in ("NOT_FOUND", "FICTIONAL")
+        or (payload.get("entities") or {}).get("markets_blocked")
+    )
     _header_blocked = bool(
         (payload.get("response_metadata") or {}).get("header_blocked")
-        or (payload.get("entities") or {}).get("markets_blocked")
-        or _fx_status in ("NOT_FOUND", "FICTIONAL")
+        or _invalid
+        or _fx_quality == "PARTIAL"
     )
-    if _header_blocked:
+    if _header_blocked or _invalid:
         payload["match_card"] = None
-    if (payload.get("entities") or {}).get("markets_blocked") or _fx_status in (
-        "NOT_FOUND",
-        "FICTIONAL",
+    if _invalid or _fx_status in ("NOT_FOUND", "FICTIONAL", "PARTIAL") or _fx_quality in (
+        "INVALID",
         "PARTIAL",
     ):
-        # PARTIAL also blocks auto-markets; FOUND only keeps engine markets
-        if _fx_status != "FOUND":
-            payload["best_markets"] = []
+        payload["best_markets"] = []
+        payload["fixture_found"] = False if _invalid else payload.get("fixture_found", False)
+
+    # ── DEBUG audit block (optional) ─────────────────────────────────────
+    try:
+        from src.core.debug_audit import attach_debug_to_payload as _attach_debug
+
+        payload = _attach_debug(payload, enabled=debug_mode)
+    except Exception as _dbg_exc:
+        logger.warning("copilot: debug audit skipped (%s)", _dbg_exc)
+        payload.pop("_audit", None)
+        if not debug_mode:
+            payload.pop("debug", None)
+
+    _out_quality = payload.get("fixture_quality") or _fx_quality
+    _out_found = payload.get("fixture_found")
+    if _out_found is None:
+        _out_found = False if _invalid else None
 
     return CopilotResponse(
         intent             = payload["intent"],
@@ -2090,6 +2279,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             if _fx_status in ("FOUND", "PARTIAL", "NOT_FOUND", "FICTIONAL")
             else None
         ),
+        fixture_found      = (
+            bool(_out_found) if isinstance(_out_found, bool) else None
+        ),
+        fixture_quality    = (
+            str(_out_quality)
+            if _out_quality in ("VALID", "PARTIAL", "INVALID")
+            else None
+        ),
 
         executive_summary       = payload["executive_summary"],
         best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],
@@ -2105,4 +2302,5 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         brain                   = payload.get("brain", {}),
         suggested_follow_ups    = suggested_follow_ups,
         response_metadata       = payload.get("response_metadata") or {},
+        debug                   = payload.get("debug") if debug_mode else None,
     )

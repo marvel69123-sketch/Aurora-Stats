@@ -88,6 +88,12 @@ TEAM_ALIASES: dict[str, str] = {
     "sport": "Sport Recife",
     "ceara": "Ceara",
     "ceará": "Ceara",
+    "santos": "Santos",
+    "santos fc": "Santos",
+    "peixe": "Santos",
+    "athletico-pr": "Athletico-PR",
+    "athletico pr": "Athletico-PR",
+    "athletico paranaense": "Athletico-PR",
     # National teams (PT → EN)
     "brasil": "Brazil",
     "selecao": "Brazil",
