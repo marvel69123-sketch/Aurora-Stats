@@ -5,6 +5,7 @@ import type { Message } from "@/types/chat";
 interface MessageBubbleProps {
   message: Message;
   avatarUrl?: string | null;
+  onRefreshMatch?: () => void;
 }
 
 export function TypingIndicator({ avatarUrl }: { avatarUrl?: string | null }) {
@@ -20,7 +21,11 @@ export function TypingIndicator({ avatarUrl }: { avatarUrl?: string | null }) {
   );
 }
 
-export function MessageBubble({ message, avatarUrl }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  avatarUrl,
+  onRefreshMatch,
+}: MessageBubbleProps) {
   if (message.role === "user") {
     return (
       <article className="flex justify-end" aria-label="Você">
@@ -52,7 +57,10 @@ export function MessageBubble({ message, avatarUrl }: MessageBubbleProps) {
             </p>
           </section>
         ) : message.response ? (
-          <AuroraResponse response={message.response} />
+          <AuroraResponse
+            response={message.response}
+            onRefreshMatch={onRefreshMatch}
+          />
         ) : null}
       </div>
     </article>

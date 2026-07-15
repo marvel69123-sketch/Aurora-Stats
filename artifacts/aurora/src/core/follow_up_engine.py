@@ -86,6 +86,7 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     (r"e\s+agora\s*$",                               "live_update"),
     (r"e\s+agora\s*\?",                              "live_update"),
     (r"atualiza(?:r)?\s+(?:o\s+)?(?:status|jogo)",   "live_update"),
+    (r"atualiza(?:r)?\s+(?:a\s+)?partida",           "live_update"),
     (r"status\s+atual\s*$",                          "live_update"),
     # Risk
     (r"qual\s+(?:o\s+)?(?:nivel\s+de\s+)?risco",    "what_risk"),
@@ -207,6 +208,46 @@ def _filter_markets(markets: list[dict], keywords: list[str]) -> list[dict]:
     return result
 
 
+def _attach_followup_match_card(payload: dict, la: dict | None, home: str, away: str) -> dict:
+    """Reuse prior match_card (presentation only) when follow-up has fixture context."""
+    card = la.get("match_card") if isinstance(la, dict) else None
+    if isinstance(card, dict) and card.get("home") and card.get("away"):
+        try:
+            from src.communication.match_card import attach_match_card
+            return attach_match_card(payload, card)
+        except Exception:
+            payload["match_card"] = card
+            return payload
+    if home and away:
+        try:
+            from src.communication.match_card import (
+                AURORA_MATCH_VERSION,
+                build_predictability,
+            )
+            is_live = bool(payload.get("is_live"))
+            payload["match_card"] = {
+                "home": {"name": home, "logo": None},
+                "away": {"name": away, "logo": None},
+                "score": None,
+                "competition": None,
+                "venue": None,
+                "status_label": payload.get("status"),
+                "minute": payload.get("minute"),
+                "is_live": is_live,
+                "momentum": None,
+                "predictability": build_predictability(
+                    payload.get("confidence")
+                    if isinstance(payload.get("confidence"), dict)
+                    else None,
+                    is_live=is_live,
+                ),
+            }
+            payload["aurora_version"] = AURORA_MATCH_VERSION
+        except Exception:
+            pass
+    return payload
+
+
 def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match: str, brain: dict) -> dict:
     defaults = {
         "confidence": {"score": 0.0, "label": "insufficient",
@@ -217,7 +258,7 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
                                     "reasoning": "Use a análise completa para recomendação de stake."},
     }
     if la:
-        return {
+        payload = {
             "intent":    intent_name,
             "entities":  {"home": home, "away": away, "followup": True},
             "match":     la.get("match", match),
@@ -237,7 +278,8 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
             "aurora_version": "Copilot v1.0",
             "brain": brain,
         }
-    return {
+        return _attach_followup_match_card(payload, la, home, away)
+    payload = {
         "intent":    intent_name,
         "entities":  {"home": home, "away": away, "followup": True},
         "match":     match,
@@ -251,6 +293,7 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
         "aurora_version": "Copilot v1.0",
         "brain": brain,
     }
+    return _attach_followup_match_card(payload, None, home, away)
 
 
 # ---------------------------------------------------------------------------
@@ -683,6 +726,11 @@ def _no_analysis_response(match: str, followup_type: str, brain: dict) -> dict:
         f"Podemos seguir falando sobre {match}, ou você pode pedir uma "
         f"análise completa se quiser dados frescos."
     )
+    home = ""
+    away = ""
+    if " x " in match:
+        parts = match.split(" x ", 1)
+        home, away = parts[0].strip(), parts[1].strip()
     payload = {
         "intent": "follow_up",
         "entities": {"followup_type": followup_type, "followup": True},
@@ -709,6 +757,7 @@ def _no_analysis_response(match: str, followup_type: str, brain: dict) -> dict:
         "aurora_version": "Copilot v1.0",
         "brain": brain,
     }
+    payload = _attach_followup_match_card(payload, None, home, away)
     return _attach_response_metadata(payload, followup_type=followup_type)
 
 

@@ -99,6 +99,54 @@ class BankrollSection(BaseModel):
     no_bet:                bool = False
 
 
+class MatchTeamCard(BaseModel):
+    name: str
+    logo: str | None = None
+
+
+class MatchScoreCard(BaseModel):
+    home: int
+    away: int
+
+
+class MatchCompetitionCard(BaseModel):
+    name: str
+    logo: str | None = None
+    country: str | None = None
+    round: str | None = None
+
+
+class MatchVenueCard(BaseModel):
+    name: str
+    city: str | None = None
+
+
+class MatchMomentumCard(BaseModel):
+    label: str
+    side: str | None = None
+    detail: str | None = None
+
+
+class MatchPredictabilityCard(BaseModel):
+    score: float
+    label: str
+    summary: str
+
+
+class MatchCard(BaseModel):
+    """Aurora v3.3.0-beta — rich live/prematch header (presentation only)."""
+    home: MatchTeamCard
+    away: MatchTeamCard
+    score: MatchScoreCard | None = None
+    competition: MatchCompetitionCard | None = None
+    venue: MatchVenueCard | None = None
+    status_label: str | None = None
+    minute: int | None = None
+    is_live: bool = False
+    momentum: MatchMomentumCard | None = None
+    predictability: MatchPredictabilityCard | None = None
+
+
 class CopilotResponse(BaseModel):
     # ── Metadata ────────────────────────────────────────────────────────────
     intent:             str
@@ -112,6 +160,10 @@ class CopilotResponse(BaseModel):
     status:   str | None = None
     is_live:  bool       = False
     minute:   int | None = None
+    match_card: MatchCard | None = Field(
+        default=None,
+        description="Rich match header: logos, score, competition, venue, momentum.",
+    )
 
     # ── 10 response sections ────────────────────────────────────────────────
     executive_summary:       str
@@ -491,7 +543,7 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "inference": ictx.explainability(),
     }
 
-    return {
+    result = {
         "intent":    "analyze_match",
         "entities":  {"home": hn, "away": an, "league": league},
         "match":     report.match or f"{hn} x {an}",
@@ -530,6 +582,19 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         "aurora_version": "Copilot v1.0",
         "brain":          brain_meta,
     }
+    try:
+        from src.communication import attach_match_card, build_match_card_from_analyze
+        card = build_match_card_from_analyze(
+            data,
+            is_live=bool(final_is_live),
+            minute=final_minute if isinstance(final_minute, int) else None,
+            status_label=str(final_status) if final_status else None,
+            confidence=result["confidence"],
+        )
+        result = attach_match_card(result, card)
+    except Exception as _mc_exc:
+        logger.warning("copilot: match_card skipped (%s)", _mc_exc)
+    return result
 
 
 async def _run_live() -> dict:
@@ -540,7 +605,39 @@ async def _run_live() -> dict:
 
     live     = await _build_live_response()
     fixtures = live.get("matches", [])   # processed format from live.py
-    return build_live_payload(fixtures, get_brain_meta())
+    payload  = build_live_payload(fixtures, get_brain_meta())
+    try:
+        from src.communication import (
+            attach_match_card,
+            build_match_card_from_live_fixture,
+        )
+        ents = payload.get("entities") or {}
+        hn = str(ents.get("live_home") or "").strip().lower()
+        an = str(ents.get("live_away") or "").strip().lower()
+        top_fx = None
+        for fx in fixtures:
+            fh = str(((fx.get("home") or {}).get("name") or "")).strip().lower()
+            fa = str(((fx.get("away") or {}).get("name") or "")).strip().lower()
+            if hn and an and fh == hn and fa == an:
+                top_fx = fx
+                break
+        if top_fx is None and fixtures:
+            top_fx = fixtures[0]
+        if top_fx:
+            card = build_match_card_from_live_fixture(
+                top_fx,
+                confidence=payload.get("confidence")
+                if isinstance(payload.get("confidence"), dict)
+                else None,
+            )
+            payload = attach_match_card(payload, card)
+            if card:
+                payload["match"] = f"{card['home']['name']} x {card['away']['name']}"
+                payload["minute"] = card.get("minute")
+                payload["status"] = card.get("status_label") or payload.get("status")
+    except Exception as _mc_exc:
+        logger.warning("copilot: live match_card skipped (%s)", _mc_exc)
+    return payload
 
 
 def _run_bankroll() -> dict:
@@ -1790,6 +1887,11 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         status             = payload.get("status"),
         is_live            = payload.get("is_live", False),
         minute             = payload.get("minute"),
+        match_card         = (
+            MatchCard(**payload["match_card"])
+            if isinstance(payload.get("match_card"), dict)
+            else None
+        ),
 
         executive_summary       = payload["executive_summary"],
         best_markets            = [MarketEntry(**m) for m in payload.get("best_markets", [])],

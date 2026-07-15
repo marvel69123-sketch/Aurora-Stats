@@ -8,6 +8,32 @@ export interface MarketEntry {
   rationale: string;
 }
 
+export interface MatchCard {
+  home: { name: string; logo?: string | null };
+  away: { name: string; logo?: string | null };
+  score?: { home: number; away: number } | null;
+  competition?: {
+    name: string;
+    logo?: string | null;
+    country?: string | null;
+    round?: string | null;
+  } | null;
+  venue?: { name: string; city?: string | null } | null;
+  status_label?: string | null;
+  minute?: number | null;
+  is_live: boolean;
+  momentum?: {
+    label: string;
+    side?: "home" | "away" | "neutral" | string | null;
+    detail?: string | null;
+  } | null;
+  predictability?: {
+    score: number;
+    label: string;
+    summary: string;
+  } | null;
+}
+
 export interface CopilotResponse {
   intent: string;
   entities: Record<string, unknown>;
@@ -19,6 +45,7 @@ export interface CopilotResponse {
   status: string | null;
   is_live: boolean;
   minute: number | null;
+  match_card?: MatchCard | null;
   executive_summary: string;
   best_markets: MarketEntry[];
   confidence: {
@@ -46,6 +73,7 @@ export interface CopilotResponse {
   final_recommendation: string;
   aurora_version: string;
   brain: Record<string, unknown>;
+  suggested_follow_ups?: string[];
   response_metadata?: {
     public_strengths?: string[];
     presentation?: string;

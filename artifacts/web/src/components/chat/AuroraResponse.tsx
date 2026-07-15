@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { CopilotResponse, MarketEntry } from "@/types/chat";
 import { InsightBadgeRow, type InsightBadgeKind } from "./InsightBadge";
 import { Markdown, MarkdownInline } from "./Markdown";
+import { MatchHeader } from "./MatchHeader";
 
 const RISK_PT: Record<string, string> = {
   Low: "Baixo",
@@ -181,8 +182,24 @@ function looksTechnicalProse(text: string): boolean {
   );
 }
 
+function humanRationale(text: string): string | null {
+  const t = (text || "").trim();
+  if (!t) return null;
+  if (/(?:\bVE\b|λ\s*=|\/\s*10|Best[-_\s]?mercado|over_\d+|metodol)/i.test(t)) {
+    return null;
+  }
+  const first = t.split(/(?<=[.!?])\s+/)[0] || t;
+  return first.length > 140 ? `${first.slice(0, 137)}…` : first;
+}
+
 /** Clean ChatGPT-style Aurora reply — prose first, details collapsed. */
-export function AuroraResponse({ response }: { response: CopilotResponse }) {
+export function AuroraResponse({
+  response,
+  onRefreshMatch,
+}: {
+  response: CopilotResponse;
+  onRefreshMatch?: () => void;
+}) {
   const hasMarkets = response.best_markets.length > 0;
   const hasFactors =
     response.positive_factors.length > 0 || response.negative_factors.length > 0;
@@ -213,27 +230,31 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
     !conclusionRaw.startsWith("Please") &&
     !looksTechnicalProse(conclusionRaw);
 
-  // Amber only for caution — never when conclusion still looks internal
   const showCautionBanner =
     showRec &&
     (response.bankroll_recommendation.no_bet || response.risk.level === "High");
 
-  const interesting = isAnalysis ? pickInterestingMarkets(response.best_markets) : [];
+  const interesting = isAnalysis
+    ? pickInterestingMarkets(response.best_markets).slice(0, 4)
+    : [];
   const softPositives =
     response.intent === "analyze_match" || response.intent === "follow_up"
       ? publicStrengths(response)
       : [];
 
+  const card = response.match_card ?? null;
+  const predictability = card?.predictability;
   const metaBits: string[] = [];
-  if (response.match) metaBits.push(`⚽ ${response.match}`);
-  if (response.is_live) {
-    metaBits.push(
-      response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
-    );
-  } else if (response.status && response.intent === "analyze_match") {
-    // Hide raw API status noise like "Not Started" when paired with partial data chrome
-    if (!/^not\s*started$/i.test(response.status)) {
-      metaBits.push(response.status);
+  if (!card) {
+    if (response.match) metaBits.push(`⚽ ${response.match}`);
+    if (response.is_live) {
+      metaBits.push(
+        response.minute != null ? `Ao vivo ${response.minute}'` : "Ao vivo",
+      );
+    } else if (response.status && response.intent === "analyze_match") {
+      if (!/^not\s*started$/i.test(response.status)) {
+        metaBits.push(response.status);
+      }
     }
   }
 
@@ -241,7 +262,9 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
     <article className="w-full max-w-none space-y-5">
       <InsightBadgeRow kinds={badges} className="mb-0.5" />
 
-      {metaBits.length > 0 && (
+      {card ? (
+        <MatchHeader card={card} onRefresh={onRefreshMatch} />
+      ) : metaBits.length > 0 ? (
         <header className="-mt-1" aria-label="Partida">
           <p className="text-[0.9375rem] font-medium leading-relaxed tracking-wide text-[#ECECEC]">
             {metaBits[0]}
@@ -252,11 +275,25 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
             </p>
           )}
         </header>
-      )}
+      ) : null}
 
       <section className="pt-0.5" aria-label="Resumo">
         <Markdown text={response.executive_summary} />
       </section>
+
+      {predictability ? (
+        <section
+          className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+          aria-label="Previsibilidade"
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+            {predictability.label}
+          </p>
+          <p className="mt-1.5 text-[0.875rem] leading-[1.65] text-[#ECECEC]/90">
+            {predictability.summary}
+          </p>
+        </section>
+      ) : null}
 
       {softPositives.length > 0 && (
         <section aria-label="Pontos fortes">
@@ -273,17 +310,27 @@ export function AuroraResponse({ response }: { response: CopilotResponse }) {
         </section>
       )}
 
-      {interesting.length > 0 && response.intent !== "live_opportunities" && (
+      {interesting.length > 0 && (
         <section aria-label="Mercados interessantes">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-            Mercados interessantes
+            {response.is_live || card?.is_live
+              ? "Mercados neste momento"
+              : "Mercados interessantes"}
           </p>
-          <ul className="space-y-2">
-            {interesting.map((m) => (
-              <li key={m.rank} className="text-[0.9375rem] leading-snug text-[#ECECEC]">
-                • {m.market}
-              </li>
-            ))}
+          <ul className="space-y-2.5">
+            {interesting.map((m) => {
+              const why = humanRationale(m.rationale);
+              return (
+                <li key={m.rank} className="text-[0.9375rem] leading-snug text-[#ECECEC]">
+                  • {m.market}
+                  {why ? (
+                    <span className="mt-0.5 block text-[0.8125rem] leading-[1.65] text-[#A0A0A0]">
+                      {why}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

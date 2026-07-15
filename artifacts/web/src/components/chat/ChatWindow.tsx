@@ -101,7 +101,16 @@ export function ChatWindow({
         ) : (
           <section className="aurora-chat-column space-y-10 px-4 py-9 md:px-6 md:py-11">
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} avatarUrl={avatarUrl} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                avatarUrl={avatarUrl}
+                onRefreshMatch={
+                  msg.response?.match_card?.is_live
+                    ? () => onSend("atualizar partida")
+                    : undefined
+                }
+              />
             ))}
           </section>
         )}
