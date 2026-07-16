@@ -131,6 +131,17 @@ export interface LiveFixtureCache {
   kickoff?: string | null;
 }
 
+/** FE-only presentation stamp (v3.6) — never sent to engines. */
+export interface MessagePresentationSnapshot {
+  profile: "technical" | "casual";
+  emojis: "none" | "low" | "medium" | "high";
+  enthusiasm: "low" | "medium" | "high";
+  structure: "conversational" | "balanced" | "technical";
+  headersLists: "few" | "normal" | "many";
+  detail: "short" | "normal" | "detailed";
+  capturedAt: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "aurora";
@@ -139,6 +150,12 @@ export interface Message {
   error?: string;
   createdAt: string;
   loading?: boolean;
+  /**
+   * FE-only: prefs captured at send-time so history is never reshaped
+   * when the user later changes personalization. Applied only when the
+   * conversationPersonalization feature flag is enabled.
+   */
+  presentationSnapshot?: MessagePresentationSnapshot | null;
   /** FE-only: last successful live refresh timestamp (ISO). */
   refreshedAt?: string;
   /** FE-only: locked fixture id for stable live refresh (from /aurora/live). */

@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon, Settings2Icon } from "lucide-react";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { AuroraAvatar } from "@/components/chat/AuroraAvatar";
+import { ConversationSettingsPanel } from "@/components/chat/ConversationSettingsPanel";
 import { useChat } from "@/hooks/useChat";
 import { useAuroraAvatar } from "@/hooks/useAuroraAvatar";
+import { useConversationPreferences } from "@/hooks/useConversationPreferences";
+import { conversationPersonalizationEnabled } from "@/lib/conversationPersonalization";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     sessions,
     activeId,
@@ -24,6 +28,7 @@ export default function App() {
     lockLiveContext,
   } = useChat();
   const { avatarUrl, setFromFile, clear } = useAuroraAvatar();
+  const { preferences, setPreferences } = useConversationPreferences();
 
   const handleNewChat = () => {
     createSession();
@@ -67,11 +72,25 @@ export default function App() {
             <MenuIcon size={18} />
           </button>
 
-          <div className="flex min-w-0 items-center gap-2.5">
-            <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
-            <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
-              Aurora
-            </p>
+          {/* [Avatar Aurora] ⚙️ — gear only when feature flag is true */}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
+              <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
+                Aurora
+              </p>
+            </div>
+            {conversationPersonalizationEnabled ? (
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="shrink-0 rounded-lg p-2 text-[#A0A0A0] transition-colors hover:bg-white/5 hover:text-[#ECECEC]"
+                aria-label="Personalizar Aurora"
+                title="Personalizar Aurora"
+              >
+                <Settings2Icon size={16} />
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -84,6 +103,15 @@ export default function App() {
           onLockLiveContext={lockLiveContext}
         />
       </main>
+
+      {conversationPersonalizationEnabled ? (
+        <ConversationSettingsPanel
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          preferences={preferences}
+          onChange={setPreferences}
+        />
+      ) : null}
     </div>
   );
 }

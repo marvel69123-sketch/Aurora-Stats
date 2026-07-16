@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generateConversationTitle } from "@/lib/conversationTitle";
 import {
+  conversationPersonalizationEnabled,
+  loadConversationPreferences,
+  snapshotFromPreferences,
+} from "@/lib/conversationPersonalization";
+import {
   applyLiveToMatchCard,
   buildLiveCacheFromFixture,
   buildLiveStatsView,
@@ -9,6 +14,16 @@ import {
   resolveLiveFixture,
 } from "@/lib/liveMatch";
 import type { CopilotResponse, LiveFixtureCache, Message, Session } from "@/types/chat";
+
+/** Capture presentation prefs for NEW aurora messages only (flag-gated). */
+function capturePresentationSnapshot(): Message["presentationSnapshot"] {
+  if (!conversationPersonalizationEnabled) return null;
+  try {
+    return snapshotFromPreferences(loadConversationPreferences());
+  } catch {
+    return null;
+  }
+}
 
 const STORAGE_KEY = "aurora_chat_sessions";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -351,6 +366,7 @@ export function useChat() {
                     userText: "",
                     response: soft,
                     createdAt: now(),
+                    presentationSnapshot: capturePresentationSnapshot(),
                     // Preserve prior live identity on the soft reply? Better leave empty —
                     // MatchHeader comes from soft.match_card copy above.
                   } satisfies Message,
@@ -411,6 +427,7 @@ export function useChat() {
                 userText: "",
                 loading: true,
                 createdAt: now(),
+                presentationSnapshot: capturePresentationSnapshot(),
               } satisfies Message,
             ],
           };
