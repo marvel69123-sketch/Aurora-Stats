@@ -17,6 +17,9 @@ import {
 } from "@/lib/marketDisplay";
 import {
   chromeHeading,
+  chromeInlineMarker,
+  chromeTitleClass,
+  isTechnicalReportLayout,
   showChromeHeader,
   useConversationPreferencesContext,
 } from "@/lib/conversationPersonalization";
@@ -781,119 +784,107 @@ export function AuroraResponse({
       {summaryText ? (
         <section aria-label="Resumo">
           {showChromeHeader(chromePrefs, "resumo") ? (
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+            <p
+              className={`mb-1.5 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
+            >
               {chromeHeading("resumo", chromePrefs)}
             </p>
           ) : null}
-          <p className="text-[15px] leading-[1.75] text-[#ECECEC]/92">
+          <p
+            className={
+              chromePrefs.enthusiasm === "high"
+                ? "text-[15px] leading-[1.7] text-[#ECECEC]"
+                : chromePrefs.enthusiasm === "low"
+                  ? "text-[15px] leading-[1.8] text-[#ECECEC]/85"
+                  : "text-[15px] leading-[1.75] text-[#ECECEC]/92"
+            }
+          >
             {summaryText}
           </p>
         </section>
       ) : null}
 
-      {/* 1) Oportunidade — bloco congelado; chrome prefs NÃO alteram este conteúdo */}
-      {showMarketsBlock && (
+      {/* v3.6.4 — card unificado: Mercado destaque + A favor + Atenção (só layout) */}
+      {(showMarketsBlock ||
+        favorBullets.length > 0 ||
+        attentionBullets.length > 0) && (
         <section
           className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3.5"
-          aria-label="Mercado em destaque"
+          aria-label="Destaque da análise"
         >
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/75">
-            💡 Mercado em destaque
-          </p>
-          {interesting.length > 0 ? (
-            <div className="space-y-3.5">
-              {interesting.map((m) => {
-                const narrative = featuredNarrative(m, {
-                  isLive: isLiveCard,
-                  momentumSide: card?.momentum?.side ?? bootMomentum?.side ?? null,
-                });
-                return (
-                  <div key={m.rank} className="space-y-2.5">
-                    <p className="text-[1rem] font-medium leading-snug tracking-[-0.01em] text-[#ECECEC]">
-                      {marketLabelPt(m.market)}
-                    </p>
-                    <div className="space-y-1.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
-                      <p>
-                        <span className="mr-1 text-[#ECECEC]/80">📌 Contexto:</span>
-                        {narrative.context}
-                      </p>
-                      <p>
-                        <span className="mr-1 text-[#ECECEC]/80">🎯 Oportunidade:</span>
-                        {narrative.opportunity}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+          {showMarketsBlock ? (
+            <div>
+              {showChromeHeader(chromePrefs, "featured") ? (
+                <p
+                  className={`mb-3 uppercase text-emerald-300/75 ${chromeTitleClass(chromePrefs)}`}
+                >
+                  {chromeHeading("featured", chromePrefs)}
+                </p>
+              ) : (
+                <p className="sr-only">Mercado em destaque</p>
+              )}
+              {interesting.length > 0 ? (
+                <div className="space-y-3.5">
+                  {interesting.map((m) => {
+                    const narrative = featuredNarrative(m, {
+                      isLive: isLiveCard,
+                      momentumSide:
+                        card?.momentum?.side ?? bootMomentum?.side ?? null,
+                    });
+                    return (
+                      <div key={m.rank} className="space-y-2.5">
+                        <p className="text-[1rem] font-medium leading-snug tracking-[-0.01em] text-[#ECECEC]">
+                          {marketLabelPt(m.market)}
+                        </p>
+                        <div className="space-y-1.5 text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+                          <p>
+                            <span className="mr-1 text-[#ECECEC]/80">
+                              {chromeInlineMarker("context", chromePrefs)}
+                              Contexto:
+                            </span>
+                            {narrative.context}
+                          </p>
+                          <p>
+                            <span className="mr-1 text-[#ECECEC]/80">
+                              {chromeInlineMarker("opportunity", chromePrefs)}
+                              Oportunidade:
+                            </span>
+                            {narrative.opportunity}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-1 py-0.5">
+                  <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]/95">
+                    {chromePrefs.emojis !== "none" &&
+                    chromePrefs.emojis !== "low"
+                      ? "🔥 "
+                      : ""}
+                    Mercado em observação
+                  </p>
+                  <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
+                    Nenhuma oportunidade clara identificada neste momento.
+                  </p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-1 py-0.5">
-              <p className="text-[0.875rem] font-medium leading-snug text-[#ECECEC]/95">
-                🔥 Mercado em observação
-              </p>
-              <p className="text-[0.8125rem] leading-relaxed text-[#A0A0A0]">
-                Nenhuma oportunidade clara identificada neste momento.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+          ) : null}
 
-      {/* Alerta único — título chrome; corpo alertText inalterado */}
-      {alertText ? (
-        <section
-          className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
-          aria-label="Atenção"
-        >
-          {showChromeHeader(chromePrefs, "alert") ? (
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
-              {chromeHeading("alert", chromePrefs)}
-            </p>
-          ) : (
-            <p className="sr-only">Atenção</p>
-          )}
-          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
-            {alertText}
-          </p>
-        </section>
-      ) : null}
-
-      {/* 3) Urgência — título chrome; texto fixo inalterado */}
-      {highRiskUrgent ? (
-        <section
-          className="rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-2.5"
-          aria-label="Evento importante"
-        >
-          {showChromeHeader(chromePrefs, "urgency") ? (
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-300/80">
-              {chromeHeading("urgency", chromePrefs)}
-            </p>
-          ) : (
-            <p className="sr-only">Evento importante</p>
-          )}
-          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
-            Cenário de risco elevado — revise stake e invalidadores antes de entrar.
-          </p>
-        </section>
-      ) : null}
-
-      {/* Live entre alerta e bullets — ver comentário de hierarquia no <article>. */}
-      {isLiveCard && showMomentum && momentum ? (
-        <MomentumPanel momentum={momentum} />
-      ) : null}
-
-      {isLiveCard && statsView ? <LiveStatsPanel stats={statsView} /> : null}
-
-      {(favorBullets.length > 0 || attentionBullets.length > 0) && (
-        <section
-          /* Mobile: 1 coluna + gap-3; sm+: 2 colunas. Evita cards espremidos <640px. */
-          className="grid gap-3 sm:grid-cols-2 sm:gap-6"
-          aria-label="Pontos rápidos"
-        >
-          {favorBullets.length > 0 && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+          {favorBullets.length > 0 ? (
+            <div
+              className={
+                showMarketsBlock
+                  ? "mt-4 border-t border-white/[0.06] pt-3.5"
+                  : ""
+              }
+            >
               {showChromeHeader(chromePrefs, "favor") ? (
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+                <p
+                  className={`mb-1.5 uppercase text-emerald-200/80 ${chromeTitleClass(chromePrefs)}`}
+                >
                   {chromeHeading("favor", chromePrefs)}
                 </p>
               ) : (
@@ -905,16 +896,26 @@ export function AuroraResponse({
                     key={i}
                     className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
                   >
-                    • {f}
+                    {chromeInlineMarker("bullet", chromePrefs)}
+                    {f}
                   </li>
                 ))}
               </ul>
             </div>
-          )}
-          {attentionBullets.length > 0 && (
-            <div className="rounded-xl border border-amber-400/12 bg-amber-400/[0.03] px-3.5 py-3">
+          ) : null}
+
+          {attentionBullets.length > 0 ? (
+            <div
+              className={
+                showMarketsBlock || favorBullets.length > 0
+                  ? "mt-3.5 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5"
+                  : "rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5"
+              }
+            >
               {showChromeHeader(chromePrefs, "attention") ? (
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
+                <p
+                  className={`mb-1.5 uppercase text-amber-300/80 ${chromeTitleClass(chromePrefs)}`}
+                >
                   {chromeHeading("attention", chromePrefs)}
                 </p>
               ) : (
@@ -926,50 +927,148 @@ export function AuroraResponse({
                     key={i}
                     className="text-[0.8125rem] leading-snug text-[#ECECEC]/88"
                   >
-                    • {f}
+                    {chromeInlineMarker("bullet", chromePrefs)}
+                    {f}
                   </li>
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
         </section>
       )}
 
-      {showDetails && (
-        <Details
-          title={chromeHeading("details", chromePrefs)}
-          defaultOpen={false}
+      {/* Alerta de confiança — fora do card unificado */}
+      {alertText ? (
+        <section
+          className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
+          aria-label="Atenção"
         >
-          <TechnicalAnalysisCard
-            response={response}
-            recommended={recommendedMarket}
-          />
-
-          {hasNotes && (
-            <section aria-label="Notas">
-              <ul className="space-y-1.5">
-                {notes.slice(0, 4).map((n, i) => (
-                  <li key={i} className="text-[0.75rem] leading-relaxed text-[#A0A0A0]">
-                    <MarkdownInline text={scrubProsePt(n)} />
-                  </li>
-                ))}
-              </ul>
-            </section>
+          {showChromeHeader(chromePrefs, "alert") ? (
+            <p
+              className={`uppercase text-amber-300/75 ${chromeTitleClass(chromePrefs)}`}
+            >
+              {chromeHeading("alert", chromePrefs)}
+            </p>
+          ) : (
+            <p className="sr-only">Atenção</p>
           )}
+          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
+            {alertText}
+          </p>
+        </section>
+      ) : null}
 
-          {hasHistory && (
-            <section aria-label="Histórico">
-              <ul className="space-y-1.5">
-                {response.historical_references.slice(0, 3).map((r, i) => (
-                  <li key={i} className="text-[0.75rem] leading-relaxed text-[#A0A0A0]">
-                    <MarkdownInline text={scrubProsePt(r)} />
-                  </li>
-                ))}
-              </ul>
-            </section>
+      {highRiskUrgent ? (
+        <section
+          className="rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-2.5"
+          aria-label="Evento importante"
+        >
+          {showChromeHeader(chromePrefs, "urgency") ? (
+            <p
+              className={`uppercase text-rose-300/80 ${chromeTitleClass(chromePrefs)}`}
+            >
+              {chromeHeading("urgency", chromePrefs)}
+            </p>
+          ) : (
+            <p className="sr-only">Evento importante</p>
           )}
-        </Details>
-      )}
+          <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
+            Cenário de risco elevado — revise stake e invalidadores antes de entrar.
+          </p>
+        </section>
+      ) : null}
+
+      {/* Live — intacto */}
+      {isLiveCard && showMomentum && momentum ? (
+        <MomentumPanel momentum={momentum} />
+      ) : null}
+
+      {isLiveCard && statsView ? <LiveStatsPanel stats={statsView} /> : null}
+
+      {showDetails
+        ? (() => {
+            const detailsBody = (
+              <>
+                {showChromeHeader(chromePrefs, "markets_label") ? (
+                  <p
+                    className={`mb-2 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
+                  >
+                    {chromeHeading("markets_label", chromePrefs)}
+                  </p>
+                ) : null}
+                <TechnicalAnalysisCard
+                  response={response}
+                  recommended={recommendedMarket}
+                />
+
+                {hasNotes && (
+                  <section aria-label="Notas" className="mt-4">
+                    {showChromeHeader(chromePrefs, "notes_label") ? (
+                      <p
+                        className={`mb-1.5 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
+                      >
+                        {chromeHeading("notes_label", chromePrefs)}
+                      </p>
+                    ) : null}
+                    <ul className="space-y-1.5">
+                      {notes.slice(0, 4).map((n, i) => (
+                        <li
+                          key={i}
+                          className="text-[0.75rem] leading-relaxed text-[#A0A0A0]"
+                        >
+                          <MarkdownInline text={scrubProsePt(n)} />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {hasHistory && (
+                  <section aria-label="Histórico" className="mt-4">
+                    {showChromeHeader(chromePrefs, "history_label") ? (
+                      <p
+                        className={`mb-1.5 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
+                      >
+                        {chromeHeading("history_label", chromePrefs)}
+                      </p>
+                    ) : null}
+                    <ul className="space-y-1.5">
+                      {response.historical_references.slice(0, 3).map((r, i) => (
+                        <li
+                          key={i}
+                          className="text-[0.75rem] leading-relaxed text-[#A0A0A0]"
+                        >
+                          <MarkdownInline text={scrubProsePt(r)} />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </>
+            );
+
+            // Técnica = relatório sempre expandido; Casual = accordion (sem Casual real ainda)
+            if (isTechnicalReportLayout(chromePrefs)) {
+              return (
+                <section
+                  className="space-y-4 border-t border-white/[0.06] pt-4"
+                  aria-label="Análise completa"
+                >
+                  {detailsBody}
+                </section>
+              );
+            }
+
+            return (
+              <Details
+                title={chromeHeading("details", chromePrefs)}
+                defaultOpen={false}
+              >
+                {detailsBody}
+              </Details>
+            );
+          })()
+        : null}
 
       <DeployDebugSnapshot response={response} />
     </article>

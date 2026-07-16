@@ -38,7 +38,7 @@ export { applyPresentation } from "./formatters/apply";
 export { formatTechnical } from "./formatters/technical";
 export { formatCasual } from "./formatters/casual";
 export { getFollowUpPresentationHints } from "./followUpPrep";
-export { chromeHeading, showChromeHeader } from "./visualChrome";
+export { chromeHeading, showChromeHeader, chromeTitleClass, chromeInlineMarker, isTechnicalReportLayout } from "./visualChrome";
 export type { ChromeKind } from "./visualChrome";
 export {
   ConversationPreferencesContext,

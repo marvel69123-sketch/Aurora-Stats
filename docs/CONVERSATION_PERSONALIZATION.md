@@ -1,18 +1,13 @@
-# Aurora v3.6.2 — Chrome prefs connected (emojis / enthusiasm / headers)
+# Aurora v3.6.4 — UX Personalization Refinement
 
 ## Status
 
-- Flag: `conversationPersonalizationEnabled = true`
-- Connected (UI chrome only): **emojis**, **enthusiasm**, **headersLists**
-- NOT connected: profile Casual, structure, detail, `applyPresentation`, formatters
-- Mercado em destaque / MatchHeader / Premium Live / reply body: **untouched**
+- Unified card: Mercado em destaque + A favor + Atenção (layout only)
+- Stronger chrome impact: emojis / enthusiasm / headers
+- **Aurora Técnica** (`profile === technical`): análise completa always expanded (no accordion)
+- **Aurora Casual**: still accordion only — real Casual formatter NOT implemented
+- Frozen modules untouched (MatchHeader, Premium Live, engines, payloads, markets data)
 
-## What changes visually
+## Anti-regression
 
-- Section titles (Atenção, A favor, Resumo eyebrow, empty greeting, details label)
-- Emoji presence on those titles
-- Header density (few / normal / many)
-
-## What never changes
-
-- `executive_summary`, markets, odds, live stats, MatchHeader, payloads, engines
+Presentation-only FE changes in `AuroraResponse`, `visualChrome`, empty state.

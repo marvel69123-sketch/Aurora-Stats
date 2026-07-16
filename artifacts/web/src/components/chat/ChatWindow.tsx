@@ -49,7 +49,15 @@ function EmptyState({
       <h1 className="mb-3.5 font-display text-[1.75rem] font-semibold tracking-[-0.03em] text-[#ECECEC] md:text-[2rem]">
         Aurora
       </h1>
-      <p className="mb-11 max-w-xl text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
+      <p
+        className={
+          chromePrefs.enthusiasm === "high"
+            ? "mb-11 max-w-xl text-[1rem] font-medium leading-[1.65] text-[#ECECEC]/90"
+            : chromePrefs.enthusiasm === "low"
+              ? "mb-11 max-w-xl text-[0.9375rem] leading-[1.75] text-[#A0A0A0]"
+              : "mb-11 max-w-xl text-[0.9375rem] leading-[1.7] text-[#A0A0A0]"
+        }
+      >
         {chromeHeading("empty_greeting", chromePrefs)}
       </p>
       <nav
