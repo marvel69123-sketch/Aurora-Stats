@@ -1,13 +1,23 @@
-"""Aurora v3.7 / v3.7.1 — Conversation Intelligence tests."""
+"""Aurora v3.7 / v3.7.2 — Conversation Intelligence tests."""
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
+from src.communication.small_talk import try_small_talk
 from src.conversation.message_intelligence import (
     build_clarification_payload,
     build_conversational_payload,
+    ci_pending_expired,
+    clear_fixture_context,
+    expire_ci_pending_if_needed,
+    get_ci_pending,
+    is_cancel_reset,
+    is_topic_switch,
     process_inbound_message,
+    set_ci_pending,
     shift_fixture_memory,
 )
 
@@ -182,3 +192,47 @@ def test_shift_fixture_memory():
 def test_fail_open_on_bad_ctx():
     r = process_inbound_message("oi", None)
     assert r.message_for_pipeline is not None
+
+
+def test_oi_does_not_clarify_stealing_small_talk():
+    r = process_inbound_message("oi", {})
+    assert r.needs_clarification is False
+    assert r.clarification_prompt is None
+    social = try_small_talk("oi", {})
+    assert social is not None
+    assert social.get("intent") == "small_talk"
+
+
+@pytest.mark.parametrize(
+    "msg",
+    ["cancela", "esquece", "deixa pra lá", "outro assunto", "limpar contexto", "nova conversa"],
+)
+def test_is_cancel_reset(msg):
+    assert is_cancel_reset(msg) is True
+
+
+def test_clear_fixture_context_drops_sticky_and_pending():
+    ctx = {**CTX_BOTA_SANTOS, "ci_pending": {"kind": "single_team_clarify", "team": "Santos"}}
+    clear_fixture_context(ctx)
+    assert ctx.get("last_home") is None
+    assert ctx.get("last_match") is None
+    assert ctx.get("ci_pending") is None
+
+
+def test_pending_expires_after_ttl():
+    ctx: dict = {}
+    set_ci_pending(ctx, kind="single_team_clarify", team="Santos")
+    assert get_ci_pending(ctx) is not None
+    assert ci_pending_expired(ctx, ttl=3600) is False
+    # Force old timestamp
+    old = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ctx["ci_pending"]["created_at"] = old
+    assert ci_pending_expired(ctx, ttl=5 * 60) is True
+    assert expire_ci_pending_if_needed(ctx) is True
+    assert get_ci_pending(ctx) is None
+
+
+def test_topic_switch_detects_new_fixture():
+    assert is_topic_switch("Analisar Flamengo x Palmeiras") is True
+    assert is_topic_switch("e pra gols?") is False
+    assert is_topic_switch("oi") is False

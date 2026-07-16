@@ -5,21 +5,37 @@ from src.conversation.conversation_context import (
     conversation_manager,
 )
 from src.conversation.message_intelligence import (
+    CI_PENDING_TTL_SECONDS,
     MessageIntelResult,
     build_clarification_payload,
     build_conversational_payload,
+    ci_pending_expired,
+    clear_fixture_context,
+    expire_ci_pending_if_needed,
+    get_ci_pending,
+    is_cancel_reset,
+    is_topic_switch,
     process_inbound_message,
+    set_ci_pending,
     shift_fixture_memory,
 )
 
 __all__ = [
     "TTL_SECONDS",
+    "CI_PENDING_TTL_SECONDS",
     "ConversationContext",
     "ConversationManager",
     "conversation_manager",
     "MessageIntelResult",
     "build_clarification_payload",
     "build_conversational_payload",
+    "ci_pending_expired",
+    "clear_fixture_context",
+    "expire_ci_pending_if_needed",
+    "get_ci_pending",
+    "is_cancel_reset",
+    "is_topic_switch",
     "process_inbound_message",
+    "set_ci_pending",
     "shift_fixture_memory",
 ]

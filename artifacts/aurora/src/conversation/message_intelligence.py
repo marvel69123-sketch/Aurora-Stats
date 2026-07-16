@@ -1,13 +1,17 @@
 """
-Aurora v3.7.1 — Conversation Intelligence Polish (additive).
+Aurora v3.7.2 — Conversation Intelligence + context gates (additive).
 
-Pipeline (inbound only):
+Inbound CI layers:
   Message → Normalization → Conversation Context → Intent → Confidence
+
+Router order (outside this module):
+  Small Talk → cancel/expire/topic-switch → CI → FollowUp → NL/engines
 
 Sacred rules:
   - NEVER invent fixtures / opponents / live stats.
   - Market terms NEVER enter team-alias expansion / resolver-shaped rewrites.
   - On doubt → clarify. High confidence → safe rewrite OR pass-through for FollowUp.
+  - Generic low band must NOT steal Small Talk.
   - Does NOT edit Resolver, FollowUp engine, Integrity, engines, or payload schemas.
 """
 
@@ -23,6 +27,21 @@ logger = logging.getLogger(__name__)
 
 ConfidenceBand = Literal["high", "medium", "low"]
 ResponseKind = Literal["clarify", "conversational"]
+
+# Pending single-team / fixture clarification TTL
+CI_PENDING_TTL_SECONDS = 5 * 60
+
+_CANCEL_RESET_RE = re.compile(
+    r"^(?:cancela(?:r)?|esquece(?:\s+isso)?|deixa\s+pra\s+l[aá]|outro\s+assunto|"
+    r"muda(?:r)?\s+de\s+assunto|limpar?\s+contexto|reset(?:ar)?|"
+    r"nova\s+conversa|zera(?:r)?(?:\s+contexto)?)\s*[!.?]*$",
+    re.I,
+)
+_TOPIC_SWITCH_RE = re.compile(
+    r"\b([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9.\s-]{1,40}?)\s+(?:x|vs|versus)\s+"
+    r"([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9.\s-]{1,40})\b",
+    re.I,
+)
 
 
 @dataclass
@@ -516,13 +535,104 @@ def confidence_layer(
     return "low", score
 
 
+def is_cancel_reset(message: str) -> bool:
+    """User wants to drop pending / fixture context."""
+    return bool(_CANCEL_RESET_RE.match(_fold(message or "")))
+
+
+def is_topic_switch(message: str) -> bool:
+    """Explicit new A x B — leave prior fixture / pending behind."""
+    return bool(_TOPIC_SWITCH_RE.search(message or ""))
+
+
+def clear_fixture_context(ctx: dict[str, Any]) -> None:
+    """Cancel/reset: drop sticky fixture memory + CI pending (in-place)."""
+    for key in (
+        "last_home",
+        "last_away",
+        "last_match",
+        "last_fixture",
+        "last_analysis",
+        "last_market",
+        "last_recommendation",
+        "last_final_recommendation",
+        "last_intent",
+        "last_is_live",
+        "last_minute",
+        "last_confidence",
+        "last_entities",
+        "last_live_at",
+        "prev_home",
+        "prev_away",
+        "prev_match",
+        "prev_fixture",
+        "prev_market",
+        "prev_recommendation",
+        "ci_pending",
+    ):
+        ctx.pop(key, None)
+
+
+def set_ci_pending(
+    ctx: dict[str, Any],
+    *,
+    kind: str,
+    team: str | None = None,
+) -> None:
+    from datetime import datetime, timezone
+
+    ctx["ci_pending"] = {
+        "kind": kind,
+        "team": team,
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def get_ci_pending(ctx: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not ctx:
+        return None
+    pending = ctx.get("ci_pending")
+    return pending if isinstance(pending, dict) else None
+
+
+def ci_pending_expired(ctx: dict[str, Any] | None, *, ttl: int = CI_PENDING_TTL_SECONDS) -> bool:
+    pending = get_ci_pending(ctx)
+    if not pending:
+        return False
+    created = pending.get("created_at")
+    if not created or not isinstance(created, str):
+        return True
+    try:
+        from datetime import datetime, timezone
+
+        ts = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - ts).total_seconds()
+        return age > ttl
+    except Exception:
+        return True
+
+
+def expire_ci_pending_if_needed(ctx: dict[str, Any]) -> bool:
+    """Clear expired pending. Returns True if cleared."""
+    if get_ci_pending(ctx) and ci_pending_expired(ctx):
+        ctx.pop("ci_pending", None)
+        return True
+    return False
+
+
 def _clarification_for(
     band: ConfidenceBand,
     ctx_meta: dict[str, Any],
     ctx: dict[str, Any] | None,
     original: str,
 ) -> str | None:
+    """
+    Only clarify when there is an explicit sports reason.
+    Never steal Small Talk with a generic “diga os times” on low band.
+    """
     fixture = ctx_meta.get("fixture") or _fixture_label(ctx)
+    reason = ctx_meta.get("reason") or ""
+
     if band == "medium" and ctx_meta.get("single_team"):
         team = str(ctx_meta["single_team"]).strip()
         pretty = team.title() if team.islower() else team
@@ -530,25 +640,27 @@ def _clarification_for(
             f"Você está se referindo a uma análise do {pretty}? "
             f"Me diga o adversário (ex.: {pretty} x Time B) para eu analisar com segurança."
         )
-    if band == "medium" and fixture:
+    if band == "medium" and fixture and reason:
         return f"Você está se referindo ao {fixture}?"
     if band == "low":
-        reason = ctx_meta.get("reason") or ""
         if "deixis" in reason:
             return (
                 "Qual jogo você quer dizer? "
                 "Me diga os times (ex.: Botafogo x Santos) para eu continuar."
             )
-        if "without_fixture" in reason or "prefer_alt" in reason or "compare" in reason:
+        # Market/prefer/compare without fixture — clarify only with explicit reason
+        if reason in {
+            "market_followup_without_fixture",
+            "prefer_alt_without_fixture",
+            "compare_without_fixture",
+        }:
             return (
-                "Não tenho contexto suficiente nesta conversa. "
+                "Não tenho um confronto recente nesta conversa. "
                 "Analise um jogo primeiro (ex.: Analisar Botafogo x Santos) "
                 "e depois pergunte sobre gols, escanteios ou alternativas."
             )
-        return (
-            "Não entendi com segurança. "
-            "Pode reformular com os times do jogo?"
-        )
+        # Generic low (e.g. "oi", noise) → do NOT intercept; let Small Talk / NL run
+        return None
     return None
 
 
@@ -686,7 +798,8 @@ def process_inbound_message(
             metadata={
                 "norm": norm_meta,
                 "ctx": ctx_meta,
-                "v": "3.7.1",
+                "v": "3.7.2",
+                "pending_team": ctx_meta.get("single_team"),
             },
         )
     except Exception as exc:

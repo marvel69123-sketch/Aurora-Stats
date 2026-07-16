@@ -1544,48 +1544,120 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # ── v3.7 Conversation Intelligence (additive, before SmallTalk) ───────
-    # Normalization → Context → Intent → Confidence. Never invents fixtures.
-    # Does NOT edit FollowUp / Resolver / Integrity / engines.
+    # Pipeline order (v3.7.2):
+    #   0) Small Talk (priority)
+    #   1) Cancel / pending expiry / topic switch
+    #   2) Conversation Intelligence
+    #   3) Follow-up / fixture guard
+    #   4) NL router / engines
+
+    # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
+    try:
+        from src.communication import try_small_talk as _try_small_talk
+
+        _social = _try_small_talk(message, brain)
+        if _social:
+            payload = _social
+            intent = "small_talk"
+            entities = {"social": True}
+            routing_confidence = 0.95
+            skipped_nl = True
+            logger.warning("[AUDIT] SmallTalkGate: HIT (priority) message=%r", message)
+    except Exception as _st_exc:
+        logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
+
+    # ── 0a2. Pending expiry + cancel/reset + topic switch ─────────────────
     try:
         from src.conversation.message_intelligence import (
-            build_clarification_payload as _ci_clarify_payload,
-            build_conversational_payload as _ci_talk_payload,
-            process_inbound_message as _ci_process,
+            clear_fixture_context as _ci_clear_ctx,
+            expire_ci_pending_if_needed as _ci_expire_pending,
+            is_cancel_reset as _ci_is_cancel,
+            is_topic_switch as _ci_is_topic_switch,
         )
 
-        _ci = _ci_process(message, ctx)
-        if _ci.conversational_reply:
-            payload = _ci_talk_payload(_ci.conversational_reply, brain)
+        if _ci_expire_pending(ctx):
+            logger.warning("[AUDIT] ConversationIntel: pending EXPIRED — cleared")
+            conversation_manager.save(session_id, ctx)
+
+        if payload is None and _ci_is_cancel(message):
+            _ci_clear_ctx(ctx)
+            conversation_manager.save(session_id, ctx)
+            from src.conversation.message_intelligence import (
+                build_conversational_payload as _ci_talk_payload,
+            )
+
+            payload = _ci_talk_payload(
+                "Contexto limpo. Pode começar de novo — diga um confronto "
+                "ou só converse comigo.",
+                brain,
+            )
             intent = "conversation_assist"
-            entities = {"conversation_assist": True, "conversation_intelligence": True}
-            routing_confidence = float(_ci.confidence or 0.85)
+            entities = {"context_reset": True, "conversation_intelligence": True}
+            routing_confidence = 0.95
             skipped_nl = True
-            logger.warning(
-                "[AUDIT] ConversationIntel: TALK band=%s msg=%r",
-                _ci.confidence_band,
-                message,
-            )
-        elif _ci.needs_clarification and _ci.clarification_prompt:
-            payload = _ci_clarify_payload(_ci.clarification_prompt, brain)
-            intent = "clarification"
-            entities = {"clarification": True, "conversation_intelligence": True}
-            routing_confidence = float(_ci.confidence or 0.4)
-            skipped_nl = True
-            logger.warning(
-                "[AUDIT] ConversationIntel: CLARIFY band=%s conf=%.2f msg=%r",
-                _ci.confidence_band,
-                _ci.confidence,
-                message,
-            )
-        elif _ci.confidence_band == "high" and _ci.message_for_pipeline:
-            if _ci.message_for_pipeline != message:
+            logger.warning("[AUDIT] ConversationIntel: CONTEXT RESET message=%r", message)
+        elif payload is None and _ci_is_topic_switch(message):
+            # New A x B — drop pending clarify; keep prev via normal save later
+            if ctx.get("ci_pending"):
+                ctx.pop("ci_pending", None)
+                conversation_manager.save(session_id, ctx)
                 logger.warning(
-                    "[AUDIT] ConversationIntel: REWRITE band=high %r → %r",
+                    "[AUDIT] ConversationIntel: TOPIC SWITCH — pending cleared message=%r",
                     message,
-                    _ci.message_for_pipeline,
                 )
-            message = _ci.message_for_pipeline
+    except Exception as _ctx_gate_exc:
+        logger.warning("copilot: context gate skipped (%s)", _ctx_gate_exc)
+
+    # ── 0a3. Conversation Intelligence (after Small Talk) ─────────────────
+    # Normalization → Context → Intent → Confidence. Never invents fixtures.
+    try:
+        if payload is None:
+            from src.conversation.message_intelligence import (
+                build_clarification_payload as _ci_clarify_payload,
+                build_conversational_payload as _ci_talk_payload,
+                process_inbound_message as _ci_process,
+                set_ci_pending as _ci_set_pending,
+            )
+
+            _ci = _ci_process(message, ctx)
+            if _ci.conversational_reply:
+                payload = _ci_talk_payload(_ci.conversational_reply, brain)
+                intent = "conversation_assist"
+                entities = {"conversation_assist": True, "conversation_intelligence": True}
+                routing_confidence = float(_ci.confidence or 0.85)
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] ConversationIntel: TALK band=%s msg=%r",
+                    _ci.confidence_band,
+                    message,
+                )
+            elif _ci.needs_clarification and _ci.clarification_prompt:
+                payload = _ci_clarify_payload(_ci.clarification_prompt, brain)
+                intent = "clarification"
+                entities = {"clarification": True, "conversation_intelligence": True}
+                routing_confidence = float(_ci.confidence or 0.4)
+                skipped_nl = True
+                _pending_team = (_ci.metadata or {}).get("pending_team")
+                if _pending_team:
+                    _ci_set_pending(ctx, kind="single_team_clarify", team=str(_pending_team))
+                    conversation_manager.save(session_id, ctx)
+                logger.warning(
+                    "[AUDIT] ConversationIntel: CLARIFY band=%s conf=%.2f msg=%r",
+                    _ci.confidence_band,
+                    _ci.confidence,
+                    message,
+                )
+            elif _ci.confidence_band == "high" and _ci.message_for_pipeline:
+                if _ci.message_for_pipeline != message:
+                    logger.warning(
+                        "[AUDIT] ConversationIntel: REWRITE band=high %r → %r",
+                        message,
+                        _ci.message_for_pipeline,
+                    )
+                message = _ci.message_for_pipeline
+                # Successful rewrite / follow-up path clears pending clarify
+                if ctx.get("ci_pending"):
+                    ctx.pop("ci_pending", None)
     except Exception as _ci_exc:
         logger.warning("copilot: conversation intelligence skipped (%s)", _ci_exc)
 
@@ -1594,21 +1666,6 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     new_profile = _extract_profile(message, old_profile)
     if new_profile != old_profile:
         ctx["user_profile"] = new_profile
-
-    # ── 0a. Small Talk Gate (BEFORE NL) — Phase 6.4 social mode ───────────
-    try:
-        if payload is None:
-            from src.communication import try_small_talk as _try_small_talk
-            _social = _try_small_talk(message, brain)
-            if _social:
-                payload = _social
-                intent = "small_talk"
-                entities = {"social": True}
-                routing_confidence = 0.95
-                skipped_nl = True
-                logger.warning("[AUDIT] SmallTalkGate: HIT message=%r", message)
-    except Exception as _st_exc:
-        logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
 
     # ── 0b. Follow-up / fixture context guard (v3.3.1-beta) ───────────────
     # Compare entities BEFORE reusing last_analysis. Different teams → discard
