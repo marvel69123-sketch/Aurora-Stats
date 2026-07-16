@@ -1,7 +1,7 @@
 /**
- * Aurora v3.6.0 — Conversation Personalization feature flag.
+ * Aurora v3.6.1 — Conversation Personalization feature flag.
  *
- * MUST remain false until explicitly enabled in a later review.
- * When false: gear/panel are not rendered; formatters are never applied to UI.
+ * Phase 1 (activation): true → gear + settings panel + visual prefs persistence only.
+ * Does NOT wire Casual formatter, applyPresentation, or presentationSnapshot.
  */
-export const conversationPersonalizationEnabled = false;
+export const conversationPersonalizationEnabled = true;

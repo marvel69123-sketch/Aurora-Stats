@@ -1,25 +1,20 @@
-# Aurora v3.6.0 — Conversation Personalization (Foundation)
+# Aurora v3.6.1 — Conversation Personalization (Phase 1 Activation)
 
 ## Status
 
-- Feature flag: `conversationPersonalizationEnabled = false`
-- Gear / panel: implemented, **not rendered** while flag is false
-- Casual formatter: prepared with Technical fallback
-- **Not wired** into `AuroraResponse` render path (presentation apply reserved for activation sprint)
-- Engines / payloads / Premium Live / MatchHeader / FollowUp: untouched
+- Feature flag: `conversationPersonalizationEnabled = true`
+- Gear / panel: **rendered** (header next to Aurora)
+- Prefs: save/restore via `localStorage` (`aurora_conversation_preferences_v1`)
+- Casual formatter: **not connected**
+- `applyPresentation`: **not used** in UI
+- `presentationSnapshot`: **not applied** (Phase 1 stamps nothing)
+- Engines / payloads / Premium Live / MatchHeader / FollowUp / AuroraResponse: untouched
 
-## Architecture
+## Phase 1 scope
 
-```
-Engines (frozen) → Payload neutro → Formatter (FE) → Technical | Casual → UI
-```
+Visual activation only: open settings, toggle options, persist preferences.
+Changing Técnica/Casual (or any slider) does **not** change Aurora replies.
 
-Prefs live in `localStorage` (`aurora_conversation_preferences_v1`).
-New aurora messages may stamp `presentationSnapshot` when the flag is on
-(history is never rewritten).
+## Later phases
 
-## Activation
-
-Set `conversationPersonalizationEnabled` to `true` in
-`artifacts/web/src/lib/conversationPersonalization/flags.ts` only after
-explicit product approval.
+Wire presentation formatters only after explicit approval.

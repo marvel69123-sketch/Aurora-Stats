@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generateConversationTitle } from "@/lib/conversationTitle";
 import {
-  conversationPersonalizationEnabled,
-  loadConversationPreferences,
-  snapshotFromPreferences,
-} from "@/lib/conversationPersonalization";
-import {
   applyLiveToMatchCard,
   buildLiveCacheFromFixture,
   buildLiveStatsView,
@@ -15,14 +10,12 @@ import {
 } from "@/lib/liveMatch";
 import type { CopilotResponse, LiveFixtureCache, Message, Session } from "@/types/chat";
 
-/** Capture presentation prefs for NEW aurora messages only (flag-gated). */
+/**
+ * v3.6.1 Phase 1: do NOT stamp presentationSnapshot.
+ * Prefs are visual/settings-only; responses stay identical.
+ */
 function capturePresentationSnapshot(): Message["presentationSnapshot"] {
-  if (!conversationPersonalizationEnabled) return null;
-  try {
-    return snapshotFromPreferences(loadConversationPreferences());
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 const STORAGE_KEY = "aurora_chat_sessions";
