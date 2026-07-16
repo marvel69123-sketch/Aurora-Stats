@@ -1,23 +1,11 @@
-# Aurora v3.7 — Conversation Intelligence Foundation
+# Aurora v3.7.1 — Conversation Intelligence Polish
 
-## Status
+## Fixes
 
-Additive inbound pipeline (backend):
+1. **Market terms never become teams** — `e escanteios?` pass-through for FollowUp (no `Botafogo x Santos Escanteios` rewrite).
+2. **Compare memory** — `prev_*` fixture shift on new analysis; compare intents use last + prev only (no invent).
+3. **Human prefer-alt intents** — conversational short-circuit (`não gostei`, `tem algo melhor`, `mais conservador`, …).
 
-```
-Message → Normalization → Conversation Context → Intent → Confidence → (existing gates)
-```
+## Untouched
 
-- **Does not** implement Aurora Casual
-- **Does not** edit Resolver, FollowUp engine, Integrity, Premium Live, MatchHeader, Personalization, engines, or payload schemas
-- On doubt → clarification (never invents fixtures)
-
-## Module
-
-`artifacts/aurora/src/conversation/message_intelligence.py`
-
-Wired in `copilot_unified_router.py` immediately after session/context load, before SmallTalk.
-
-## Tests
-
-`artifacts/aurora/tests/test_conversation_intelligence_v37.py`
+Resolver, FollowUp engine, Integrity, Premium Live, MatchHeader, Personalization, engines, payloads.

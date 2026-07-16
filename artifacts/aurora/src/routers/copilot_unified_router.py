@@ -1385,9 +1385,16 @@ def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> No
 
     The 'brain' and 'aurora_version' keys are excluded to keep the blob small.
     Phase 5B: also mirrors last_fixture / live snapshot fields.
+    v3.7.1: shifts last → prev when the fixture changes (compare memory).
     """
     analysis = {k: v for k, v in payload.items() if k not in ("brain", "aurora_version")}
     match = payload.get("match") or f"{home} x {away}"
+    try:
+        from src.conversation.message_intelligence import shift_fixture_memory
+
+        shift_fixture_memory(ctx, home, away, match if isinstance(match, str) else None)
+    except Exception:
+        pass
     ctx["last_home"]     = home
     ctx["last_away"]     = away
     ctx["last_match"]    = match
@@ -1395,6 +1402,10 @@ def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> No
     ctx["last_intent"]   = "analyze_match"
     ctx["last_analysis"] = analysis
     ctx["last_market"]   = analysis.get("best_markets")
+    # Keep a short recommendation fingerprint for prefer-alt intents
+    fr = analysis.get("final_recommendation")
+    if isinstance(fr, str) and fr.strip():
+        ctx["last_recommendation"] = fr.strip()[:200]
     ctx["last_is_live"]  = bool(payload.get("is_live"))
     ctx["last_minute"]   = payload.get("minute")
     conf = analysis.get("confidence") if isinstance(analysis.get("confidence"), dict) else {}
@@ -1539,11 +1550,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     try:
         from src.conversation.message_intelligence import (
             build_clarification_payload as _ci_clarify_payload,
+            build_conversational_payload as _ci_talk_payload,
             process_inbound_message as _ci_process,
         )
 
         _ci = _ci_process(message, ctx)
-        if _ci.needs_clarification and _ci.clarification_prompt:
+        if _ci.conversational_reply:
+            payload = _ci_talk_payload(_ci.conversational_reply, brain)
+            intent = "conversation_assist"
+            entities = {"conversation_assist": True, "conversation_intelligence": True}
+            routing_confidence = float(_ci.confidence or 0.85)
+            skipped_nl = True
+            logger.warning(
+                "[AUDIT] ConversationIntel: TALK band=%s msg=%r",
+                _ci.confidence_band,
+                message,
+            )
+        elif _ci.needs_clarification and _ci.clarification_prompt:
             payload = _ci_clarify_payload(_ci.clarification_prompt, brain)
             intent = "clarification"
             entities = {"clarification": True, "conversation_intelligence": True}
