@@ -1,20 +1,18 @@
-# Aurora v3.6.1 — Conversation Personalization (Phase 1 Activation)
+# Aurora v3.6.2 — Chrome prefs connected (emojis / enthusiasm / headers)
 
 ## Status
 
-- Feature flag: `conversationPersonalizationEnabled = true`
-- Gear / panel: **rendered** (header next to Aurora)
-- Prefs: save/restore via `localStorage` (`aurora_conversation_preferences_v1`)
-- Casual formatter: **not connected**
-- `applyPresentation`: **not used** in UI
-- `presentationSnapshot`: **not applied** (Phase 1 stamps nothing)
-- Engines / payloads / Premium Live / MatchHeader / FollowUp / AuroraResponse: untouched
+- Flag: `conversationPersonalizationEnabled = true`
+- Connected (UI chrome only): **emojis**, **enthusiasm**, **headersLists**
+- NOT connected: profile Casual, structure, detail, `applyPresentation`, formatters
+- Mercado em destaque / MatchHeader / Premium Live / reply body: **untouched**
 
-## Phase 1 scope
+## What changes visually
 
-Visual activation only: open settings, toggle options, persist preferences.
-Changing Técnica/Casual (or any slider) does **not** change Aurora replies.
+- Section titles (Atenção, A favor, Resumo eyebrow, empty greeting, details label)
+- Emoji presence on those titles
+- Header density (few / normal / many)
 
-## Later phases
+## What never changes
 
-Wire presentation formatters only after explicit approval.
+- `executive_summary`, markets, odds, live stats, MatchHeader, payloads, engines

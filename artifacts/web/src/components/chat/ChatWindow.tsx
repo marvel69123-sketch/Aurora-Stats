@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { AuroraAvatar } from "./AuroraAvatar";
+import {
+  chromeHeading,
+  useConversationPreferencesContext,
+} from "@/lib/conversationPersonalization";
 import type { LiveFixtureCache, LiveStatsSnapshot, Session } from "@/types/chat";
 
 interface ChatWindowProps {
@@ -35,6 +39,7 @@ function EmptyState({
   onSend: (text: string) => void;
   avatarUrl: string | null;
 }) {
+  const chromePrefs = useConversationPreferencesContext();
   return (
     <section
       className="flex flex-1 flex-col items-center justify-center px-6 pb-10 text-center"
@@ -45,7 +50,7 @@ function EmptyState({
         Aurora
       </h1>
       <p className="mb-11 max-w-xl text-[0.9375rem] leading-[1.7] text-[#A0A0A0]">
-        Como posso ajudar nas análises de hoje?
+        {chromeHeading("empty_greeting", chromePrefs)}
       </p>
       <nav
         className="aurora-chat-column grid w-full grid-cols-1 gap-3 px-0 sm:grid-cols-2"

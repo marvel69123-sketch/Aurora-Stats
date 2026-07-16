@@ -15,6 +15,11 @@ import {
   oneLinePt,
   scrubProsePt,
 } from "@/lib/marketDisplay";
+import {
+  chromeHeading,
+  showChromeHeader,
+  useConversationPreferencesContext,
+} from "@/lib/conversationPersonalization";
 import type {
   CopilotResponse,
   DebugAudit,
@@ -526,6 +531,9 @@ export function AuroraResponse({
   liveStatusNote?: string | null;
   onLiveContextLock?: (cache: LiveFixtureCache, stats: LiveStatsSnapshot) => void;
 }) {
+  // Chrome prefs only (emojis / enthusiasm / headers) — never alters reply body.
+  const chromePrefs = useConversationPreferencesContext();
+
   if (isInvalidFixture(response)) {
     return (
       <article className="w-full max-w-none space-y-4" aria-label="Confronto inválido">
@@ -772,13 +780,18 @@ export function AuroraResponse({
 
       {summaryText ? (
         <section aria-label="Resumo">
+          {showChromeHeader(chromePrefs, "resumo") ? (
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+              {chromeHeading("resumo", chromePrefs)}
+            </p>
+          ) : null}
           <p className="text-[15px] leading-[1.75] text-[#ECECEC]/92">
             {summaryText}
           </p>
         </section>
       ) : null}
 
-      {/* 1) Oportunidade */}
+      {/* 1) Oportunidade — bloco congelado; chrome prefs NÃO alteram este conteúdo */}
       {showMarketsBlock && (
         <section
           className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3.5 py-3.5"
@@ -826,30 +839,38 @@ export function AuroraResponse({
         </section>
       )}
 
-      {/* Alerta único (PARTIAL / risco / baixa conf) — ver decisionAlert() */}
+      {/* Alerta único — título chrome; corpo alertText inalterado */}
       {alertText ? (
         <section
           className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
           aria-label="Atenção"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
-            ⚠️ Atenção
-          </p>
+          {showChromeHeader(chromePrefs, "alert") ? (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
+              {chromeHeading("alert", chromePrefs)}
+            </p>
+          ) : (
+            <p className="sr-only">Atenção</p>
+          )}
           <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
             {alertText}
           </p>
         </section>
       ) : null}
 
-      {/* 3) Urgência */}
+      {/* 3) Urgência — título chrome; texto fixo inalterado */}
       {highRiskUrgent ? (
         <section
           className="rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-2.5"
           aria-label="Evento importante"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-300/80">
-            🚨 Evento importante
-          </p>
+          {showChromeHeader(chromePrefs, "urgency") ? (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-300/80">
+              {chromeHeading("urgency", chromePrefs)}
+            </p>
+          ) : (
+            <p className="sr-only">Evento importante</p>
+          )}
           <p className="mt-1 text-[0.875rem] leading-relaxed text-[#ECECEC]/90">
             Cenário de risco elevado — revise stake e invalidadores antes de entrar.
           </p>
@@ -871,9 +892,13 @@ export function AuroraResponse({
         >
           {favorBullets.length > 0 && (
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
-                A favor
-              </p>
+              {showChromeHeader(chromePrefs, "favor") ? (
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">
+                  {chromeHeading("favor", chromePrefs)}
+                </p>
+              ) : (
+                <p className="sr-only">A favor</p>
+              )}
               <ul className="space-y-1">
                 {favorBullets.map((f, i) => (
                   <li
@@ -888,9 +913,13 @@ export function AuroraResponse({
           )}
           {attentionBullets.length > 0 && (
             <div className="rounded-xl border border-amber-400/12 bg-amber-400/[0.03] px-3.5 py-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
-                ⚠️ Atenção
-              </p>
+              {showChromeHeader(chromePrefs, "attention") ? (
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-300/75">
+                  {chromeHeading("attention", chromePrefs)}
+                </p>
+              ) : (
+                <p className="sr-only">Atenção</p>
+              )}
               <ul className="space-y-1">
                 {attentionBullets.map((f, i) => (
                   <li
@@ -907,7 +936,10 @@ export function AuroraResponse({
       )}
 
       {showDetails && (
-        <Details title="Ver análise completa" defaultOpen={false}>
+        <Details
+          title={chromeHeading("details", chromePrefs)}
+          defaultOpen={false}
+        >
           <TechnicalAnalysisCard
             response={response}
             recommended={recommendedMarket}
