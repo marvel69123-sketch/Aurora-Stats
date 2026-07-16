@@ -1526,12 +1526,6 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     ctx   = conversation_manager.get(session_id) or {}
     brain = get_brain_meta()
 
-    # Silently extract + update user profile from this message
-    old_profile = ctx.get("user_profile", {})
-    new_profile = _extract_profile(message, old_profile)
-    if new_profile != old_profile:
-        ctx["user_profile"] = new_profile
-
     request_id = secrets.token_hex(4)
     intent: str = "unknown"
     entities: dict = {}
@@ -1539,17 +1533,57 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
+    # ── v3.7 Conversation Intelligence (additive, before SmallTalk) ───────
+    # Normalization → Context → Intent → Confidence. Never invents fixtures.
+    # Does NOT edit FollowUp / Resolver / Integrity / engines.
+    try:
+        from src.conversation.message_intelligence import (
+            build_clarification_payload as _ci_clarify_payload,
+            process_inbound_message as _ci_process,
+        )
+
+        _ci = _ci_process(message, ctx)
+        if _ci.needs_clarification and _ci.clarification_prompt:
+            payload = _ci_clarify_payload(_ci.clarification_prompt, brain)
+            intent = "clarification"
+            entities = {"clarification": True, "conversation_intelligence": True}
+            routing_confidence = float(_ci.confidence or 0.4)
+            skipped_nl = True
+            logger.warning(
+                "[AUDIT] ConversationIntel: CLARIFY band=%s conf=%.2f msg=%r",
+                _ci.confidence_band,
+                _ci.confidence,
+                message,
+            )
+        elif _ci.confidence_band == "high" and _ci.message_for_pipeline:
+            if _ci.message_for_pipeline != message:
+                logger.warning(
+                    "[AUDIT] ConversationIntel: REWRITE band=high %r → %r",
+                    message,
+                    _ci.message_for_pipeline,
+                )
+            message = _ci.message_for_pipeline
+    except Exception as _ci_exc:
+        logger.warning("copilot: conversation intelligence skipped (%s)", _ci_exc)
+
+    # Silently extract + update user profile from this message
+    old_profile = ctx.get("user_profile", {})
+    new_profile = _extract_profile(message, old_profile)
+    if new_profile != old_profile:
+        ctx["user_profile"] = new_profile
+
     # ── 0a. Small Talk Gate (BEFORE NL) — Phase 6.4 social mode ───────────
     try:
-        from src.communication import try_small_talk as _try_small_talk
-        _social = _try_small_talk(message, brain)
-        if _social:
-            payload = _social
-            intent = "small_talk"
-            entities = {"social": True}
-            routing_confidence = 0.95
-            skipped_nl = True
-            logger.warning("[AUDIT] SmallTalkGate: HIT message=%r", message)
+        if payload is None:
+            from src.communication import try_small_talk as _try_small_talk
+            _social = _try_small_talk(message, brain)
+            if _social:
+                payload = _social
+                intent = "small_talk"
+                entities = {"social": True}
+                routing_confidence = 0.95
+                skipped_nl = True
+                logger.warning("[AUDIT] SmallTalkGate: HIT message=%r", message)
     except Exception as _st_exc:
         logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
 

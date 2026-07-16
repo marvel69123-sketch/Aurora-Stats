@@ -1,13 +1,19 @@
-# Aurora v3.6.4 — UX Personalization Refinement
+# Aurora Conversation Personalization — índice
 
-## Status
+**Status:** módulo **congelado** (v3.6.5).
 
-- Unified card: Mercado em destaque + A favor + Atenção (layout only)
-- Stronger chrome impact: emojis / enthusiasm / headers
-- **Aurora Técnica** (`profile === technical`): análise completa always expanded (no accordion)
-- **Aurora Casual**: still accordion only — real Casual formatter NOT implemented
-- Frozen modules untouched (MatchHeader, Premium Live, engines, payloads, markets data)
+Documentação oficial de proteção e smoke tests:
 
-## Anti-regression
+→ [`FROZEN_CONVERSATION_PERSONALIZATION.md`](./FROZEN_CONVERSATION_PERSONALIZATION.md)
 
-Presentation-only FE changes in `AuroraResponse`, `visualChrome`, empty state.
+Registro nos módulos protegidos:
+
+→ [`FROZEN_MODULES.md`](./FROZEN_MODULES.md)
+
+## Resumo operacional (não alterar sem sprint aprovada)
+
+- Flag: `conversationPersonalizationEnabled` (`flags.ts`)
+- Prefs: `localStorage` → `aurora_conversation_preferences_v1`
+- Chrome: emojis / entusiasmo / cabeçalhos (`visualChrome.ts`)
+- Técnica: análise completa expandida
+- Casual: accordion only (formatter real **não** implementado)
