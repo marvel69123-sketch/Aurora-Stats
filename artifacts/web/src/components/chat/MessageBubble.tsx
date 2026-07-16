@@ -41,10 +41,11 @@ export function MessageBubble({
     );
   }
 
+  // Mobile: gap-3 (avatar + conteúdo); sm+: gap-4. min-w-0 evita overflow horizontal.
   return (
-    <article className="flex items-start gap-3.5" aria-label="Aurora">
-      <AuroraAvatar url={avatarUrl} size="md" className="mt-0.5" />
-      <div className="min-w-0 flex-1 pt-1">
+    <article className="flex items-start gap-3 sm:gap-4" aria-label="Aurora">
+      <AuroraAvatar url={avatarUrl} size="md" className="mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1 pt-1.5">
         {message.loading ? (
           <div className="flex items-center gap-1.5 py-3" aria-busy="true" aria-hidden>
             <span className="aurora-dot h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" />

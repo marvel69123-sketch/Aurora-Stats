@@ -287,6 +287,18 @@ function featuredNarrative(
   };
 }
 
+/**
+ * Único alerta consolidado do viewport (v3.4) — substitui previsibilidade + banners soltos.
+ *
+ * Quando PARTIAL deve aparecer:
+ * - `fixture_quality === "PARTIAL"` ou `fixture_status === "PARTIAL"` no payload.
+ * - Significa: confronto reconhecível, mas fixture oficial ainda não confirmada
+ *   (dados incompletos / precheck parcial). NÃO é INVALID/FICTIONAL.
+ * - Nesses casos a UI mostra uma linha compacta; frases de baixa confiança
+ *   equivalentes são filtradas do resumo/bullets (`LOW_CONF_IDEA_RE`).
+ * - Prioridade: PARTIAL > risco elevado/no_bet+baixa conf > só baixa confiança.
+ * - Não altera Integrity Guard nem payloads — só apresentação.
+ */
 function decisionAlert(response: CopilotResponse): string | null {
   const quality =
     response.fixture_quality ||
@@ -304,13 +316,12 @@ function decisionAlert(response: CopilotResponse): string | null {
   const noBet = response.bankroll_recommendation.no_bet;
 
   if (partial) {
-    // Soft / hide — avoid "fixture" / low-confidence noise in main UI
-    return null;
+    return "Cenário de baixa confiança. Partida ainda não confirmada.";
   }
   if (highRisk || (noBet && lowConf)) {
     return "Cenário de risco elevado. Mercados podem sofrer alterações.";
   }
-  if (lowConf) {
+  if (lowConf || (noBet && response.confidence.score > 0)) {
     return "Confiança baixa neste momento.";
   }
   return null;
@@ -710,7 +721,24 @@ export function AuroraResponse({
     !alertText;
 
   return (
-    <article className="w-full max-w-none space-y-7 sm:space-y-8">
+    <article
+      /* Mobile: space-y-5 (~20px) evita stack denso; sm+ abre para space-y-7. */
+      className="w-full max-w-none space-y-5 sm:space-y-7"
+      aria-label="Resposta Aurora"
+    >
+      {/*
+        Hierarquia v3.4 (+ Premium Live):
+        header → resumo → destaque → alerta → [live] → favor/atenção → detalhes
+
+        Por que Momentum/LiveStats ficam entre alerta e bullets:
+        - Alerta é decisão de confiança/risco (contexto antes de dados ao vivo).
+        - Painéis live são evidência factual do momento (posse, cartões, ritmo)
+          e devem ficar perto do destaque/alerta, não enterrados em “análise completa”.
+        - Favor/Atenção são síntese narrativa (forças/riscos do payload) e leem
+          melhor depois dos números live — no mobile o stack vertical mantém essa ordem.
+        - Fora do plano v3.4 original; inserção intencional do Premium Live sem
+          alterar MatchHeader / Integrity / engines.
+      */}
       <InsightBadgeRow kinds={badges} />
 
       {showMatchHeader && card ? (
@@ -798,7 +826,7 @@ export function AuroraResponse({
         </section>
       )}
 
-      {/* 2) Atenção */}
+      {/* Alerta único (PARTIAL / risco / baixa conf) — ver decisionAlert() */}
       {alertText ? (
         <section
           className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3.5 py-2.5"
@@ -828,6 +856,7 @@ export function AuroraResponse({
         </section>
       ) : null}
 
+      {/* Live entre alerta e bullets — ver comentário de hierarquia no <article>. */}
       {isLiveCard && showMomentum && momentum ? (
         <MomentumPanel momentum={momentum} />
       ) : null}
@@ -836,7 +865,8 @@ export function AuroraResponse({
 
       {(favorBullets.length > 0 || attentionBullets.length > 0) && (
         <section
-          className="grid gap-4 sm:grid-cols-2 sm:gap-6"
+          /* Mobile: 1 coluna + gap-3; sm+: 2 colunas. Evita cards espremidos <640px. */
+          className="grid gap-3 sm:grid-cols-2 sm:gap-6"
           aria-label="Pontos rápidos"
         >
           {favorBullets.length > 0 && (

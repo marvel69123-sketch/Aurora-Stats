@@ -107,7 +107,8 @@ export function ChatWindow({
         {isEmpty ? (
           <EmptyState onSend={onSend} avatarUrl={avatarUrl} />
         ) : (
-          <section className="aurora-chat-column mx-auto w-full max-w-3xl space-y-12 px-3 py-8 sm:space-y-14 sm:px-5 md:px-6 md:py-12">
+          // Mobile: space-y-12 + px-3; sm/md abre gap e padding laterais.
+          <section className="aurora-chat-column mx-auto w-full max-w-3xl space-y-12 px-3 py-8 sm:space-y-16 sm:px-5 md:px-6 md:py-12">
             {messages.map((msg) => (
               <MessageBubble
                 key={msg.id}

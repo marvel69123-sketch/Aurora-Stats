@@ -1,5 +1,5 @@
 /**
- * Aurora v3.4.1 — display-only PT helpers.
+ * Aurora v3.4 — display-only PT helpers + MarketFocusKind stub.
  * Does NOT change Decision Center / market engines / MatchHeader.
  *
  * Future architecture (not implemented):
