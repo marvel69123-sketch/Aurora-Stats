@@ -1,11 +1,11 @@
 """
-Aurora v3.7.2 — Conversation Intelligence + context gates (additive).
+Aurora v3.7.5 — Conversation Intelligence + Conversation State (additive).
 
 Inbound CI layers:
-  Message → Normalization → Conversation Context → Intent → Confidence
+  Message → Normalization → Conversation State → Intent → Confidence
 
 Router order (outside this module):
-  Small Talk → cancel/expire/topic-switch → CI → FollowUp → NL/engines
+  Small Talk → state expire/cancel/topic → CI → FollowUp → NL/engines
 
 Sacred rules:
   - NEVER invent fixtures / opponents / live stats.
@@ -163,6 +163,12 @@ _NICK_EXTRA: dict[str, str] = {
     "galo": "Atletico Mineiro",
     "timao": "Corinthians",
     "timão": "Corinthians",
+    "vascao": "Vasco",
+    "vascão": "Vasco",
+    "trikas": "Sao Paulo",
+    "tricolor": "Sao Paulo",
+    "vitoria ba": "Vitoria",
+    "vitória ba": "Vitoria",
 }
 
 
@@ -256,7 +262,8 @@ _INTENT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         re.compile(
             r"\b(nao\s+gostei|nao\s+me\s+convenceu|esse\s+parece\s+ruim|"
             r"tem\s+algo\s+melhor|outra\s+opcao|outra\s+opção|algo\s+diferente|"
-            r"algo\s+mais\s+seguro|mais\s+conservador|menor\s+risco)\b",
+            r"algo\s+mais\s+seguro|mais\s+conservador|mais\s+agressivo|menor\s+risco|"
+            r"explique\s+melhor|por\s+que|porque|detalhe\s+mais)\b",
             re.I,
         ),
         "prefer_alt",
@@ -267,7 +274,7 @@ _INTENT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(
             r"\b(esse\s+ta\s+melhor|esse\s+parece\s+melhor|esse\s+parece\s+pior|"
-            r"qual\s+dos\s+dois|comparado\s+ao|o\s+anterior|"
+            r"qual\s+dos\s+dois|comparado\s+ao|o\s+anterior|compare|"
             r"melhor\s+que\s+o\s+outro|melhor\s+q\s+o\s+outro)\b",
             re.I,
         ),
@@ -278,6 +285,25 @@ _INTENT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 
 def intent_layer(normalized: str) -> str | None:
+    # Prefer fine-grained human intents from Conversation State (v3.7.5)
+    try:
+        from src.conversation.conversation_state import detect_human_intent
+
+        human = detect_human_intent(normalized)
+        if human and human != "ASK_MARKET_DETAILS":
+            return human
+        if human == "ASK_MARKET_DETAILS":
+            # Keep coarse market bucket for FollowUp compatibility
+            folded = _fold(normalized)
+            if re.search(r"\b(gols?|btts|over|under|ambos)\b", folded):
+                return "goals"
+            if re.search(r"\b(escanteios?|corners?|cantos?)\b", folded):
+                return "corners"
+            if re.search(r"\bcart", folded):
+                return "cards"
+            return "ASK_MARKET_DETAILS"
+    except Exception:
+        pass
     for pat, name in _INTENT_PATTERNS:
         if pat.search(normalized):
             return name
@@ -417,9 +443,22 @@ def context_layer(
       pass_through_followup — keep market phrase for FollowUp gate
     """
     meta: dict[str, Any] = {"context_used": False}
-    fixture = _fixture_label(ctx, which="last")
+    # v3.7.5 — prefer Conversation State active_* when present
+    try:
+        from src.conversation.conversation_state import (
+            active_fixture as _cs_fixture,
+            active_market as _cs_market,
+            hydrate_from_legacy as _cs_hydrate,
+        )
+
+        if ctx is not None:
+            _cs_hydrate(ctx)
+        fixture = _cs_fixture(ctx) or _fixture_label(ctx, which="last")
+        market = _cs_market(ctx) or _recommended_market_label(ctx)
+    except Exception:
+        fixture = _fixture_label(ctx, which="last")
+        market = _recommended_market_label(ctx)
     prev_fx = _fixture_label(ctx, which="prev")
-    market = _recommended_market_label(ctx)
     text = normalized
 
     # 1) Pure market follow-up — NEVER rewrite into "Team x Team Market"
@@ -430,16 +469,49 @@ def context_layer(
             meta["fixture"] = fixture
             meta["market_focus"] = text.strip()
             meta["pass_through_followup"] = True
+            meta["human_intent"] = "ASK_MARKET_DETAILS"
             # Keep market-only phrase for FollowUp; do not inject teams into string
             return text.strip(), meta, "high"
         meta["reason"] = "market_followup_without_fixture"
         return text, meta, "low"
 
-    # 2) Prefer-alt / dislike human intents → conversational short-circuit
+    # 2) Human intents (v3.7.5) — differentiated replies via Conversation State
+    human_intent = None
+    try:
+        from src.conversation.conversation_state import (
+            build_human_reply as _cs_reply,
+            detect_human_intent as _cs_detect,
+        )
+
+        human_intent = _cs_detect(text)
+        if human_intent in {
+            "REJECT_MARKET",
+            "ASK_BETTER_OPTION",
+            "ASK_CONSERVATIVE_OPTION",
+            "ASK_AGGRESSIVE_OPTION",
+            "ASK_EXPLANATION",
+            "ASK_MORE_DETAILS",
+        }:
+            reply = _cs_reply(human_intent, ctx)
+            if reply:
+                meta["context_used"] = bool(fixture or market)
+                meta["fixture"] = fixture
+                meta["active_market"] = market
+                meta["human_intent"] = human_intent
+                meta["conversational_reply"] = reply
+                meta["reply_kind"] = human_intent
+                return text, meta, "high"
+            meta["reason"] = "prefer_alt_without_fixture"
+            meta["human_intent"] = human_intent
+            return text, meta, "low"
+    except Exception:
+        human_intent = None
+
+    # Legacy prefer-alt fallback (keep fail-open if state helpers unavailable)
     if intent_hint == "prefer_alt" or re.search(
         r"\b(nao\s+gostei|nao\s+me\s+convenceu|tem\s+algo\s+melhor|"
         r"outra\s+opcao|outra\s+opção|algo\s+diferente|esse\s+parece\s+ruim|"
-        r"algo\s+mais\s+seguro|mais\s+conservador)\b",
+        r"algo\s+mais\s+seguro|mais\s+conservador|mais\s+agressivo)\b",
         text,
         re.I,
     ):
@@ -447,6 +519,7 @@ def context_layer(
             meta["context_used"] = bool(fixture or market)
             meta["fixture"] = fixture
             meta["conversational_reply"] = _prefer_alt_reply(fixture, market)
+            meta["human_intent"] = human_intent or "ASK_BETTER_OPTION"
             return text, meta, "high"
         meta["reason"] = "prefer_alt_without_fixture"
         return text, meta, "low"
@@ -469,13 +542,25 @@ def context_layer(
         return f"analisar {fixture}", meta, "high"
 
     # 4) Comparisons across last / prev fixtures
-    if intent_hint == "compare" or _COMPARE.search(text):
+    if intent_hint in {"compare", "ASK_COMPARISON"} or _COMPARE.search(text):
         if not fixture and not prev_fx:
             meta["reason"] = "compare_without_fixture"
             return text, meta, "low"
         meta["context_used"] = True
         meta["fixture"] = fixture
         meta["prev_fixture"] = prev_fx
+        meta["human_intent"] = "ASK_COMPARISON"
+        # Prefer state-aware compare when available
+        try:
+            from src.conversation.conversation_state import build_human_reply as _cs_cmp
+
+            cmp_reply = _cs_cmp("ASK_COMPARISON", ctx)
+            if cmp_reply:
+                meta["conversational_reply"] = cmp_reply
+                meta["reply_kind"] = "ASK_COMPARISON"
+                return text, meta, "high"
+        except Exception:
+            pass
         # Two known fixtures → conversational compare (no invented stats)
         if fixture and prev_fx:
             meta["conversational_reply"] = _compare_reply(fixture, prev_fx, market)
@@ -571,6 +656,12 @@ def clear_fixture_context(ctx: dict[str, Any]) -> None:
         "ci_pending",
     ):
         ctx.pop(key, None)
+    try:
+        from src.conversation.conversation_state import clear_conversational_fields
+
+        clear_conversational_fields(ctx, keep_history=False)
+    except Exception:
+        ctx.pop("conversation_state", None)
 
 
 def set_ci_pending(
@@ -731,14 +822,44 @@ def process_inbound_message(
     ctx: dict[str, Any] | None = None,
 ) -> MessageIntelResult:
     """
-    Run the v3.7.1 inbound intelligence pipeline.
+    Run the v3.7.5 inbound intelligence pipeline (Conversation State aware).
     Fail-open: on internal errors return original message.
     """
     original = (message or "").strip()
     try:
-        normalized, norm_meta = normalize_layer(original)
+        # Conversation State + light pre-resolve (v3.7.6, fail-open)
+        pre_meta: dict[str, Any] = {}
+        try:
+            from src.conversation.conversation_state import (
+                expire_conversation_state_if_needed,
+                hydrate_from_legacy,
+                pre_resolve_message,
+                sync_state_after_turn,
+            )
+
+            if ctx is not None:
+                expire_conversation_state_if_needed(ctx)
+                hydrate_from_legacy(ctx)
+            pre = pre_resolve_message(original, ctx)
+            pre_meta = pre.to_dict() if hasattr(pre, "to_dict") else {}
+            fuzzy_src = getattr(pre, "rewritten", None) or original
+            fuzzy_hits = list(getattr(pre, "aliases_applied", None) or [])
+            # Single-team from pre-resolve feeds clarify without inventing opponent
+            if getattr(pre, "needs_opponent", False) and getattr(pre, "single_team", None):
+                pre_meta["pending_team"] = pre.single_team
+        except Exception:
+            fuzzy_src, fuzzy_hits = original, []
+            sync_state_after_turn = None  # type: ignore
+
+        normalized, norm_meta = normalize_layer(fuzzy_src or original)
+        if fuzzy_hits:
+            norm_meta = {**norm_meta, "fuzzy": fuzzy_hits, "pre_resolve": True}
         hint = intent_layer(normalized)
         enriched, ctx_meta, band_hint = context_layer(normalized, ctx, hint)
+        if pre_meta.get("pending_team") and not ctx_meta.get("single_team"):
+            ctx_meta = {**ctx_meta, "single_team": pre_meta["pending_team"]}
+            if band_hint is None:
+                band_hint = "medium"
         band, score = confidence_layer(band_hint, norm_meta, ctx_meta, hint)
 
         clarify = None
@@ -750,9 +871,17 @@ def process_inbound_message(
         if conversational and band == "high":
             kind = "conversational"
             pipeline_msg = original  # short-circuit; do not rewrite into engines
+            if ctx is not None and sync_state_after_turn:
+                sync_state_after_turn(
+                    ctx,
+                    intent=ctx_meta.get("human_intent") or hint,
+                    reply_kind=ctx_meta.get("reply_kind") or ctx_meta.get("human_intent"),
+                )
         elif band == "high" and ctx_meta.get("pass_through_followup"):
             # Keep market-only phrase (e.g. "e escanteios") for FollowUp
             pipeline_msg = enriched or normalized or original
+            if ctx is not None and sync_state_after_turn:
+                sync_state_after_turn(ctx, intent="ASK_MARKET_DETAILS", reply_kind="ASK_MARKET_DETAILS")
         elif band == "high" and enriched and enriched != _fold(original):
             # Only allow analyze rewrites that do NOT append bare market tokens
             # after a fixture (avoids "Botafogo x Santos Escanteios")
@@ -770,6 +899,12 @@ def process_inbound_message(
             needs = bool(clarify)
             kind = "clarify" if needs else None
             pipeline_msg = normalized if not needs else original
+            if needs and ctx is not None and sync_state_after_turn and ctx_meta.get("single_team"):
+                sync_state_after_turn(
+                    ctx,
+                    intent="ASK_MORE_DETAILS",
+                    pending_team=str(ctx_meta.get("single_team")),
+                )
 
         # Safe pass-through for typo/slang only (never for market follow-ups)
         if (
@@ -785,6 +920,18 @@ def process_inbound_message(
             if band == "medium" and score < 0.6:
                 band, score = "high", max(score, 0.82)
 
+        # v3.7.6 — promote light pre-resolve A x B into pipeline (Resolver still untouched)
+        if (
+            not needs
+            and not conversational
+            and not ctx_meta.get("pass_through_followup")
+            and pre_meta.get("home")
+            and pre_meta.get("away")
+            and float(pre_meta.get("confidence") or 0) >= 0.85
+        ):
+            pipeline_msg = fuzzy_src or normalized or pipeline_msg
+            band, score = "high", max(score, float(pre_meta.get("confidence") or 0.88))
+
         return MessageIntelResult(
             original=original,
             message_for_pipeline=pipeline_msg,
@@ -798,8 +945,10 @@ def process_inbound_message(
             metadata={
                 "norm": norm_meta,
                 "ctx": ctx_meta,
-                "v": "3.7.2",
+                "v": "3.7.6",
                 "pending_team": ctx_meta.get("single_team"),
+                "human_intent": ctx_meta.get("human_intent"),
+                "pre_resolve": pre_meta or None,
             },
         )
     except Exception as exc:

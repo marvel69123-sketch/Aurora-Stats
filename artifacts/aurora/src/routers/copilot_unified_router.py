@@ -1419,6 +1419,19 @@ def _save_analysis_context(ctx: dict, payload: dict, home: str, away: str) -> No
         ctx["last_live_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     from datetime import datetime, timezone
     ctx["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # v3.7.5 — sync Conversation State (active fixture/market); fail-open
+    try:
+        from src.conversation.conversation_state import apply_after_analysis
+
+        apply_after_analysis(
+            ctx,
+            home,
+            away,
+            match if isinstance(match, str) else None,
+            analysis,
+        )
+    except Exception:
+        pass
 
 
 def _fixtures_equivalent(
@@ -1544,12 +1557,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v3.7.2):
+    # Pipeline order (v3.7.6):
     #   0) Small Talk (priority)
-    #   1) Cancel / pending expiry / topic switch
-    #   2) Conversation Intelligence
+    #   1) Conversation State expire + cancel/topic
+    #   2) Conversation Intelligence + light pre-resolve (state-driven)
     #   3) Follow-up / fixture guard
-    #   4) NL router / engines
+    #   4) NL router / engines (main Resolver untouched)
 
     # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
     try:
@@ -1562,18 +1575,33 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             entities = {"social": True}
             routing_confidence = 0.95
             skipped_nl = True
+            # Sports memory must survive small talk (scenario 6)
+            try:
+                from src.conversation.conversation_state import note_small_talk
+
+                note_small_talk(ctx)
+                conversation_manager.save(session_id, ctx)
+            except Exception:
+                pass
             logger.warning("[AUDIT] SmallTalkGate: HIT (priority) message=%r", message)
     except Exception as _st_exc:
         logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
 
-    # ── 0a2. Pending expiry + cancel/reset + topic switch ─────────────────
+    # ── 0a2. Conversation State TTL + cancel/reset + topic switch ──────────
     try:
+        from src.conversation.conversation_state import (
+            expire_conversation_state_if_needed as _cs_expire,
+        )
         from src.conversation.message_intelligence import (
             clear_fixture_context as _ci_clear_ctx,
             expire_ci_pending_if_needed as _ci_expire_pending,
             is_cancel_reset as _ci_is_cancel,
             is_topic_switch as _ci_is_topic_switch,
         )
+
+        if _cs_expire(ctx):
+            logger.warning("[AUDIT] ConversationState: EXPIRED — conversational cleared")
+            conversation_manager.save(session_id, ctx)
 
         if _ci_expire_pending(ctx):
             logger.warning("[AUDIT] ConversationIntel: pending EXPIRED — cleared")
@@ -1597,7 +1625,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             skipped_nl = True
             logger.warning("[AUDIT] ConversationIntel: CONTEXT RESET message=%r", message)
         elif payload is None and _ci_is_topic_switch(message):
-            # New A x B — drop pending clarify; keep prev via normal save later
+            # New A x B — drop pending clarify; active fixture replaced on analyze save
             if ctx.get("ci_pending"):
                 ctx.pop("ci_pending", None)
                 conversation_manager.save(session_id, ctx)
