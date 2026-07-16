@@ -19,6 +19,7 @@ Public API
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -128,35 +129,35 @@ def score_fixture(fx: dict) -> LiveFixtureScore:
     else:
         momentum = "balanced"
 
-    # ── Market suggestions ─────────────────────────────────────────────────
+    # ── Market suggestions (same-fixture labels only — no foreign team names) ─
     markets: list[str] = []
-    best_market  = f"Analisar {home} x {away}"
+    best_market = "Próximo Gol"
     rat_parts: list[str] = []
 
     if total_goals == 0 and minute >= 85:
-        markets    = ["Under 0.5 Gols", "Empate 0x0", "Gol nos últimos 10 min"]
-        best_market = "Under 0.5 Gols (0-0 fase final, jogo sem gols)"
+        markets = ["Under 0.5 Gols", "Empate", "Próximo Gol"]
+        best_market = "Under 0.5 Gols"
         rat_parts.append(f"0-0 ao minuto {minute} — chance de 0x0 final aumenta")
     elif total_goals == 0 and minute >= 60:
-        markets    = ["Próximo Gol", "Over 0.5 Gols", "Ambos Marcam"]
-        best_market = "Over 0.5 Gols (0-0, pressão crescente por gol)"
+        markets = ["Próximo Gol", "Over 0.5 Gols", "Ambos Marcam"]
+        best_market = "Over 0.5 Gols"
         rat_parts.append(f"0-0 ao minuto {minute} — alta pressão por gol de abertura")
     elif goal_diff == 1 and minute >= 65:
         losing = away if score_h > score_a else home
-        markets    = [f"Escanteios ({losing})", f"Próximo Gol ({losing})", "Cartões"]
-        best_market = f"Escanteios ({losing} pressionando para empatar)"
+        markets = ["Escanteios", "Próximo Gol", "Cartões"]
+        best_market = "Escanteios"
         rat_parts.append(f"{losing} precisa empatar — pressão intensa com cruzamentos")
     elif goal_diff == 0 and total_goals >= 1 and minute >= 60:
-        markets    = ["Próximo Gol", "Over 2.5 Gols", "Ambos Marcam"]
-        best_market = f"Próximo Gol (empatado {score_h}x{score_a}, ambos atacam)"
+        markets = ["Próximo Gol", "Over 2.5 Gols", "Ambos Marcam"]
+        best_market = "Próximo Gol"
         rat_parts.append(f"Empate {score_h}x{score_a} ao min {minute} — ambos buscam vitória")
     elif total_goals >= 3:
-        markets    = ["Mais Escanteios", "Mais Cartões (frustração)"]
-        best_market = "Escanteios (jogo aberto, muito espaço nas linhas)"
+        markets = ["Escanteios", "Cartões"]
+        best_market = "Escanteios"
         rat_parts.append(f"Partida de {total_goals} gols — espaço e transições frequentes")
     else:
-        markets    = [f"Analisar {home} x {away} ao vivo"]
-        best_market = f"Análise completa de {home} x {away}"
+        markets = ["Próximo Gol", "Escanteios", "Ambos Marcam"]
+        best_market = "Próximo Gol"
         rat_parts.append(f"Jogo {score_h}x{score_a} ao minuto {minute}")
 
     if league:
@@ -241,53 +242,84 @@ def build_live_payload(fixtures: list[dict], brain_meta: dict) -> dict:
         }
 
     ranked = top_live_opportunities(fixtures)
-    count  = len(fixtures)
-    top5   = ranked[:5]
-    best   = ranked[0]
+    count = len(fixtures)
+    best = ranked[0]
 
-    # Build MarketEntry list
+    # CRITICAL: best_markets must belong ONLY to the same fixture as MatchHeader.
+    # Never pack top-5 different fixtures into best_markets (context leak).
     markets: list[dict] = []
-    for i, s in enumerate(top5, 1):
-        prob = round(min(78, 42 + s.opportunity_score * 3.6), 1)
-        ev   = round((s.opportunity_score - 5.0) * 2.0, 1)
+    for i, mkt_name in enumerate((best.suggested_markets or [best.best_market])[:5], 1):
+        label = (mkt_name or "").strip()
+        if not label:
+            continue
+        if re.search(r"an[aá]lise\s+completa|analisar\b", label, re.I):
+            continue
+        prob = round(min(78, 42 + best.opportunity_score * 3.6), 1)
+        ev = round((best.opportunity_score - 5.0) * 2.0, 1)
         markets.append({
-            "rank":           i,
-            "market":         s.best_market,
-            "probability":    prob,
+            "rank": i,
+            "market": label,
+            "probability": prob,
             "expected_value": ev,
-            "confidence":     round(s.opportunity_score, 1),
-            "risk":           s.risk,
-            "rationale": (
-                f"**{s.home} {s.score_home}–{s.score_away} {s.away}**"
-                + (f" · {s.league}" if s.league else "")
-                + f" · Minuto {s.minute or '?'}\n"
-                + s.rationale
-                + f"\n💡 {_MOMENTUM_PT.get(s.momentum, s.momentum)}"
-                + (f"\nSugestões: {', '.join(s.suggested_markets)}" if s.suggested_markets else "")
-                + f"\n\nAnálise completa: \"Analisar {s.home} x {s.away}\""
-            ),
+            "confidence": round(best.opportunity_score, 1),
+            "risk": best.risk,
+            "rationale": best.rationale,
+        })
+    if not markets and best.best_market:
+        markets.append({
+            "rank": 1,
+            "market": best.best_market,
+            "probability": round(min(78, 42 + best.opportunity_score * 3.6), 1),
+            "expected_value": round((best.opportunity_score - 5.0) * 2.0, 1),
+            "confidence": round(best.opportunity_score, 1),
+            "risk": best.risk,
+            "rationale": best.rationale,
         })
 
     high_opp = [s for s in ranked if s.opportunity_score >= 6.5]
-    summary  = (
-        f"**{count} partida{'s' if count != 1 else ''} ao vivo** — "
-        f"{len(high_opp)} com alta oportunidade (≥6,5/10).\n\n"
-        f"🏆 **Melhor oportunidade agora:**\n"
-        f"**{best.home} {best.score_home}–{best.score_away} {best.away}**"
-        + (f" · {best.league}" if best.league else "")
-        + f" · Minuto {best.minute or '?'}\n"
-        f"Oportunidade: **{best.opportunity_score:.1f}/10** "
-        f"· {_MOMENTUM_PT.get(best.momentum, '')}\n"
-        f"Mercado sugerido: **{best.best_market}**"
+    mom_pt = _MOMENTUM_PT.get(best.momentum, "")
+    summary = (
+        f"**📊 Cenário atual**\n\n"
+        f"Entre as {count} partida{'s' if count != 1 else ''} monitorada{'s' if count != 1 else ''}, "
+        f"o confronto **{best.home} x {best.away}**"
+        + (f" ({best.league})" if best.league else "")
+        + f" apresenta o contexto mais interessante neste momento"
+        + (f" — minuto {best.minute}" if best.minute is not None else "")
+        + f" ({best.score_home}–{best.score_away}).\n\n"
     )
+    if best.momentum == "away_pressing":
+        summary += (
+            "O visitante aumenta a pressão em busca do empate, "
+            "favorecendo mercados relacionados a escanteios e próximo gol."
+        )
+    elif best.momentum == "home_pressing":
+        summary += (
+            "O mandante aumenta a pressão, "
+            "abrindo espaço para mercados de escanteios e próximo gol."
+        )
+    elif best.momentum == "balanced":
+        summary += (
+            "O confronto está equilibrado, com ambas as equipes criando oportunidades."
+        )
+    elif best.momentum == "game_over":
+        summary += (
+            "O placar já aponta para um desfecho mais definido — "
+            "vale cautela antes de entrar em mercados agressivos."
+        )
+    else:
+        summary += f"{mom_pt}." if mom_pt else "Acompanhe a evolução do ritmo da partida."
+
+    if high_opp and best.opportunity_score >= 6.5:
+        summary += (
+            f"\n\nMercado em evidência: **{best.best_market}**."
+        )
 
     pos = [
-        f"{s.home} x {s.away} ({s.score_home}–{s.score_away}, min {s.minute or '?'}): "
-        f"Oportunidade {s.opportunity_score:.1f}/10"
+        f"{s.home} x {s.away}: contexto favorável no minuto {s.minute or '?'}"
         for s in ranked[:3] if s.opportunity_score >= 6.0
     ]
     neg = [
-        f"{s.home} x {s.away}: Baixa oportunidade ({s.opportunity_score:.1f}/10)"
+        f"{s.home} x {s.away}: cenário menos atrativo neste momento"
         for s in ranked[:3] if s.opportunity_score < 6.0
     ]
 
@@ -336,14 +368,13 @@ def build_live_payload(fixtures: list[dict], brain_meta: dict) -> dict:
         "negative_factors":      neg,
         "historical_references": [],
         "knowledge_notes": [
-            f"Análise completa: \"Analisar {best.home} x {best.away}\"",
-            "Odds ao vivo mudam rapidamente — confirme antes de apostar",
-            "Score de oportunidade: avalia fase do jogo, placar e momentum",
+            "Odds ao vivo mudam rapidamente — confirme antes de apostar.",
+            "A leitura considera fase do jogo, placar e ritmo da partida.",
         ],
         "final_recommendation": (
-            f"Melhor oportunidade: **{best.home} x {best.away}** — "
-            f"{best.best_market}. "
-            f"Diga \"Analisar {best.home} x {best.away}\" para análise completa."
+            f"Neste momento, o cenário mais interessante é **{best.home} x {best.away}**, "
+            f"com foco em **{best.best_market}**. "
+            f"Se quiser aprofundar, peça a análise completa desse confronto."
         ),
         "aurora_version": "Copilot v1.0",
         "brain":          brain_meta,

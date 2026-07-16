@@ -338,15 +338,38 @@ def assess_analyze_result(
 
     Known entities + missing/current fixture → PARTIAL (not INVALID).
     INVALID only for fiction / garbage / unknown entities / very low scores.
+
+    When the API has already located a real fixture_id, do not INVALID solely
+    because typed names lack aliases (live/API rescue). Fiction stays INVALID.
     """
     pre = assess_named_fixture(home, away)
-    if pre.is_blocked:
-        return pre
 
     try:
         fid = int(fixture_id or 0)
     except (TypeError, ValueError):
         fid = 0
+
+    if pre.is_blocked:
+        fictionish = pre.status == "FICTIONAL" or any(
+            str(r).startswith("fiction_") or str(r).startswith("garbage_")
+            for r in (pre.reasons or ())
+        )
+        if fid > 0 and not fictionish:
+            result = FixtureIntegrityResult(
+                status="FOUND",
+                home=home,
+                away=away,
+                markets_blocked=False,
+                header_blocked=False,
+                confidence_label="moderate",
+                confidence_score=6.0,
+                message=None,
+                reasons=("fixture_found_api_rescue", f"fixture_id={fid}"),
+                entity_match_score=float(pre.entity_match_score or 0.0),
+            )
+            _log_integrity(result, stage="postcheck")
+            return result
+        return pre
 
     # Real confrontation recognized, but no API fixture right now → PARTIAL
     if is_partial or fid <= 0:

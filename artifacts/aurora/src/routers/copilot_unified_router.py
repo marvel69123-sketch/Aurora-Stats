@@ -450,6 +450,8 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
 
     # INVALID only (fiction / unknown) — abort before engines.
     # PARTIAL (known teams, no fixture): continue with fallback analysis + markets.
+    # Live/API rescue: if soft analyze already located a real fixture_id, do not
+    # INVALID solely because the typed names lack aliases (consulta live first).
     from src.core.fixture_integrity import (
         assess_named_fixture as _assess_named_early,
         blocked_integrity_payload as _blocked_early,
@@ -458,11 +460,20 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
 
     _pre_early = _assess_named_early(home or hn, away or an)
     if _pre_early.is_blocked:
-        logger.warning(
-            "[DEBUG] fixture_resolver=early_abort fixture_quality=INVALID reasons=%s",
-            _pre_early.reasons,
-        )
-        return _blocked_early(_pre_early, brain=get_brain_meta())
+        if fixture_located_early:
+            logger.warning(
+                "[DEBUG] fixture_resolver=live_api_rescue fixture_quality=VALID_LOCATED "
+                "fixture_id=%s home=%r away=%r (skipped INVALID early abort)",
+                fixture_id_early,
+                hn,
+                an,
+            )
+        else:
+            logger.warning(
+                "[DEBUG] fixture_resolver=early_abort fixture_quality=INVALID reasons=%s",
+                _pre_early.reasons,
+            )
+            return _blocked_early(_pre_early, brain=get_brain_meta())
 
     # Enrich logos / league hints on soft/partial payloads before engines + card
     data = _enrich_teams(data, home=home or hn, away=away or an)
@@ -1767,16 +1778,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         "[AUDIT] FixtureIntegrity: precheck status=%s home=%r away=%r reasons=%s",
                         _integrity.status, home, away, _integrity.reasons,
                     )
-                    if _integrity.is_blocked:
-                        payload = _blocked_fx(_integrity, brain=brain)
-                    else:
-                        try:
-                            logger.warning(
-                                "[AUDIT] ctx_before: last_match=%r last_intent=%r",
-                                ctx.get("last_match"), ctx.get("last_intent"),
-                            )
-                            prefer_live = bool(entities.get("is_live"))
-                            payload = await _run_analyze(home, away, prefer_live=prefer_live)
+                    # When precheck would INVALID, still try soft analyze (live/API
+                    # may locate a real fixture). Fiction stays INVALID inside _run_analyze.
+                    try:
+                        logger.warning(
+                            "[AUDIT] ctx_before: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
+                        prefer_live = bool(entities.get("is_live")) or _integrity.is_blocked
+                        payload = await _run_analyze(home, away, prefer_live=prefer_live)
+                        _still_invalid = (
+                            payload.get("fixture_quality") == "INVALID"
+                            or (payload.get("entities") or {}).get("entity_invalid") is True
+                            or payload.get("fixture_status") in ("NOT_FOUND", "FICTIONAL")
+                        )
+                        if _integrity.is_blocked and _still_invalid:
+                            payload = _blocked_fx(_integrity, brain=brain)
+                        else:
                             _post = _assess_fx(
                                 home,
                                 away,
@@ -1788,53 +1806,68 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                                     )
                                 ),
                             )
+                            # If soft analyze found a real fixture, prefer post-assess over
+                            # a precheck INVALID caused only by missing aliases.
+                            if (
+                                _integrity.is_blocked
+                                and not _post.is_blocked
+                                and int(payload.get("fixture_id") or 0) > 0
+                            ):
+                                logger.warning(
+                                    "[AUDIT] FixtureIntegrity: live/API rescue home=%r away=%r fid=%s",
+                                    home,
+                                    away,
+                                    payload.get("fixture_id"),
+                                )
                             payload = _apply_integrity(payload, _post)
                             logger.warning(
                                 "[AUDIT] FixtureIntegrity: postcheck status=%s markets=%d",
                                 _post.status,
                                 len(payload.get("best_markets") or []),
                             )
-                            if not _post.is_blocked:
+                            if not _post.is_blocked and not (
+                                payload.get("fixture_quality") == "INVALID"
+                            ):
                                 _save_analysis_context(ctx, payload, home, away)
                                 _db_upd_session(session_id, home=home, away=away, intent=intent)
                             else:
                                 # Do not poison follow-up context with fictional/generic markets
                                 ctx["last_analysis"] = None
                                 ctx["last_market"] = None
-                            logger.warning(
-                                "[AUDIT] copilot dispatch: _run_analyze done, match=%r status=%r",
-                                payload.get("match"),
-                                payload.get("fixture_status"),
-                            )
-                            logger.warning(
-                                "[AUDIT] ctx_after: last_match=%r last_intent=%r",
-                                ctx.get("last_match"), ctx.get("last_intent"),
-                            )
-                        except Exception as _analyze_exc:
-                            # Soft analyze already avoids 404; this catches engine crashes.
-                            logger.warning(
-                                "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
-                                "Fixture Integrity Guard returns NOT_FOUND",
-                                type(_analyze_exc).__name__, _analyze_exc,
-                            )
-                            from src.core.fixture_integrity import FixtureIntegrityResult
+                        logger.warning(
+                            "[AUDIT] copilot dispatch: _run_analyze done, match=%r status=%r",
+                            payload.get("match"),
+                            payload.get("fixture_status"),
+                        )
+                        logger.warning(
+                            "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+                            ctx.get("last_match"), ctx.get("last_intent"),
+                        )
+                    except Exception as _analyze_exc:
+                        # Soft analyze already avoids 404; this catches engine crashes.
+                        logger.warning(
+                            "[AUDIT] copilot dispatch: _run_analyze raised %s: %s — "
+                            "Fixture Integrity Guard returns NOT_FOUND",
+                            type(_analyze_exc).__name__, _analyze_exc,
+                        )
+                        from src.core.fixture_integrity import FixtureIntegrityResult
 
-                            payload = _blocked_fx(
-                                FixtureIntegrityResult(
-                                    status="NOT_FOUND",
-                                    home=home,
-                                    away=away,
-                                    markets_blocked=True,
-                                    header_blocked=True,
-                                    confidence_label="insufficient",
-                                    confidence_score=1.0,
-                                    message=(
-                                        "Não consegui localizar um confronto esportivo válido."
-                                    ),
-                                    reasons=(f"analyze_error:{type(_analyze_exc).__name__}",),
+                        payload = _blocked_fx(
+                            FixtureIntegrityResult(
+                                status="NOT_FOUND",
+                                home=home,
+                                away=away,
+                                markets_blocked=True,
+                                header_blocked=True,
+                                confidence_label="insufficient",
+                                confidence_score=1.0,
+                                message=(
+                                    "Não consegui localizar um confronto esportivo válido."
                                 ),
-                                brain=brain,
-                            )
+                                reasons=(f"analyze_error:{type(_analyze_exc).__name__}",),
+                            ),
+                            brain=brain,
+                        )
 
             elif intent == "live_team_analysis":
                 # FIX 1 — "analise jogo do [team]" → search live for that team

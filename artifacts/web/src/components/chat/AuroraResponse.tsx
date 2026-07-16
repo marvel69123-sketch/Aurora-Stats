@@ -411,6 +411,25 @@ function TechnicalAnalysisCard({
       ? `${response.confidence.score.toFixed(1)}/10 · ${confLabelPt(response.confidence.label)}`
       : "—";
 
+  const matchLabel = (response.match || "").toLowerCase();
+  const scopedMarkets =
+    response.intent === "live_opportunities"
+      ? displayableMarketRows(response.best_markets).filter((m) => {
+          // Defense: drop rows that clearly name a different fixture's clubs.
+          const label = (m.market || "").toLowerCase();
+          if (/orlando pride|fort wayne|new england/i.test(label) && matchLabel) {
+            if (
+              !matchLabel.includes("orlando") &&
+              !matchLabel.includes("fort wayne") &&
+              !matchLabel.includes("new england")
+            ) {
+              return false;
+            }
+          }
+          return true;
+        })
+      : displayableMarketRows(response.best_markets);
+
   const metrics: Array<{ label: string; value: string }> = [
     {
       label: "Mercado recomendado",
@@ -466,12 +485,12 @@ function TechnicalAnalysisCard({
           da banca
         </p>
       ) : null}
-      {response.best_markets.length > 0 ? (
+      {scopedMarkets.length > 0 ? (
         <div>
           <p className="mb-2 text-[0.75rem] font-medium text-[#A0A0A0]">
             Probabilidades por mercado
           </p>
-          <MarketsTable markets={response.best_markets} />
+          <MarketsTable markets={scopedMarkets} />
         </div>
       ) : null}
     </section>
@@ -809,9 +828,11 @@ export function AuroraResponse({
         </section>
       ) : null}
 
-      {isLiveCard && statsView ? <LiveStatsPanel stats={statsView} /> : null}
+      {isLiveCard && showMomentum && momentum ? (
+        <MomentumPanel momentum={momentum} />
+      ) : null}
 
-      {showMomentum && momentum ? <MomentumPanel momentum={momentum} /> : null}
+      {isLiveCard && statsView ? <LiveStatsPanel stats={statsView} /> : null}
 
       {(favorBullets.length > 0 || attentionBullets.length > 0) && (
         <section
