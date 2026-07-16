@@ -1557,12 +1557,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v3.7.6):
+    # Pipeline order (v4.0 Sprint 1):
     #   0) Small Talk (priority)
     #   1) Conversation State expire + cancel/topic
-    #   2) Conversation Intelligence + light pre-resolve (state-driven)
-    #   3) Follow-up / fixture guard
-    #   4) NL router / engines (main Resolver untouched)
+    #   2) Conversation Reasoner (interpret only — fail-open)
+    #   3) Conversation Intelligence + light pre-resolve
+    #   4) Follow-up / fixture guard
+    #   5) NL router / engines (main Resolver untouched)
 
     # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
     try:
@@ -1636,7 +1637,28 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _ctx_gate_exc:
         logger.warning("copilot: context gate skipped (%s)", _ctx_gate_exc)
 
-    # ── 0a3. Conversation Intelligence (after Small Talk) ─────────────────
+    # ── 0a2b. Conversation Reasoner (v4.0) — thinks, does NOT reply ────────
+    # Fail-open: errors never block Small Talk / CI / FollowUp / engines.
+    try:
+        from src.conversation.conversation_reasoner import (
+            attach_reasoning as _cr_attach,
+            reason as _cr_reason,
+        )
+
+        _thought = _cr_reason(message, ctx)
+        _cr_attach(ctx, _thought)
+        logger.warning(
+            "[AUDIT] ConversationReasoner: type=%s goal=%r conf=%.2f next=%s thought=%r",
+            _thought.reasoning_type,
+            _thought.user_goal,
+            _thought.confidence,
+            _thought.next_action,
+            (_thought.thought or "")[:180],
+        )
+    except Exception as _cr_exc:
+        logger.warning("copilot: conversation reasoner skipped (%s)", _cr_exc)
+
+    # ── 0a3. Conversation Intelligence (after Reasoner) ───────────────────
     # Normalization → Context → Intent → Confidence. Never invents fixtures.
     try:
         if payload is None:

@@ -4,6 +4,11 @@ from src.conversation.conversation_context import (
     ConversationManager,
     conversation_manager,
 )
+from src.conversation.conversation_reasoner import (
+    ReasoningResult,
+    attach_reasoning,
+    reason,
+)
 from src.conversation.conversation_state import (
     CONVERSATION_STATE_TTL_SECONDS,
     active_fixture,
@@ -52,9 +57,11 @@ __all__ = [
     "conversation_manager",
     "MessageIntelResult",
     "PreResolveResult",
+    "ReasoningResult",
     "active_fixture",
     "active_market",
     "apply_after_analysis",
+    "attach_reasoning",
     "build_clarification_payload",
     "build_conversational_payload",
     "build_human_reply",
@@ -75,6 +82,7 @@ __all__ = [
     "pre_resolve",
     "pre_resolve_message",
     "process_inbound_message",
+    "reason",
     "set_ci_pending",
     "shift_fixture_memory",
     "suggest_alternatives",
