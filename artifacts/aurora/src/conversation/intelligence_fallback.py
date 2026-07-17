@@ -1,0 +1,258 @@
+"""
+Aurora Brain Upgrade — Intelligence Fallback + local thinking.
+
+NEVER return empty / "?" / null narrative.
+If WEB fails or topic is historical, think locally.
+
+Fail-open. Additive.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import unicodedata
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def _fold(text: str) -> str:
+    raw = unicodedata.normalize("NFKD", text or "")
+    raw = "".join(c for c in raw if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", raw.lower()).strip()
+
+
+def is_empty_or_useless(text: str | None) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return True
+    if t in {"?", ".", "-", "…", "...", "null", "none", "n/a"}:
+        return True
+    if len(t) < 2:
+        return True
+    return False
+
+
+def build_copa_opinion(year: str | None = None) -> str:
+    y = year or "2026"
+    return (
+        f"Sobre a Copa de {y}, eu penso menos em placar e mais em narrativa.\n\n"
+        f"Uma Copa do Mundo sempre mistura expectativa, identidade das seleções e "
+        f"momentos que mudam o humor de um país em 90 minutos. Em {y}, o que mais "
+        f"me interessa é: quem chega com maturidade tática, quem depende só de "
+        f"estrelas individuais, e quais jogos viram história — não só resultado.\n\n"
+        f"Se a pergunta for “o que achou?”, minha resposta honesta é: eu avalio "
+        f"pelo sentimento coletivo e pelas surpresas. Copa boa é aquela em que "
+        f"aparece um time com cara própria e jogos que a gente lembra semanas depois.\n\n"
+        f"Se quiser, a gente aprofunda um jogo, uma seleção ou um momento específico "
+        f"— aí a conversa fica ainda mais viva ⚽"
+    )
+
+
+def build_local_team_thinking(team: str, *, moment: bool = False) -> str:
+    tip = "agora" if moment else "no momento"
+    return (
+        f"Pensando no {team} {tip}: eu evitaria uma opinião engessada. "
+        f"Times mudam de cara em poucas semanas — ritmo, elenco disponível e "
+        f"adversário pesam mais do que fama.\n\n"
+        f"O que eu olharia: identidade ofensiva, se sustenta pressão, e se a "
+        f"torcida está vendo um plano ou só reação. Sem uma fonte fresca na mesa, "
+        f"prefiro conversar com nuance do que cravar veredito.\n\n"
+        f"Se quiser, me passa o próximo jogo do {team} e a gente aprofunda de verdade."
+    )
+
+
+def detect_historical_copa(message: str) -> str | None:
+    folded = _fold(message)
+    m = re.search(
+        r"\b(?:copa(?:\s+do\s+mundo)?|mundial)\s+(?:de\s+)?(20\d{2})\b",
+        folded,
+    )
+    if m:
+        return m.group(1)
+    if re.search(r"\bo\s+que\s+achou\s+da\s+copa\b", folded):
+        return "2026"
+    return None
+
+
+def try_intelligence_fallback(
+    message: str,
+    ctx: dict[str, Any] | None = None,
+    prefs: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Short-circuit thoughtful replies for topics that would otherwise
+    become help-menu / empty / '?'.
+    """
+    try:
+        year = detect_historical_copa(message)
+        if year:
+            reply = build_copa_opinion(year)
+            try:
+                from src.conversation.web_intelligence import weave_web_into_draft
+
+                reply, _ = weave_web_into_draft(reply, ctx, team="Copa do Mundo")
+            except Exception:
+                pass
+            return _payload(reply, kind="historical_copa", year=year, prefs=prefs)
+
+        # Recovered team opinion that natural layer might still miss
+        recovery = (ctx or {}).get("context_recovery") or {}
+        thinking = (ctx or {}).get("deep_thinking") or {}
+        if (
+            recovery.get("inferred_goal") == "team_opinion"
+            or thinking.get("topic_kind") in {"opinion", "moment"}
+        ) and (recovery.get("teams") or thinking.get("topic_team")):
+            team = (recovery.get("teams") or [None])[0] or thinking.get("topic_team")
+            moment = recovery.get("temporal") == "now" or thinking.get("topic_kind") == "moment"
+            reply = build_local_team_thinking(str(team), moment=moment)
+            try:
+                from src.conversation.web_intelligence import weave_web_into_draft
+
+                reply, _ = weave_web_into_draft(reply, ctx, team=str(team))
+            except Exception:
+                pass
+            return _payload(reply, kind="local_team_thinking", team=team, prefs=prefs)
+
+        return None
+    except Exception as exc:
+        logger.warning("try_intelligence_fallback fail-open: %s", exc)
+        return None
+
+
+def ensure_non_empty_payload(
+    payload: dict[str, Any],
+    *,
+    message: str,
+    ctx: dict[str, Any] | None = None,
+    prefs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Absolute guard — never leave '?' / empty executive_summary."""
+    try:
+        if not isinstance(payload, dict):
+            return payload
+        summary = str(payload.get("executive_summary") or "")
+        if not is_empty_or_useless(summary):
+            return payload
+
+        year = detect_historical_copa(message)
+        if year:
+            reply = build_copa_opinion(year)
+        else:
+            recovery = (ctx or {}).get("context_recovery") or {}
+            teams = recovery.get("teams") or []
+            if teams:
+                reply = build_local_team_thinking(str(teams[0]))
+            else:
+                reply = (
+                    "Deixa eu pensar com calma no que você perguntou.\n\n"
+                    "Pelo que entendi, você quer uma leitura esportiva — não um "
+                    "menu genérico. Me dá um pouco mais de contexto (time, jogo "
+                    "ou tema) que eu aprofundo com honestidade."
+                )
+
+        try:
+            from src.conversation.presence_humanization import apply_presence_humanization
+
+            reply = apply_presence_humanization(reply, prefs, family_hint="casual")
+        except Exception:
+            pass
+
+        payload["executive_summary"] = reply
+        payload["final_recommendation"] = reply
+        ents = dict(payload.get("entities") or {})
+        ents.update(
+            {
+                "intelligence_fallback": True,
+                "has_analysis": False,
+                "show_header": False,
+                "skip_llm": True,
+            }
+        )
+        payload["entities"] = ents
+        meta = dict(payload.get("response_metadata") or {})
+        meta["intelligence_fallback"] = {"applied": True, "reason": "empty_or_useless"}
+        payload["response_metadata"] = meta
+        logger.warning("[AUDIT] IntelligenceFallback: replaced empty/useless narrative")
+        return payload
+    except Exception as exc:
+        logger.warning("ensure_non_empty_payload fail-open: %s", exc)
+        return payload
+
+
+def _payload(
+    reply: str,
+    *,
+    kind: str,
+    prefs: dict[str, Any] | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    try:
+        from src.conversation.presence_humanization import apply_presence_humanization
+
+        reply = apply_presence_humanization(reply, prefs, family_hint="team_opinion")
+    except Exception:
+        pass
+    try:
+        from src.conversation.message_intelligence import build_conversational_payload
+
+        payload = build_conversational_payload(reply, {})
+    except Exception:
+        payload = {
+            "intent": "conversation_assist",
+            "entities": {},
+            "best_markets": [],
+            "executive_summary": reply,
+            "final_recommendation": reply,
+            "confidence": {
+                "score": 0.0,
+                "label": "insufficient",
+                "explanation": "",
+                "data_sources": [],
+            },
+            "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0,
+                "method": "quarter-Kelly",
+                "examples": {},
+                "no_bet": True,
+                "reasoning": "",
+            },
+            "positive_factors": [],
+            "negative_factors": [],
+            "historical_references": [],
+            "knowledge_notes": [],
+            "brain": {},
+        }
+    payload["intent"] = "conversation_assist"
+    payload["executive_summary"] = reply
+    payload["final_recommendation"] = reply
+    ents = dict(payload.get("entities") or {})
+    ents.update(
+        {
+            "intelligence_fallback": True,
+            "fallback_kind": kind,
+            "natural_conversation": True,
+            "opinion_time": kind in {"historical_copa", "local_team_thinking"},
+            "has_analysis": False,
+            "show_header": False,
+            "skip_llm": True,
+            **{k: v for k, v in extra.items() if v is not None},
+        }
+    )
+    if kind == "historical_copa":
+        ents["natural_kind"] = "historical_copa"
+    payload["entities"] = ents
+    payload["best_markets"] = []
+    payload["match_card"] = None
+    meta = dict(payload.get("response_metadata") or {})
+    meta.update(
+        {
+            "mode": "intelligence_fallback",
+            "source": "conversation.intelligence_fallback",
+            "skip_llm": True,
+        }
+    )
+    payload["response_metadata"] = meta
+    return payload

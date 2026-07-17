@@ -45,12 +45,35 @@ def decide_need_web(
     *,
     intent: str | None = None,
     entities: dict[str, Any] | None = None,
+    ctx: dict[str, Any] | None = None,
 ) -> WebDecision:
     """
     CASO 1 none — analyze / odds / stats / calendar API
     CASO 2 optional — team opinion / how is the team
     CASO 3 required — historical world-cup style questions
+
+    DeepThinking Decision Engine overrides when present on ctx.
     """
+    # ── DeepThinking CONTROL (not cosmetic) ─────────────────────────────
+    try:
+        thinking = (ctx or {}).get("deep_thinking") if isinstance(ctx, dict) else None
+        if isinstance(thinking, dict) and thinking.get("web_need") in {
+            "none",
+            "optional",
+            "required",
+        }:
+            wn = thinking["web_need"]
+            topic = thinking.get("topic_team")
+            if thinking.get("topic_kind") == "historical":
+                topic = topic or "copa_mundo"
+            return WebDecision(
+                wn,  # type: ignore[arg-type]
+                f"deep_thinking:{thinking.get('topic_kind') or 'decide'}",
+                str(topic) if topic else None,
+            )
+    except Exception:
+        pass
+
     folded = _fold(message)
     ents = entities or {}
 
@@ -85,6 +108,10 @@ def decide_need_web(
     ):
         return WebDecision("none", "stats_markets_api")
 
+    # historical from entities
+    if ents.get("historical_copa") or ents.get("natural_kind") == "historical_copa":
+        return WebDecision("required", "historical_narrative", "copa_mundo")
+
     # World-cup / historical narrative → required (still fail-open)
     if re.search(
         r"\b(copa\s+(?:do\s+mundo\s+)?(?:de\s+)?20\d{2}|mundial\s+de\s+20\d{2}|"
@@ -101,12 +128,144 @@ def decide_need_web(
 
     if re.search(
         r"\b(como\s+esta\s+o|o\s+que\s+aconteceu\s+com|momento\s+d[oe]|"
-        r"fase\s+d[oe]|noticias?\s+d[oe])\b",
+        r"fase\s+d[oe]|noticias?\s+d[oe]|atualmente)\b",
         folded,
     ):
         return WebDecision("optional", "team_or_club_moment")
 
     return WebDecision("none", "default_no_web")
+
+
+async def gather_web_for_thinking(
+    message: str,
+    ctx: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    EARLY web fetch — BEFORE draft. Stores ctx['web_thinking'].
+    Controlled by DeepThinking.needs_web / web_need.
+    """
+    audit: dict[str, Any] = {
+        "need": "none",
+        "reason": "not_run",
+        "query": None,
+        "result_count": 0,
+        "summary": None,
+        "used_in_reasoning": False,
+        "changed_reasoning": False,
+        "status": "skipped",
+    }
+    try:
+        thinking = (ctx or {}).get("deep_thinking") or {}
+        decision = decide_need_web(message, ctx=ctx)
+        audit.update(decision.to_dict())
+        if decision.need == "none":
+            audit["status"] = "skipped"
+            logger.warning(
+                "[AUDIT] WebInfluence: summary_used=False changed_reasoning=False "
+                "need=none (pre-draft skip)"
+            )
+            if ctx is not None:
+                ctx["web_thinking"] = audit
+                ctx["last_need_web"] = audit
+            return audit
+
+        topic = decision.topic or thinking.get("topic_team") or message[:80]
+        if decision.reason.startswith("deep_thinking") and thinking.get("topic_kind") == "historical":
+            query = f"Copa do Mundo futebol {message}"
+        elif decision.need == "optional" and topic:
+            query = f"{topic} futebol momento atual noticias"
+        else:
+            query = f"{message} futebol"
+        audit["query"] = query
+
+        try:
+            snippet = await asyncio.wait_for(
+                _duckduckgo_snippet(query),
+                timeout=WEB_TIMEOUT_S + 0.2,
+            )
+        except Exception:
+            snippet = None
+
+        if snippet:
+            short = re.sub(r"\s+", " ", snippet)[:200]
+            audit["summary"] = short
+            audit["result_count"] = 1
+            audit["status"] = "ready_for_reasoning"
+            logger.warning(
+                "[AUDIT] WebInfluence: pre-draft ready query=%r summary=%r",
+                query,
+                short[:80],
+            )
+        else:
+            audit["status"] = "fallback_no_web"
+            audit["result_count"] = 0
+            logger.warning(
+                "[AUDIT] WebInfluence: summary_used=False changed_reasoning=False "
+                "status=fallback_no_web query=%r",
+                query,
+            )
+
+        if ctx is not None:
+            ctx["web_thinking"] = audit
+            ctx["last_need_web"] = audit
+        return audit
+    except Exception as exc:
+        logger.warning("gather_web_for_thinking fail-open: %s", exc)
+        if ctx is not None:
+            ctx["web_thinking"] = audit
+        return audit
+
+
+def weave_web_into_draft(
+    draft: str,
+    ctx: dict[str, Any] | None = None,
+    *,
+    team: str | None = None,
+) -> tuple[str, bool]:
+    """
+    WEB alters reasoning — weave into draft BEFORE finalization.
+    Returns (new_draft, changed).
+    """
+    try:
+        web = (ctx or {}).get("web_thinking") or {}
+        summary = (web.get("summary") or "").strip()
+        if not summary or web.get("status") not in {"ready_for_reasoning", "enriched"}:
+            return draft, False
+
+        thinking = (ctx or {}).get("deep_thinking") or {}
+        team_name = team or thinking.get("topic_team") or "esse time"
+        # Reasoning bridge — not a raw append dump
+        bridge = (
+            f"Minha percepção sobre o {team_name}, olhando o momento e o que aparece "
+            f"no contexto público recente ({summary.rstrip('.')}), é que isso muda "
+            f"o peso da conversa: eu não trato só a camisa — trato o agora."
+        )
+        body = (draft or "").strip()
+        # Insert bridge after first paragraph when possible
+        parts = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+        if len(parts) >= 2:
+            woven = parts[0] + "\n\n" + bridge + "\n\n" + "\n\n".join(parts[1:])
+        elif body:
+            woven = body + "\n\n" + bridge
+        else:
+            woven = bridge
+
+        web["used_in_reasoning"] = True
+        web["changed_reasoning"] = True
+        web["summary_used"] = True
+        web["status"] = "woven"
+        if ctx is not None:
+            ctx["web_thinking"] = web
+            ctx["last_need_web"] = web
+        logger.warning(
+            "[AUDIT] WebInfluence: summary_used=True changed_reasoning=True "
+            "summary=%r",
+            summary[:80],
+        )
+        return woven, True
+    except Exception as exc:
+        logger.warning("weave_web_into_draft fail-open: %s", exc)
+        return draft, False
 
 
 async def _duckduckgo_snippet(query: str) -> str | None:
@@ -142,8 +301,10 @@ def _humanize_web_note(snippet: str, topic: str | None) -> str:
     clean = re.sub(r"\s+", " ", snippet or "").strip()
     if not clean:
         return ""
-    # Never dump as "According to source"
-    lead = "No momento, o que mais aparece no contexto público é: "
+    # Feed thinking — not a raw dump
+    lead = (
+        "Isso ajuda meu raciocínio: no contexto público recente, "
+    )
     return lead + clean
 
 
@@ -155,19 +316,39 @@ async def maybe_enrich_with_web(
     ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Optionally append a short human narrative note from the web.
-    Never invents markets. Never blocks.
-    WEB failure → original payload narrative untouched.
+    Late WEB pass — SKIP if pre-draft already wove reasoning.
+    Prefer gather_web_for_thinking + weave_web_into_draft.
     """
     try:
         if not isinstance(payload, dict):
+            return payload
+
+        # Already influenced reasoning — do NOT append again
+        web_early = (ctx or {}).get("web_thinking") if isinstance(ctx, dict) else None
+        if isinstance(web_early, dict) and (
+            web_early.get("used_in_reasoning")
+            or web_early.get("changed_reasoning")
+            or web_early.get("status") == "woven"
+        ):
+            meta = dict(payload.get("response_metadata") or {})
+            audit = dict(web_early)
+            audit["late_pass"] = "skipped_already_woven"
+            meta["need_web"] = audit
+            if ctx is not None:
+                ctx["last_need_web"] = audit
+            payload["response_metadata"] = meta
+            logger.warning(
+                "[AUDIT] WebInfluence: summary_used=%s changed_reasoning=%s "
+                "late_pass=skipped_already_woven",
+                bool(web_early.get("summary_used") or web_early.get("summary")),
+                bool(web_early.get("changed_reasoning")),
+            )
             return payload
 
         original_summary = payload.get("executive_summary")
         original_final = payload.get("final_recommendation")
 
         ents = dict(payload.get("entities") or {})
-        # Never enrich presence / profile / emotional turns
         if (
             ents.get("emotional")
             or ents.get("profile_memory")
@@ -175,36 +356,87 @@ async def maybe_enrich_with_web(
             or ents.get("social")
         ):
             meta = dict(payload.get("response_metadata") or {})
-            meta["need_web"] = {
+            audit = {
                 "need": "none",
                 "reason": "presence_or_profile",
                 "topic": None,
+                "query": None,
+                "result_count": 0,
+                "summary": None,
+                "used_in_response": False,
                 "status": "skipped",
             }
+            meta["need_web"] = audit
+            if ctx is not None:
+                ctx["last_need_web"] = audit
             payload["response_metadata"] = meta
             return payload
 
-        decision = decide_need_web(message, intent=intent, entities=ents)
+        # Prefer early web summary if ready but not yet woven into this payload
+        if (
+            isinstance(web_early, dict)
+            and web_early.get("summary")
+            and web_early.get("status") == "ready_for_reasoning"
+        ):
+            team = (ents.get("team") or (ctx or {}).get("deep_thinking", {}).get("topic_team"))
+            woven, changed = weave_web_into_draft(
+                str(original_summary or ""),
+                ctx,
+                team=str(team) if team else None,
+            )
+            if changed:
+                payload["executive_summary"] = woven
+                if original_final == original_summary or not original_final:
+                    payload["final_recommendation"] = woven
+                meta = dict(payload.get("response_metadata") or {})
+                meta["need_web"] = dict((ctx or {}).get("web_thinking") or web_early)
+                payload["response_metadata"] = meta
+                return payload
+
+        # historical_copa entity → required
+        if ents.get("historical_copa") or ents.get("natural_kind") == "historical_copa":
+            decision = WebDecision("required", "historical_narrative", "copa_mundo")
+        else:
+            decision = decide_need_web(
+                message, intent=intent, entities=ents, ctx=ctx
+            )
         meta = dict(payload.get("response_metadata") or {})
-        meta["need_web"] = decision.to_dict()
+        audit = decision.to_dict()
+        audit.update(
+            {
+                "query": None,
+                "result_count": 0,
+                "summary": None,
+                "used_in_response": False,
+            }
+        )
+        meta["need_web"] = audit
 
         if decision.need == "none":
+            audit["status"] = "skipped"
             logger.warning(
-                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=skipped",
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 "
+                "summary=%r used_in_response=False status=skipped",
                 decision.need,
                 decision.reason,
                 None,
+                None,
             )
+            if ctx is not None:
+                ctx["last_need_web"] = audit
             payload["response_metadata"] = meta
             return payload
 
         topic = decision.topic or ents.get("team") or message[:80]
         query = str(topic)
         if decision.reason == "team_narrative" and topic:
-            query = f"{topic} futebol momento atual"
+            query = f"{topic} futebol momento atual noticias"
         elif decision.reason == "historical_narrative":
+            query = f"Copa do Mundo {topic or ''} futebol resumo"
+        if "copa" in _fold(message):
             query = f"{message} futebol"
-        meta["need_web"]["query"] = query
+        audit["query"] = query
+        meta["need_web"] = audit
 
         logger.warning(
             "[AUDIT] NeedWeb: decision=%s reason=%s query=%r (fetching…)",
@@ -220,65 +452,103 @@ async def maybe_enrich_with_web(
             )
         except Exception as fetch_exc:
             logger.warning(
-                "[AUDIT] NeedWeb: decision=%s query=%r result_count=0 status=error err=%s",
+                "[AUDIT] NeedWeb: decision=%s query=%r result_count=0 "
+                "summary=%r used_in_response=False status=error err=%s",
                 decision.need,
                 query,
+                None,
                 fetch_exc,
             )
             snippet = None
 
         if not snippet:
-            # Fail-open: restore exact narrative
             payload["executive_summary"] = original_summary
             payload["final_recommendation"] = original_final
-            meta["need_web"]["status"] = "fallback_no_web"
-            meta["need_web"]["result_count"] = 0
+            audit["status"] = "fallback_no_web"
+            audit["result_count"] = 0
+            audit["used_in_response"] = False
+            # Local thinking note when web required/optional fails
+            if decision.need == "required" and is_empty_ish(original_summary):
+                try:
+                    from src.conversation.intelligence_fallback import build_copa_opinion
+
+                    local = build_copa_opinion()
+                    payload["executive_summary"] = local
+                    payload["final_recommendation"] = local
+                    audit["used_in_response"] = False
+                    audit["summary"] = "local_thinking_fallback"
+                except Exception:
+                    pass
+            meta["need_web"] = audit
+            if ctx is not None:
+                ctx["last_need_web"] = audit
             logger.warning(
-                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=fallback_no_web",
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 "
+                "summary=%r used_in_response=%s status=fallback_no_web",
                 decision.need,
                 decision.reason,
                 query,
+                audit.get("summary"),
+                audit.get("used_in_response"),
             )
             payload["response_metadata"] = meta
             return payload
 
         note = _humanize_web_note(snippet, decision.topic)
+        short_sum = re.sub(r"\s+", " ", snippet or "")[:160]
+        audit["summary"] = short_sum
         if note:
-            # Cap note so optional enrich doesn't turn a short chat into a report
-            if len(note) > 280:
-                note = note[:280].rsplit(" ", 1)[0].rstrip() + "…"
+            if len(note) > 320:
+                note = note[:320].rsplit(" ", 1)[0].rstrip() + "…"
             summary = str(original_summary or "").rstrip()
-            combined = (summary + "\n\n" + note) if summary else note
+            # Weave into thinking — prefer insert before closing invite
+            if summary:
+                combined = summary + "\n\n" + note
+            else:
+                combined = note
             payload["executive_summary"] = combined
             if original_final == original_summary or not original_final:
                 payload["final_recommendation"] = combined
-            meta["need_web"]["status"] = "enriched"
-            meta["need_web"]["note_len"] = len(note)
-            meta["need_web"]["result_count"] = 1
+            audit["status"] = "enriched"
+            audit["note_len"] = len(note)
+            audit["result_count"] = 1
+            audit["used_in_response"] = True
             logger.warning(
-                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=1 status=enriched note_len=%s",
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=1 "
+                "summary=%r used_in_response=True status=enriched",
                 decision.need,
                 decision.reason,
                 query,
-                len(note),
+                short_sum[:80],
             )
         else:
             payload["executive_summary"] = original_summary
             payload["final_recommendation"] = original_final
-            meta["need_web"]["status"] = "empty"
-            meta["need_web"]["result_count"] = 0
+            audit["status"] = "empty"
+            audit["result_count"] = 0
+            audit["used_in_response"] = False
             logger.warning(
-                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=empty",
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 "
+                "summary=%r used_in_response=False status=empty",
                 decision.need,
                 decision.reason,
                 query,
+                None,
             )
 
+        meta["need_web"] = audit
+        if ctx is not None:
+            ctx["last_need_web"] = audit
         payload["response_metadata"] = meta
         return payload
     except Exception as exc:
         logger.warning("maybe_enrich_with_web fail-open: %s", exc)
         return payload
+
+
+def is_empty_ish(text: Any) -> bool:
+    t = str(text or "").strip()
+    return (not t) or t in {"?", ".", "-", "…", "..."}
 
 
 # ── Future Semantic Cache stub (not fully implemented) ─────────────────────

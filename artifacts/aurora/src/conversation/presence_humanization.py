@@ -1,9 +1,8 @@
 """
-Aurora v4.5.2 — Presence Humanization Layer.
+Aurora v4.8 — Presence Humanization Layer (personality prefs actually apply).
 
-Light emoji / enthusiasm polish for social replies.
-Uses optional conversation_preferences from the request.
-Fail-open. Additive. Does not edit State/CIL/CRL.
+emojis | enthusiasm | structure | detail — all influence narrative.
+Fail-open. Additive. Does not edit State/CIL/CRL/engines.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ _EMOJI_BY_FAMILY: dict[str, list[str]] = {
     "farewell_night": ["🌙", "✨", "😊"],
     "casual": ["⚽", "✨", "😊"],
     "calendar": ["⚽", "📅"],
-    "team_opinion": ["⚽", "✨"],
+    "team_opinion": ["⚽", "✨", "😊"],
     "capabilities": ["✨", "⚽"],
 }
 
@@ -72,33 +71,92 @@ def _should_add_emoji(prefs: dict[str, str]) -> bool:
     if level == "none":
         return False
     if level == "low":
-        return random.random() < 0.25
+        return random.random() < 0.35
     if level == "medium":
-        return random.random() < 0.65
-    return True  # high
+        return random.random() < 0.75
+    return True
 
 
 def _enthusiasm_boost(text: str, prefs: dict[str, str], family: str) -> str:
-    """Light enthusiasm without rewriting the whole message."""
-    if prefs.get("enthusiasm") != "high":
-        return text
+    level = prefs.get("enthusiasm") or "medium"
     body = (text or "").strip()
     if not body:
         return body
-    # Avoid double-boost
+    if level == "low":
+        # Soften exclamation spam
+        return re.sub(r"!{2,}", "!", body)
+    if level == "medium":
+        return body
+    # high — warmer
     if any(x in body.lower() for x in ("demais", "adoro", "super bem", "animada")):
         return body
-    if family == "wellbeing" and body.lower().startswith("tudo"):
-        # "Tudo certo por aqui" → warmer
-        if "obrigad" in body.lower():
-            return body.replace("obrigada por perguntar.", "obrigada por perguntar — fico feliz!").replace(
-                "obrigado por perguntar.", "obrigado por perguntar — fico feliz!"
+    if family == "wellbeing":
+        if "obrigad" in body.lower() and "feliz" not in body.lower():
+            body = body.replace(
+                "obrigada por perguntar.",
+                "obrigada por perguntar — fico feliz!",
+            ).replace(
+                "obrigado por perguntar.",
+                "obrigado por perguntar — fico feliz!",
             )
         if not body.endswith("!") and not body.endswith("?"):
-            return body.rstrip(".") + "!"
-    if family == "greeting" and body.lower().startswith("oi") and prefs.get("enthusiasm") == "high":
-        if "!" not in body[:8]:
-            return body.replace("Oi!", "Oi!", 1) if body.startswith("Oi!") else ("Oi! " + body[3:].lstrip() if body.lower().startswith("oi ") else body)
+            body = body.rstrip(".") + "!"
+        return body
+    if family in {"greeting", "thanks", "casual", "team_opinion"}:
+        if not body.endswith(("!", "?", "😊", "⚽", "✨")) and random.random() < 0.55:
+            if body.endswith("."):
+                body = body[:-1] + "!"
+            else:
+                body = body + "!"
+        if family == "team_opinion" and not body.lower().startswith(
+            ("olha", "cara", "então", "entao", "hmm", "pensei")
+        ):
+            if random.random() < 0.4:
+                body = "Olha… " + body[0].lower() + body[1:] if len(body) > 1 else body
+    return body
+
+
+def _apply_structure(text: str, prefs: dict[str, str]) -> str:
+    structure = prefs.get("structure") or "balanced"
+    body = (text or "").strip()
+    if not body or structure == "balanced":
+        return body
+    if structure == "conversational":
+        # Prefer flowing prose: soften markdown-ish headers
+        body = re.sub(r"^#+\s*", "", body, flags=re.M)
+        body = re.sub(r"\*\*([^*]+)\*\*", r"\1", body)
+        return body
+    if structure == "technical":
+        # Keep / lightly encourage clearer breaks between ideas
+        if "\n\n" not in body and len(body) > 220:
+            # Split on sentence boundary once for readability
+            parts = re.split(r"(?<=[.!?])\s+", body)
+            if len(parts) >= 4:
+                mid = len(parts) // 2
+                body = " ".join(parts[:mid]) + "\n\n" + " ".join(parts[mid:])
+        return body
+    return body
+
+
+def _apply_detail(text: str, prefs: dict[str, str], family: str) -> str:
+    detail = prefs.get("detail") or "normal"
+    body = (text or "").strip()
+    if not body:
+        return body
+    if detail == "short":
+        # Keep at most 2 paragraphs for social/opinion
+        if family in {"greeting", "wellbeing", "thanks", "farewell", "farewell_night"}:
+            parts = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+            return "\n\n".join(parts[:1]) if parts else body
+        parts = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+        if len(parts) > 2:
+            return "\n\n".join(parts[:2])
+        if len(body) > 520:
+            return body[:520].rsplit(" ", 1)[0].rstrip(".,;") + "…"
+        return body
+    if detail == "detailed":
+        # Don't truncate; if very short opinion, leave for review layer to enrich
+        return body
     return body
 
 
@@ -109,7 +167,7 @@ def apply_presence_humanization(
     family_hint: str | None = None,
 ) -> str:
     """
-    Optionally append one light emoji and soften enthusiasm.
+    Apply emoji, enthusiasm, structure and detail prefs.
     Never invents markets. Fail-open → original text.
     """
     try:
@@ -119,8 +177,9 @@ def apply_presence_humanization(
         p = normalize_prefs(prefs if isinstance(prefs, dict) else None)
         family = _detect_family(body, family_hint)
         body = _enthusiasm_boost(body, p, family)
+        body = _apply_structure(body, p)
+        body = _apply_detail(body, p, family)
 
-        # Already has emoji — don't stack
         if re.search(r"[\U0001F300-\U0001FAFF]", body):
             return body
 
@@ -129,7 +188,6 @@ def apply_presence_humanization(
 
         opts = list(_EMOJI_BY_FAMILY.get(family) or _EMOJI_BY_FAMILY["casual"])
         emoji = random.choice(opts)
-        # Prefer trailing emoji on last line
         lines = body.split("\n")
         last = lines[-1].rstrip()
         if last.endswith((".", "!", "?")):
@@ -140,3 +198,35 @@ def apply_presence_humanization(
     except Exception as exc:
         logger.warning("presence_humanization fail-open: %s", exc)
         return text
+
+
+def apply_personality_to_payload(
+    payload: dict[str, Any],
+    prefs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply prefs to narrative fields of any soft/social/opinion payload."""
+    try:
+        if not isinstance(payload, dict):
+            return payload
+        ents = payload.get("entities") or {}
+        hint = None
+        if ents.get("opinion_time") or ents.get("natural_kind") == "team_opinion":
+            hint = "team_opinion"
+        elif ents.get("emotional"):
+            hint = "thanks"
+        elif "calendar" in str(ents.get("natural_kind") or ""):
+            hint = "calendar"
+        for field in ("executive_summary", "final_recommendation"):
+            if payload.get(field):
+                payload[field] = apply_presence_humanization(
+                    str(payload[field]), prefs, family_hint=hint
+                )
+        meta = dict(payload.get("response_metadata") or {})
+        meta["personality_applied"] = normalize_prefs(
+            prefs if isinstance(prefs, dict) else None
+        )
+        payload["response_metadata"] = meta
+        return payload
+    except Exception as exc:
+        logger.warning("apply_personality_to_payload fail-open: %s", exc)
+        return payload

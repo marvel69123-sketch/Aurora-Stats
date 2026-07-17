@@ -222,23 +222,47 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
             "brasileirao": "brasileir" in folded,
         }
 
+    # Historical Copa opinion
+    if re.search(
+        r"\b(o\s+que\s+achou\s+da\s+copa|copa\s+(?:do\s+mundo\s+)?(?:de\s+)?20\d{2}|"
+        r"mundial\s+de\s+20\d{2})\b",
+        folded,
+    ):
+        return {"kind": "historical_copa"}
+
     # Team opinion / football chat — single club, no "x"
     if not re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
         if re.search(
             r"\b(o\s+que\s+(?:voce\s+)?acha\s+d[oe]|oq\s+acha\s+d[oe]|"
-            r"como\s+(?:esta|vai)\s+o|e\s+ai\s+(?:do|de)|"
-            r"fala\s+(?:um\s+pouco\s+)?(?:do|sobre)\s+|opiniao\s+sobre)\b",
+            r"o\s+que\s+achou\s+d[oe]|como\s+(?:esta|vai)\s+o|"
+            r"e\s+ai\s+(?:do|de)|fala\s+(?:um\s+pouco\s+)?(?:do|sobre)\s+|"
+            r"opiniao\s+sobre|momento\s+(?:atual\s+)?d[oe])\b",
             folded,
         ):
             team = _extract_one_team(folded)
             if team:
-                return {"kind": "team_opinion", "team": team}
-        # "o que acha do bahia"
-        m = re.search(r"\b(?:acha|achas|achando)\s+d[oe]\s+([a-z0-9][a-z0-9\s-]{2,30})\b", folded)
+                return {
+                    "kind": "team_opinion",
+                    "team": team,
+                    "moment": bool(
+                        re.search(r"\b(agora|agr|momento|atualmente)\b", folded)
+                    ),
+                }
+        # "o que acha/achou do bahia"
+        m = re.search(
+            r"\b(?:acha|achas|achando|achou)\s+d[oe]\s+([a-z0-9][a-z0-9\s-]{2,30})\b",
+            folded,
+        )
         if m:
             team = _extract_one_team(m.group(1)) or _title_team(m.group(1))
             if team:
-                return {"kind": "team_opinion", "team": team}
+                return {
+                    "kind": "team_opinion",
+                    "team": team,
+                    "moment": bool(
+                        re.search(r"\b(agora|agr|momento|atualmente)\b", folded)
+                    ),
+                }
 
     return None
 
@@ -474,10 +498,40 @@ async def try_natural_conversation(
         elif kind == "team_opinion":
             team = str(detected.get("team") or "esse time")
             reply = build_team_opinion_reply(team)
+            # WEB alters reasoning (pre-draft weave)
+            try:
+                from src.conversation.web_intelligence import weave_web_into_draft
+
+                reply, _ = weave_web_into_draft(reply, ctx, team=team)
+            except Exception:
+                pass
             intent = "conversation_assist"
             family = "team_opinion"
             entities["team"] = team
             entities["opinion_time"] = True
+            if detected.get("moment"):
+                entities["moment_now"] = True
+        elif kind == "historical_copa":
+            try:
+                from src.conversation.intelligence_fallback import build_copa_opinion
+
+                m = re.search(r"(20\d{2})", message or "")
+                reply = build_copa_opinion(m.group(1) if m else "2026")
+            except Exception:
+                reply = (
+                    "Sobre a Copa, eu penso em narrativa e momentos — "
+                    "não só em placar. Quer aprofundar um jogo ou uma seleção?"
+                )
+            try:
+                from src.conversation.web_intelligence import weave_web_into_draft
+
+                reply, _ = weave_web_into_draft(reply, ctx, team="Copa do Mundo")
+            except Exception:
+                pass
+            intent = "conversation_assist"
+            family = "team_opinion"
+            entities["opinion_time"] = True
+            entities["historical_copa"] = True
         elif kind in {
             "calendar_today",
             "calendar_tomorrow",

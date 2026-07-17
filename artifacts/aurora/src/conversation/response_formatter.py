@@ -166,6 +166,20 @@ def apply_formatter_to_payload(
                     prefs=prefs,
                 )
 
+        # DeepThinking controls depth / response_mode
+        try:
+            from src.conversation.response_review import apply_depth_to_text, get_thinking
+
+            thinking = get_thinking(ctx)
+            if thinking:
+                for field in ("executive_summary", "final_recommendation"):
+                    if payload.get(field):
+                        payload[field] = apply_depth_to_text(
+                            str(payload[field]), thinking
+                        )
+        except Exception:
+            pass
+
         # Strip robotic thinking labels from credibility for social/natural
         meta = dict(payload.get("response_metadata") or {})
         cred = dict(meta.get("credibility") or {})
@@ -179,7 +193,19 @@ def apply_formatter_to_payload(
                 cred["thinking_label"] = None
                 meta["credibility"] = cred
 
-        meta["formatter"] = {"applied": True, "kind": kind or "generic", "v": "4.7.1"}
+        mode = None
+        try:
+            from src.conversation.response_review import get_thinking
+
+            mode = (get_thinking(ctx) or {}).get("response_mode")
+        except Exception:
+            pass
+        meta["formatter"] = {
+            "applied": True,
+            "kind": kind or "generic",
+            "response_mode": mode,
+            "v": "4.8.1",
+        }
         payload["response_metadata"] = meta
         return payload
     except Exception as exc:

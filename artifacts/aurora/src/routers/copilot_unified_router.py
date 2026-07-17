@@ -1597,16 +1597,40 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v4.3):
-    #   0) CUE (understanding) + Human Presence social
-    #   1) Legacy Small Talk fallback
-    #   2) Conversation State expire + cancel/topic
-    #   3) Conversation Reasoner
-    #   4) Conversation Intelligence Layer
-    #   5) Conversation Response Layer
-    #   6) CI / pre-resolve
-    #   7) Follow-up / fixture guard
-    #   8) NL router / engines (main Resolver untouched)
+    # Pipeline order (Brain Activation):
+    #   Recovery → DeepThinking → WEB(gather) → Emotional/Profile/HPL
+    #   → Natural/Fallback (weave WEB into draft) → engines…
+    #   → late WEB only if not woven → Formatter → Review → Final
+
+    # ── 0a-1. Context Recovery (messy users → inferred intent) ────────────
+    try:
+        from src.conversation.context_recovery import (
+            apply_recovery_to_message as _v48_recover,
+            recover_context as _v48_recover_full,
+        )
+
+        _rec = _v48_recover_full(message, ctx)
+        message = _v48_recover(message, ctx, min_confidence=0.7)
+        try:
+            from src.conversation.response_review import (
+                run_deep_thinking_engine as _v48_think,
+            )
+
+            _v48_think(message, ctx, recovery=_rec.to_dict())
+        except Exception:
+            pass
+    except Exception as _rec_exc:
+        logger.warning("copilot: context recovery skipped (%s)", _rec_exc)
+
+    # ── 0a-1b. WEB gather BEFORE draft (thinking control) ─────────────────
+    try:
+        from src.conversation.web_intelligence import (
+            gather_web_for_thinking as _v48_web_gather,
+        )
+
+        await _v48_web_gather(message, ctx)
+    except Exception as _web_g_exc:
+        logger.warning("copilot: web gather skipped (%s)", _web_g_exc)
 
     # ── 0a0. Conversational Understanding Engine (v4.3) ────────────────────
     _cue_dict: dict = {}
@@ -1763,6 +1787,27 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 )
     except Exception as _nat_exc:
         logger.warning("copilot: natural conversation skipped (%s)", _nat_exc)
+
+    # ── 0a1b. Intelligence Fallback (Copa / never empty topics) ────────────
+    try:
+        if payload is None:
+            from src.conversation.intelligence_fallback import (
+                try_intelligence_fallback as _v48_intel,
+            )
+
+            _intel = _v48_intel(message, ctx, _conv_prefs)
+            if _intel:
+                payload = _intel
+                intent = str(payload.get("intent") or "conversation_assist")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.9
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] IntelligenceFallback: kind=%s",
+                    entities.get("fallback_kind"),
+                )
+    except Exception as _intel_exc:
+        logger.warning("copilot: intelligence fallback skipped (%s)", _intel_exc)
 
     # Legacy Small Talk fallback (only if HPL did not handle)
     try:
@@ -2852,6 +2897,40 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         payload = _v47_fmt(payload, prefs=_conv_prefs, ctx=ctx)
     except Exception as _fmt_exc:
         logger.warning("copilot: response formatter skipped (%s)", _fmt_exc)
+
+    # ── 0z1b2. Personality prefs (emoji/enthusiasm/structure/detail) ───────
+    try:
+        from src.conversation.presence_humanization import (
+            apply_personality_to_payload as _v48_pers,
+        )
+
+        payload = _v48_pers(payload, _conv_prefs)
+    except Exception as _pers2_exc:
+        logger.warning("copilot: personality apply skipped (%s)", _pers2_exc)
+
+    # ── 0z1b3. Response Review (template → enrich) ────────────────────────
+    try:
+        from src.conversation.response_review import (
+            review_and_enrich_payload as _v48_review,
+        )
+
+        payload = _v48_review(
+            payload, message=message, ctx=ctx, prefs=_conv_prefs
+        )
+    except Exception as _rev_exc:
+        logger.warning("copilot: response review skipped (%s)", _rev_exc)
+
+    # ── 0z1b4. Never-empty guard ──────────────────────────────────────────
+    try:
+        from src.conversation.intelligence_fallback import (
+            ensure_non_empty_payload as _v48_nonempty,
+        )
+
+        payload = _v48_nonempty(
+            payload, message=message, ctx=ctx, prefs=_conv_prefs
+        )
+    except Exception as _ne_exc:
+        logger.warning("copilot: non-empty guard skipped (%s)", _ne_exc)
 
     # ── 0z1c. Emotional hard-guard ABSOLUTE (after LLM / polish / formatter)
     try:

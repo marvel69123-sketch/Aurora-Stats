@@ -40,12 +40,26 @@ from src.conversation.prediction_memory import (
     save_reasoning,
 )
 from src.conversation.presence_humanization import (
+    apply_personality_to_payload,
     apply_presence_humanization,
     normalize_prefs,
 )
 from src.conversation.natural_conversation import (
     detect_natural_intent,
     try_natural_conversation,
+)
+from src.conversation.context_recovery import (
+    apply_recovery_to_message,
+    recover_context,
+)
+from src.conversation.intelligence_fallback import (
+    ensure_non_empty_payload,
+    try_intelligence_fallback,
+)
+from src.conversation.response_review import (
+    review_and_enrich_payload,
+    run_deep_thinking_engine,
+    run_pre_response_thinking,
 )
 from src.conversation.emotional_presence import (
     detect_emotional_intent,
@@ -66,8 +80,10 @@ from src.conversation.response_formatter import (
 )
 from src.conversation.web_intelligence import (
     decide_need_web,
+    gather_web_for_thinking,
     maybe_enrich_with_web,
     semantic_cache_plan,
+    weave_web_into_draft,
 )
 from src.conversation.response_variation_layer import (
     pick_variant,
@@ -168,10 +184,18 @@ __all__ = [
     "is_social_presence_turn",
     "is_topic_switch",
     "note_small_talk",
+    "apply_personality_to_payload",
     "apply_presence_humanization",
     "detect_natural_intent",
     "normalize_prefs",
     "try_natural_conversation",
+    "apply_recovery_to_message",
+    "recover_context",
+    "ensure_non_empty_payload",
+    "try_intelligence_fallback",
+    "review_and_enrich_payload",
+    "run_deep_thinking_engine",
+    "run_pre_response_thinking",
     "detect_emotional_intent",
     "enforce_emotional_hard_guard",
     "try_emotional_presence",
@@ -184,8 +208,10 @@ __all__ = [
     "apply_formatter_to_payload",
     "format_user_facing_text",
     "decide_need_web",
+    "gather_web_for_thinking",
     "maybe_enrich_with_web",
     "semantic_cache_plan",
+    "weave_web_into_draft",
     "pick_variant",
     "plan_response",
     "pre_resolve",
