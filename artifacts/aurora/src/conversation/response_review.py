@@ -134,6 +134,29 @@ def run_deep_thinking_engine(
                     "surface_risk": 0.15 if team else 0.45,
                 }
             )
+        elif (
+            re.search(r"\b(analisar|analise|analiz|analyze)\b", folded)
+            and len(teams) >= 2
+        ) or recovery.get("inferred_goal") == "match_analysis":
+            decision.update(
+                {
+                    "user_real_want": (
+                        f"analisar confronto ({' x '.join(teams[:2])})"
+                        if len(teams) >= 2
+                        else "analisar confronto"
+                    ),
+                    "topic_kind": "match_analysis",
+                    "topic_team": teams[0] if teams else None,
+                    "topic_teams": teams[:2],
+                    "web_need": "none",
+                    "needs_web": False,
+                    "web_mode": "none",
+                    "depth": "deep",
+                    "response_mode": "detailed",
+                    "needs_inference": True,
+                    "surface_risk": 0.08,
+                }
+            )
         elif re.search(
             r"\b(analise\s+detalhada|faca\s+uma\s+analise|analise\s+completa|"
             r"pesquisa\s+profunda)\b",
@@ -150,6 +173,24 @@ def run_deep_thinking_engine(
                     "web_mode": "research",
                     "depth": "deep",
                     "response_mode": "detailed",
+                    "needs_inference": True,
+                    "surface_risk": 0.15,
+                }
+            )
+        elif teams and len(teams) == 1 and len(folded.split()) <= 3 and not re.search(
+            r"\b(como|quando|horario|joga|acha|tem\s+jogo)\b", folded
+        ):
+            # Bare entity — human means "talk about the team"
+            decision.update(
+                {
+                    "user_real_want": f"falar sobre {teams[0]}",
+                    "topic_kind": "opinion",
+                    "topic_team": teams[0],
+                    "web_need": "optional",
+                    "needs_web": True,
+                    "web_mode": "light",
+                    "depth": "medium",
+                    "response_mode": "normal",
                     "needs_inference": True,
                     "surface_risk": 0.15,
                 }

@@ -114,6 +114,17 @@ def build_reasoning_from_web(
     conf = float(web_context.get("confidence") or 0)
     if facts and conf >= 0.4:
         fact_line = recent[0] if recent else facts[0]
+        # Thinking Delay — institutional wiki blurbs are not "knowledge" for talk
+        try:
+            from src.conversation.human_inference import looks_like_encyclopedia_dump
+
+            if looks_like_encyclopedia_dump(fact_line):
+                facts = []
+                conf = 0.0
+        except Exception:
+            pass
+    if facts and conf >= 0.4:
+        fact_line = recent[0] if recent else facts[0]
         return (
             f"Olhando o {team_name} agora, o que pesa no meu raciocínio "
             f"não é só a camisa — é o recorte público recente.\n\n"

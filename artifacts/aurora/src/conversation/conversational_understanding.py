@@ -99,6 +99,16 @@ _TEAM_NAMES: dict[str, str] = {
     "cruzeiro": "Cruzeiro",
     "fortaleza": "Fortaleza",
     "vitoria": "Vitoria",
+    # Common international (Human Understanding — bare / analyze pairs)
+    "arsenal": "Arsenal",
+    "chelsea": "Chelsea",
+    "liverpool": "Liverpool",
+    "manchester city": "Manchester City",
+    "manchester united": "Manchester United",
+    "real madrid": "Real Madrid",
+    "barcelona": "Barcelona",
+    "psg": "PSG",
+    "bayern": "Bayern",
 }
 
 

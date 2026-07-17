@@ -332,6 +332,15 @@ def crl_may_continue_fixture(ctx: dict[str, Any] | None) -> bool:
     """
     if not hydrate_allowed(ctx):
         return False
+    try:
+        from src.conversation.human_inference import is_match_analysis
+
+        if is_match_analysis(ctx):
+            return False
+    except Exception:
+        pass
+    if topic_kind(ctx) == "match_analysis":
+        return False
     if is_calendar_authority(ctx):
         return False
     if is_opinion_authority(ctx):
@@ -487,7 +496,17 @@ def reasoning_variants_count() -> int:
 
 def should_block_analysis_engines(ctx: dict[str, Any] | None) -> bool:
     """DeepThinking SoT — conversational topics must not fall into analyze engines."""
+    # Human Inference: match_analysis MUST reach analyze engines
+    try:
+        from src.conversation.human_inference import is_match_analysis
+
+        if is_match_analysis(ctx):
+            return False
+    except Exception:
+        pass
     kind = topic_kind(ctx)
+    if kind == "match_analysis":
+        return False
     return kind in {
         "calendar",
         "fixture",

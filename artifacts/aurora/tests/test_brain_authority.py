@@ -129,9 +129,11 @@ def test_no_pensando_no_in_local_thinking():
 
 
 def test_opinion_local_reasoning_moment():
-    text = opinion_local_reasoning("Flamengo", moment=True)
-    assert "mesmo sem" in text.lower() or "momento" in text.lower()
+    text = opinion_local_reasoning("Flamengo", moment=True, variant=0)
+    low = text.lower()
+    assert any(k in low for k in ("mesmo sem", "momento", "instante", "agora", "ritmo"))
     assert "Pensando no" not in text
+    assert "Flamengo" in text
 
 
 def test_calendar_empty_reply_pair():

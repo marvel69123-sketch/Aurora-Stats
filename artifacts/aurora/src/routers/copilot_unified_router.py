@@ -1596,11 +1596,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     routing_confidence = 0.0
     payload: dict | None = None
     skipped_nl = False
+    # Preserve raw user phrasing for Human Inference (recovery may rewrite)
+    try:
+        ctx["raw_user_message"] = message
+    except Exception:
+        pass
 
-    # Pipeline order (Brain Activation):
-    #   Recovery → DeepThinking → WEB(gather) → Emotional/Profile/HPL
-    #   → Natural/Fallback (weave WEB into draft) → engines…
-    #   → late WEB only if not woven → Formatter → Review → Final
+    # Pipeline order (Human Understanding):
+    #   Recovery → DeepThinking → Focus → HumanInference
+    #   → WEB(gather) → Emotional/Profile/HPL
+    #   → Natural/Fallback → engines… → Review → ThinkingDelay → Final
 
     # ── 0a-1. Context Recovery (messy users → inferred intent) ────────────
     try:
@@ -1695,13 +1700,43 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _rec_exc:
         logger.warning("copilot: context recovery skipped (%s)", _rec_exc)
 
-    # ── 0a-1b. WEB gather BEFORE draft (thinking control) ─────────────────
+    # ── 0a-1a. Human Inference Engine — what did a human mean? ─────────────
+    # BEFORE WEB / Natural / engines. Strong verbs dominate. Never "?".
+    _hie = None
     try:
-        from src.conversation.web_intelligence import (
-            gather_web_for_thinking as _v48_web_gather,
-        )
+        from src.conversation.human_inference import apply_human_inference as _hie_apply
 
-        await _v48_web_gather(message, ctx)
+        message, _hie = _hie_apply(message, ctx)
+        if _hie and _hie.intent == "match_analysis" and _hie.home and _hie.away:
+            # Lock analyze_match — Natural/NL must not reinterpret as agenda
+            intent = "analyze_match"
+            entities = {
+                "home": _hie.home,
+                "away": _hie.away,
+                "human_inference": True,
+            }
+            routing_confidence = float(_hie.confidence or 0.95)
+            skipped_nl = True
+            logger.warning(
+                "[AUDIT] HumanInference: forced analyze_match %s x %s",
+                _hie.home,
+                _hie.away,
+            )
+    except Exception as _hie_exc:
+        logger.warning("copilot: human inference skipped (%s)", _hie_exc)
+
+    # ── 0a-1b. WEB gather BEFORE draft (thinking control) ─────────────────
+    # Skip WEB gather for match_analysis — engines + API own that path.
+    try:
+        _skip_web = bool(
+            _hie and getattr(_hie, "intent", None) == "match_analysis"
+        )
+        if not _skip_web:
+            from src.conversation.web_intelligence import (
+                gather_web_for_thinking as _v48_web_gather,
+            )
+
+            await _v48_web_gather(message, ctx)
     except Exception as _web_g_exc:
         logger.warning("copilot: web gather skipped (%s)", _web_g_exc)
 
@@ -1745,7 +1780,9 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 try_emotional_presence as _v47_emo,
             )
 
-            if not _ba_block_emo(ctx):
+            from src.conversation.human_inference import is_match_analysis as _hie_match
+
+            if not _ba_block_emo(ctx) and not _hie_match(ctx):
                 _emo = _v47_emo(message, ctx, _conv_prefs)
                 if _emo:
                     payload = _emo
@@ -2047,7 +2084,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── 0a2c. Conversation Response Layer (v4.1) — HOW to reply ────────────
     # Consumes last_reasoning (possibly refined by CIL). Fail-open.
     try:
-        if payload is None:
+        from src.conversation.human_inference import is_match_analysis as _hie_match_crl
+
+        if payload is None and _hie_match_crl(ctx):
+            logger.warning(
+                "[AUDIT] CRL: SKIPPED short-circuit — HumanInference match_analysis"
+            )
+        elif payload is None:
             from src.conversation.conversation_intelligence_layer import (
                 refine_crl_reply as _cil_refine,
             )
@@ -3079,6 +3122,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         )
     except Exception as _ne_exc:
         logger.warning("copilot: non-empty guard skipped (%s)", _ne_exc)
+
+    # ── 0z1b5. Thinking Delay — refuse encyclopedia / "?" answers ──────────
+    try:
+        from src.conversation.human_inference import (
+            repair_unintelligent_reply as _hie_repair,
+            thinking_delay_ok as _hie_delay_ok,
+        )
+
+        if isinstance(payload, dict):
+            _sum = str(payload.get("executive_summary") or "")
+            if not _hie_delay_ok(_sum, ctx):
+                _fixed = _hie_repair(_sum, ctx)
+                payload["executive_summary"] = _fixed
+                payload["final_recommendation"] = _fixed
+                logger.warning("[AUDIT] ThinkingDelay: repaired unintelligent reply")
+    except Exception as _td_exc:
+        logger.warning("copilot: thinking delay skipped (%s)", _td_exc)
 
     # ── 0z1c. Emotional hard-guard ABSOLUTE (after LLM / polish / formatter)
     try:

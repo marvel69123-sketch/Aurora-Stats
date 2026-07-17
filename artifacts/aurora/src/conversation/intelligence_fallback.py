@@ -120,17 +120,34 @@ def try_intelligence_fallback(
                 return _payload(reply, kind="calendar_authority", team=team, prefs=prefs)
         except Exception:
             pass
+        hie = (ctx or {}).get("human_inference") or {}
         if (
             recovery.get("inferred_goal") == "team_opinion"
             or thinking.get("topic_kind") in {"opinion", "moment"}
-        ) and (recovery.get("teams") or thinking.get("topic_team")):
-            team = (recovery.get("teams") or [None])[0] or thinking.get("topic_team")
-            moment = recovery.get("temporal") == "now" or thinking.get("topic_kind") == "moment"
+            or hie.get("intent")
+            in {"general_team_talk", "team_moment", "team_analysis"}
+        ) and (
+            recovery.get("teams")
+            or thinking.get("topic_team")
+            or hie.get("team")
+        ):
+            team = (
+                (recovery.get("teams") or [None])[0]
+                or thinking.get("topic_team")
+                or hie.get("team")
+            )
+            moment = (
+                recovery.get("temporal") == "now"
+                or thinking.get("topic_kind") == "moment"
+                or hie.get("intent") == "team_moment"
+            )
             reply = build_local_team_thinking(str(team), moment=moment)
             try:
                 from src.conversation.web_intelligence import weave_web_into_draft
+                from src.conversation.human_inference import repair_unintelligent_reply
 
                 reply, _ = weave_web_into_draft(reply, ctx, team=str(team))
+                reply = repair_unintelligent_reply(reply, ctx)
             except Exception:
                 pass
             return _payload(reply, kind="local_team_thinking", team=team, prefs=prefs)

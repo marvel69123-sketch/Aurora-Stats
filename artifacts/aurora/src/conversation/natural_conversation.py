@@ -246,12 +246,32 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
         if team:
             return {"kind": "team_opinion", "team": team, "moment": True, "research": True}
 
-    # Single/pair team calendar — "jogo do X hoje", "tem jogo do X", "X x Y hoje"
+    # Human Understanding — "analisar / analyze A x B" is NEVER agenda
+    if re.search(
+        r"\b(analisar|analise|analiz|analyze|analys[e]?|avaliar)\b",
+        folded,
+    ) and re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
+        return None  # let HumanInference + analyze engines own this
+
+    # Bare "A x B" without calendar cues → match analysis (not agenda)
+    if re.search(r"\b\w+\s+[xX]\s+\w+\b", message or "") and not re.search(
+        r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+d[oe]|proximo\s+jogo|"
+        r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
+        r"hoje|amanha|horario|que\s+horas|agenda)\b",
+        folded,
+    ):
+        return None
+
+    # Single/pair team calendar — only with explicit agenda cues
     if re.search(
         r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+d[oe]|proximo\s+jogo|"
-        r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo)\b",
+        r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
+        r"agenda|(?:joga|jogam)\s+(?:hoje|amanha))\b",
         folded,
-    ) or re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
+    ) or (
+        re.search(r"\b\w+\s+[xX]\s+\w+\b", message or "")
+        and re.search(r"\b(hoje|amanha|horario|que\s+horas)\b", folded)
+    ):
         # Prefer pair
         m_pair = re.search(
             r"([A-Za-zÀ-ÿ][\wÀ-ÿ.-]{2,20})\s+[xX]\s+([A-Za-zÀ-ÿ][\wÀ-ÿ.-]{2,20})",
@@ -278,6 +298,30 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
                 "date_offset": offset,
                 "fixture_pair": len(teams) >= 2,
             }
+
+    # Bare team entity → general team talk (never fall through to "?")
+    if not re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
+        bare = (message or "").strip(" ?!.")
+        if bare and len(bare.split()) <= 3 and not re.search(
+            r"\b(como|quando|onde|porque|oque|o\s+que|horario|joga|"
+            r"oi|ola|obrigad|valeu|sim|nao|ok|blz)\b",
+            folded,
+        ):
+            one = _extract_one_team(folded)
+            if not one:
+                try:
+                    from src.conversation.context_recovery import fuzzy_resolve_team
+
+                    one = fuzzy_resolve_team(bare)
+                except Exception:
+                    one = None
+            if one:
+                return {
+                    "kind": "team_opinion",
+                    "team": one,
+                    "moment": False,
+                    "bare_entity": True,
+                }
 
     # Historical Copa opinion
     if re.search(
@@ -546,8 +590,21 @@ async def try_natural_conversation(
     Brain Authority: respects ctx['deep_thinking'] topic_kind.
     """
     try:
+        # Human Inference SoT — never steal match_analysis into calendar
+        try:
+            from src.conversation.human_inference import is_match_analysis
+
+            if is_match_analysis(ctx):
+                logger.warning(
+                    "[AUDIT] Natural: SKIPPED — HumanInference match_analysis"
+                )
+                return None
+        except Exception:
+            pass
+
         detected = detect_natural_intent(message)
         # If detector missed but DeepThinking says calendar, synthesize
+        # (but never when HIE says match_analysis)
         if not detected and ctx:
             try:
                 from src.conversation.brain_authority import (
