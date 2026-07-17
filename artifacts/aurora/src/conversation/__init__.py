@@ -47,6 +47,30 @@ from src.conversation.natural_conversation import (
     detect_natural_intent,
     try_natural_conversation,
 )
+from src.conversation.emotional_presence import (
+    detect_emotional_intent,
+    try_emotional_presence,
+)
+from src.conversation.user_profile_memory import (
+    clear_profile,
+    get_profile,
+    greeting_prefix,
+    save_profile,
+    try_profile_commands,
+)
+from src.conversation.response_formatter import (
+    apply_formatter_to_payload,
+    format_user_facing_text,
+)
+from src.conversation.web_intelligence import (
+    decide_need_web,
+    maybe_enrich_with_web,
+    semantic_cache_plan,
+)
+from src.conversation.response_variation_layer import (
+    pick_variant,
+    scrub_banned,
+)
 from src.conversation.conversation_reasoner import (
     ReasoningResult,
     attach_reasoning,
@@ -146,6 +170,18 @@ __all__ = [
     "detect_natural_intent",
     "normalize_prefs",
     "try_natural_conversation",
+    "detect_emotional_intent",
+    "try_emotional_presence",
+    "clear_profile",
+    "get_profile",
+    "greeting_prefix",
+    "save_profile",
+    "try_profile_commands",
+    "apply_formatter_to_payload",
+    "format_user_facing_text",
+    "decide_need_web",
+    "maybe_enrich_with_web",
+    "semantic_cache_plan",
     "pick_variant",
     "plan_response",
     "pre_resolve",

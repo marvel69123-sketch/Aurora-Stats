@@ -75,6 +75,14 @@ class CopilotRequest(BaseModel):
             "Used only for social/presence humanization. Never alters markets/engines."
         ),
     )
+    # v4.7 — About You (Identity Center). Separate from betting user_profile.
+    about_you: dict | None = Field(
+        None,
+        description=(
+            "Optional identity profile: name, role, favorite_team, project. "
+            "Stored on ctx['about_you']. Never alters markets/engines."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1552,6 +1560,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _conv_prefs = dict(body.conversation_preferences or {})
     except Exception:
         _conv_prefs = {}
+    _about_you_in: dict = {}
+    try:
+        if isinstance(getattr(body, "about_you", None), dict):
+            _about_you_in = dict(body.about_you or {})
+    except Exception:
+        _about_you_in = {}
 
     from src.core.debug_audit import debug_mode_enabled as _debug_mode_enabled
 
@@ -1566,6 +1580,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         ctx["_conversation_preferences"] = _conv_prefs
     except Exception:
         pass
+    # v4.7 — merge About You into ctx (never touches betting user_profile)
+    try:
+        if _about_you_in:
+            from src.conversation.user_profile_memory import save_profile as _v47_save_about
+
+            _v47_save_about(ctx, _about_you_in)
+    except Exception as _about_exc:
+        logger.warning("copilot: about_you merge skipped (%s)", _about_exc)
     brain = get_brain_meta()
 
     request_id = secrets.token_hex(4)
@@ -1651,6 +1673,61 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 )
     except Exception as _hpl_exc:
         logger.warning("copilot: human presence social skipped (%s)", _hpl_exc)
+
+    # Soft name prefix on social greetings (About You memory)
+    try:
+        if payload is not None and intent == "small_talk":
+            from src.conversation.user_profile_memory import greeting_prefix as _v47_greet
+
+            _prefix = _v47_greet(ctx)
+            if _prefix and (entities or {}).get("human_presence"):
+                _sum = str(payload.get("executive_summary") or "")
+                if _sum and _prefix.split(",")[0] not in _sum:
+                    _joined = f"{_prefix}\n\n{_sum}"
+                    payload["executive_summary"] = _joined
+                    payload["final_recommendation"] = _joined
+    except Exception:
+        pass
+
+    # ── 0a0b. Emotional Presence (pride / affection / thanks) ─────────────
+    try:
+        if payload is None:
+            from src.conversation.emotional_presence import (
+                try_emotional_presence as _v47_emo,
+            )
+
+            _emo = _v47_emo(message, ctx, _conv_prefs)
+            if _emo:
+                payload = _emo
+                intent = "emotional"
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.97
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] EmotionalPresence: kind=%s",
+                    entities.get("emotional_kind"),
+                )
+    except Exception as _emo_exc:
+        logger.warning("copilot: emotional presence skipped (%s)", _emo_exc)
+
+    # ── 0a0c. About You profile teach / forget ────────────────────────────
+    try:
+        if payload is None:
+            from src.conversation.user_profile_memory import (
+                try_profile_commands as _v47_profile,
+            )
+
+            _prof = _v47_profile(message, ctx, _conv_prefs)
+            if _prof:
+                payload = _prof
+                intent = str(payload.get("intent") or "small_talk")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.94
+                skipped_nl = True
+                conversation_manager.save(session_id, ctx)
+                logger.warning("[AUDIT] ProfileMemory: command handled")
+    except Exception as _prof_exc:
+        logger.warning("copilot: profile memory skipped (%s)", _prof_exc)
 
     # ── 0a1. Natural Conversation (calendar / team opinion / capabilities) ─
     try:
@@ -2721,6 +2798,31 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         )
     except Exception as _cred_exc:
         logger.warning("copilot: credibility layer skipped (%s)", _cred_exc)
+
+    # ── 0z1a. Web Intelligence (v4.7) — optional enrich, fail-open ─────────
+    try:
+        from src.conversation.web_intelligence import (
+            maybe_enrich_with_web as _v47_web,
+        )
+
+        payload = await _v47_web(
+            message,
+            payload,
+            intent=intent,
+            ctx=ctx,
+        )
+    except Exception as _web_exc:
+        logger.warning("copilot: web intelligence skipped (%s)", _web_exc)
+
+    # ── 0z1b. Response Formatter (v4.7) — last-mile humanization ──────────
+    try:
+        from src.conversation.response_formatter import (
+            apply_formatter_to_payload as _v47_fmt,
+        )
+
+        payload = _v47_fmt(payload, prefs=_conv_prefs, ctx=ctx)
+    except Exception as _fmt_exc:
+        logger.warning("copilot: response formatter skipped (%s)", _fmt_exc)
 
     # ── 0z2. Prediction / Experience Memory (v4.5) — PASSIVE store only ────
     try:

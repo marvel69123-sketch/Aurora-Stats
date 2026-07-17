@@ -10,6 +10,7 @@ import {
 } from "@/lib/liveMatch";
 import type { CopilotResponse, LiveFixtureCache, Message, Session } from "@/types/chat";
 import { loadConversationPreferences } from "@/lib/conversationPersonalization/storage";
+import { aboutYouHasAny, loadAboutYou } from "@/lib/auroraIdentity";
 
 /**
  * v4.5.2: prefs are still presentation-first, but social humanization on the
@@ -42,6 +43,22 @@ function prefsForCopilotRequest() {
       detail: p.detail,
       headersLists: p.headersLists,
       profile: p.profile,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** v4.7 — About You from Identity Center (localStorage → backend ctx). */
+function aboutYouForCopilotRequest() {
+  try {
+    const p = loadAboutYou();
+    if (!aboutYouHasAny(p)) return undefined;
+    return {
+      name: p.name,
+      role: p.role,
+      favorite_team: p.favorite_team,
+      project: p.project,
     };
   } catch {
     return undefined;
@@ -159,6 +176,12 @@ async function callCopilot(
     headersLists?: string;
     profile?: string;
   },
+  aboutYou?: {
+    name?: string;
+    role?: string;
+    favorite_team?: string;
+    project?: string;
+  },
 ): Promise<CopilotResponse> {
   const res = await fetch(`${BASE}/aurora/copilot`, {
     method: "POST",
@@ -170,6 +193,7 @@ async function callCopilot(
       ...(conversationPreferences
         ? { conversation_preferences: conversationPreferences }
         : {}),
+      ...(aboutYou ? { about_you: aboutYou } : {}),
     }),
   });
   if (!res.ok) {
@@ -474,7 +498,12 @@ export function useChat() {
     abortRef.current = new AbortController();
 
     try {
-      const response = await callCopilot(text, currentBackendId, prefsForCopilotRequest());
+      const response = await callCopilot(
+        text,
+        currentBackendId,
+        prefsForCopilotRequest(),
+        aboutYouForCopilotRequest(),
+      );
 
       setSessions((prev) =>
         sortSessions(

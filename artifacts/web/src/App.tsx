@@ -3,9 +3,10 @@ import { MenuIcon, Settings2Icon } from "lucide-react";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { AuroraAvatar } from "@/components/chat/AuroraAvatar";
-import { ConversationSettingsPanel } from "@/components/chat/ConversationSettingsPanel";
+import { AuroraIdentityCenter } from "@/components/chat/AuroraIdentityCenter";
 import { useChat } from "@/hooks/useChat";
 import { useAuroraAvatar } from "@/hooks/useAuroraAvatar";
+import { useAboutYou } from "@/hooks/useAboutYou";
 import { useConversationPreferences } from "@/hooks/useConversationPreferences";
 import {
   ConversationPreferencesContext,
@@ -15,7 +16,7 @@ import {
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const {
     sessions,
     activeId,
@@ -32,6 +33,7 @@ export default function App() {
   } = useChat();
   const { avatarUrl, setFromFile, clear } = useAuroraAvatar();
   const { preferences, setPreferences } = useConversationPreferences();
+  const { aboutYou, setAboutYou, clear: clearAboutYou } = useAboutYou();
 
   const handleNewChat = () => {
     createSession();
@@ -87,10 +89,10 @@ export default function App() {
               {conversationPersonalizationEnabled ? (
                 <button
                   type="button"
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => setIdentityOpen(true)}
                   className="shrink-0 rounded-lg p-2 text-[#A0A0A0] transition-colors hover:bg-white/5 hover:text-[#ECECEC]"
-                  aria-label="Personalizar Aurora"
-                  title="Personalizar Aurora"
+                  aria-label="Aurora Identity Center"
+                  title="Aurora Identity Center"
                 >
                   <Settings2Icon size={16} />
                 </button>
@@ -109,11 +111,19 @@ export default function App() {
         </main>
 
         {conversationPersonalizationEnabled ? (
-          <ConversationSettingsPanel
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
+          <AuroraIdentityCenter
+            open={identityOpen}
+            onOpenChange={setIdentityOpen}
+            avatarUrl={avatarUrl}
+            onAvatarUpload={async (file) => {
+              await setFromFile(file);
+            }}
+            onAvatarClear={clear}
             preferences={preferences}
-            onChange={setPreferences}
+            onPreferencesChange={setPreferences}
+            aboutYou={aboutYou}
+            onAboutYouChange={setAboutYou}
+            onAboutYouClear={clearAboutYou}
           />
         ) : null}
       </div>

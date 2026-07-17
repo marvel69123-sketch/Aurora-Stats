@@ -1,5 +1,5 @@
 """
-Aurora v4.5.2 — Natural Conversation Intents (calendar, team opinion, capabilities).
+Aurora v4.5.2+ — Natural Conversation Intents (calendar, team opinion, capabilities).
 
 Additive short-circuit layer. Fail-open.
 Does NOT edit State / Reasoner / CIL / CRL / Resolver / Engines.
@@ -17,32 +17,44 @@ logger = logging.getLogger(__name__)
 
 # Brasileirão Série A — API-Football league id
 BRASILEIRAO_LEAGUE_ID = 71
+_BR_TZ = timezone(timedelta(hours=-3))
 
 _TEAM_BLURBS: dict[str, str] = {
+    "Botafogo": (
+        "Gosto do Botafogo quando encontra identidade ofensiva e joga com coragem. "
+        "Em fases boas, parece um time que exige do adversário o tempo todo; "
+        "quando oscila, a leitura muda bastante de uma semana para a outra. "
+        "É um clube que rende conversa — não só tabela."
+    ),
     "Bahia": (
-        "O Bahia costuma variar entre fases de boa intensidade ofensiva e momentos "
-        "mais truncados. Em conversa, eu olho ritmo, transição e se o time sustenta "
-        "pressão — sem transformar isso em tip cego."
+        "O Bahia tem personalidade: às vezes aparece com intensidade e transição afiada, "
+        "outras vezes o jogo fica mais truncado. Eu gosto de olhar o momento do elenco "
+        "e se o time sustenta pressão — mais como conversa de arquibancada do que tip."
     ),
     "Flamengo": (
-        "O Flamengo geralmente carrega expectativa alta e elenco profundo. "
-        "Eu prestaria atenção em volume de jogo e se o adversário consegue travar o ritmo."
+        "O Flamengo quase sempre carrega expectativa e elenco profundo. "
+        "Quando encaixa ritmo, fica pesado para qualquer um; quando trava, a frustração "
+        "aparece rápido. É daqueles times que a conversa nunca fica fria."
     ),
     "Palmeiras": (
-        "O Palmeiras costuma ser associado a organização e consistência. "
-        "Em leitura esportiva, eu olharia equilíbrio entre controle e criação."
+        "O Palmeiras me passa organização e consistência. "
+        "Mesmo em noites menos brilhantes, costuma ter um plano. "
+        "Eu olharia equilíbrio entre controle e criação — sem forçar conclusão rígida."
     ),
     "Santos": (
-        "O Santos, dependendo da fase, pode oscilar bastante. "
-        "Eu evitaria conclusões rígidas sem olhar o confronto específico."
+        "O Santos é um clube de fases bem distintas. "
+        "Dependendo do momento, muda o humor da torcida e o jeito de jogar. "
+        "Eu evitaria cravar sem olhar o confronto do dia."
     ),
     "Corinthians": (
-        "O Corinthians muitas vezes joga no detalhe e no momento emocional da temporada. "
-        "Eu separaria narrativa de torcida de leitura de mercado."
+        "O Corinthians muitas vezes joga no detalhe e no clima da temporada. "
+        "Tem jogos em que a narrativa pesa tanto quanto o placar. "
+        "Gosto de separar paixão de leitura fria — e conversar os dois."
     ),
     "Sao Paulo": (
-        "O São Paulo tende a ter fases de posse e construção. "
-        "Eu olharia se isso se traduz em chances claras ou só domínio estéril."
+        "O São Paulo tende a ter trechos de posse e construção. "
+        "A pergunta que eu faço é se isso vira chance clara ou só domínio estéril. "
+        "Em conversa, é um time que pede nuance."
     ),
 }
 
@@ -157,7 +169,7 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
         r"\b("
         r"jogos?\s+(?:de\s+)?amanha|partidas?\s+(?:de\s+)?amanha|"
         r"quais\s+jogos\s+amanha|agenda\s+(?:de\s+)?amanha|"
-        r"jogos?\s+do\s+brasileir(?:ao|ão)?\s+amanha|"
+        r"jogos?\s+do\s+brasileir(?:ao)?\s+amanha|"
         r"brasileir(?:ao)?\s+amanha"
         r")\b",
         folded,
@@ -165,7 +177,7 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
         return {
             "kind": "calendar_tomorrow",
             "date_offset": 1,
-            "brasileirao": True if "brasileir" in folded else "brasileir" in folded or True,
+            "brasileirao": "brasileir" in folded,
         }
 
     if re.search(r"\b(proxima\s+rodada|rodada\s+de\s+amanha|calendario)\b", folded):
@@ -173,7 +185,11 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
 
     # Generic "quais jogos amanha" already covered. "quais jogos" alone → tomorrow-ish ask
     if re.search(r"\bquais\s+jogos\b", folded) and re.search(r"\bamanha\b", folded):
-        return {"kind": "calendar_tomorrow", "date_offset": 1, "brasileirao": "brasileir" in folded}
+        return {
+            "kind": "calendar_tomorrow",
+            "date_offset": 1,
+            "brasileirao": "brasileir" in folded,
+        }
 
     # Team opinion / football chat — single club, no "x"
     if not re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
@@ -221,32 +237,120 @@ def _extract_one_team(folded: str) -> str | None:
 
 def _target_date(offset_days: int) -> str:
     # Brazil-leaning calendar day (UTC-3 approx)
-    now = datetime.now(timezone(timedelta(hours=-3)))
+    now = datetime.now(_BR_TZ)
     d = now.date() + timedelta(days=int(offset_days))
     return d.isoformat()
 
 
+def _kick_local(iso_date: str) -> tuple[str, str]:
+    """Return (HH:MM local BR, sort key) from API ISO datetime."""
+    raw = (iso_date or "").strip()
+    if not raw:
+        return ("—:—", "99:99")
+    try:
+        # API often returns ...Z or offset
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        local = dt.astimezone(_BR_TZ)
+        hhmm = local.strftime("%H:%M")
+        return (hhmm, hhmm)
+    except Exception:
+        # Fallback: slice "2026-07-12T19:00:00"
+        m = re.search(r"T(\d{2}:\d{2})", raw)
+        if m:
+            return (m.group(1), m.group(1))
+        return ("—:—", "99:99")
+
+
+def _clock_emoji(hhmm: str) -> str:
+    try:
+        h = int(hhmm.split(":")[0])
+    except Exception:
+        return "🕖"
+    if h < 12:
+        return "🕘"
+    if h < 16:
+        return "🕒"
+    if h < 19:
+        return "🕕"
+    if h < 21:
+        return "🕖"
+    return "🕘"
+
+
+def _is_brasileirao_fixture(fx: dict[str, Any]) -> bool:
+    try:
+        league = fx.get("league") or {}
+        lid = league.get("id")
+        if lid == BRASILEIRAO_LEAGUE_ID:
+            return True
+        name = _fold(str(league.get("name") or ""))
+        country = _fold(str(league.get("country") or ""))
+        if "brazil" in country or "brasil" in country:
+            if "serie a" in name or "brasileir" in name:
+                return True
+        # Reject known foreign noise explicitly
+        if any(
+            x in name
+            for x in ("nwsl", "mls", "boliv", "liga mx", "premier league", "la liga")
+        ):
+            return False
+    except Exception:
+        return False
+    return False
+
+
+def _filter_brasileirao_only(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [fx for fx in items if _is_brasileirao_fixture(fx)]
+
+
+def _format_agenda_blocks(
+    items: list[dict[str, Any]],
+    *,
+    title: str,
+    limit: int = 14,
+) -> str:
+    """
+    Card-like agenda:
+
+    ⚽ Jogos do Brasileirão amanhã
+
+    🕖 19:00
+    Bahia x Flamengo
+    """
+    rows: list[tuple[str, str, str]] = []
+    for fx in items[:limit]:
+        try:
+            teams = fx.get("teams") or {}
+            home = ((teams.get("home") or {}).get("name")) or "?"
+            away = ((teams.get("away") or {}).get("name")) or "?"
+            kick_raw = ((fx.get("fixture") or {}).get("date") or "")
+            hhmm, sort_k = _kick_local(kick_raw)
+            rows.append((sort_k, hhmm, f"{home} x {away}"))
+        except Exception:
+            continue
+    rows.sort(key=lambda r: r[0])
+    if not rows:
+        return title
+    blocks = [title, ""]
+    for _, hhmm, match in rows:
+        blocks.append(f"{_clock_emoji(hhmm)} {hhmm}")
+        blocks.append(match)
+        blocks.append("")
+    return "\n".join(blocks).rstrip()
+
+
 def _format_fixture_lines(items: list[dict[str, Any]], *, limit: int = 12) -> list[str]:
+    """Legacy one-liners — kept for tests; agenda uses _format_agenda_blocks."""
     lines: list[str] = []
     for fx in items[:limit]:
         try:
             teams = fx.get("teams") or {}
             home = ((teams.get("home") or {}).get("name")) or "?"
             away = ((teams.get("away") or {}).get("name")) or "?"
-            league = ((fx.get("league") or {}).get("name")) or ""
-            status = ((fx.get("fixture") or {}).get("status") or {}).get("short") or ""
-            kick = ((fx.get("fixture") or {}).get("date") or "")[:16].replace("T", " ")
-            bit = f"⚽ {home} x {away}"
-            meta = []
-            if kick:
-                meta.append(kick)
-            if status:
-                meta.append(status)
-            if league:
-                meta.append(league)
-            if meta:
-                bit += f" — {' · '.join(meta)}"
-            lines.append(bit)
+            hhmm, _ = _kick_local(((fx.get("fixture") or {}).get("date") or ""))
+            lines.append(f"{_clock_emoji(hhmm)} {hhmm}\n{home} x {away}")
         except Exception:
             continue
     return lines
@@ -276,11 +380,12 @@ async def _fetch_fixtures_for_date(
 def build_team_opinion_reply(team: str) -> str:
     blurb = _TEAM_BLURBS.get(team) or (
         f"Sobre o {team}, eu evitaria cravar sem um confronto específico na mesa. "
-        f"Em geral, eu olharia ritmo recente, equilíbrio do elenco e o adversário do dia."
+        f"Em geral, eu olharia o momento recente, o clima do elenco e o adversário do dia."
     )
     return (
         f"{blurb}\n\n"
-        f"Se quiser, a gente pega um jogo do {team} e eu aprofundo mercados com calma."
+        f"Se quiser, a gente pega um jogo do {team} e conversa com mais calma — "
+        f"pode ser opinião ou uma análise mais fundo."
     )
 
 
@@ -346,37 +451,47 @@ async def try_natural_conversation(
         }:
             offset = int(detected.get("date_offset") or 0)
             date_iso = _target_date(offset)
-            use_br = bool(detected.get("brasileirao"))
-            # Prefer Brasileirão for BR questions; else all fixtures that day
-            items = await _fetch_fixtures_for_date(
-                date_iso,
-                league_id=BRASILEIRAO_LEAGUE_ID if use_br or kind == "calendar_round" else BRASILEIRAO_LEAGUE_ID,
-            )
-            # If empty and we forced league, try open date (fail-open broader)
-            if not items:
-                items = await _fetch_fixtures_for_date(date_iso, league_id=None)
-
+            # Round / explicit Brasileirão → strict BR filter (no NWSL/MLS fallback)
+            use_br = bool(detected.get("brasileirao")) or kind == "calendar_round"
             label = "hoje" if offset == 0 else "amanhã"
-            if kind == "had_games_today":
-                opener = f"Sobre jogos de hoje ({date_iso}):"
-            else:
-                opener = f"Agenda de {label} ({date_iso}):"
 
-            lines = _format_fixture_lines(items)
-            if lines:
-                reply = opener + "\n\n" + "\n".join(lines)
-                reply += "\n\nQuer analisar algum deles?"
+            if use_br:
+                items = await _fetch_fixtures_for_date(
+                    date_iso, league_id=BRASILEIRAO_LEAGUE_ID
+                )
+                # Secondary filter if API returns extras
+                items = _filter_brasileirao_only(items) if items else []
+                # Strict: do NOT open to world slate when user asked Brasileirão
+                title = f"⚽ Jogos do Brasileirão {label}"
             else:
+                # Default Brazilian product lean: try BR first, then open date
+                items = await _fetch_fixtures_for_date(
+                    date_iso, league_id=BRASILEIRAO_LEAGUE_ID
+                )
+                title = f"⚽ Jogos do Brasileirão {label}"
+                if not items:
+                    items = await _fetch_fixtures_for_date(date_iso, league_id=None)
+                    title = f"⚽ Jogos de {label}"
+
+            if kind == "had_games_today":
+                title = f"⚽ Jogos de hoje" if not use_br else f"⚽ Jogos do Brasileirão hoje"
+
+            body = _format_agenda_blocks(items, title=title)
+            if items:
+                reply = body + "\n\nQuer olhar algum desses comigo?"
+            else:
+                scope = "no Brasileirão" if use_br else "nessa data"
                 reply = (
-                    f"Não consegui montar a lista de jogos de {label} agora "
-                    f"(fonte indisponível ou sem partidas no filtro).\n\n"
-                    "Você pode me passar um confronto direto — "
-                    "ex.: *Bahia x Chapecoense* — que eu analiso."
+                    f"Não achei jogos {scope} para {label} agora.\n\n"
+                    "Se quiser, me passa um confronto direto — "
+                    "ex.: *Bahia x Flamengo* — que a gente conversa ou analisa."
                 )
             intent = "conversation_assist"
             family = "calendar"
             entities["calendar_date"] = date_iso
             entities["fixture_count"] = len(items)
+            entities["brasileirao_filter"] = use_br
+            entities["agenda_formatted"] = True
         else:
             return None
 
