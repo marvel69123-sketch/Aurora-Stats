@@ -1557,14 +1557,15 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v4.1 Sprint 2):
+    # Pipeline order (v4.2):
     #   0) Small Talk (priority)
     #   1) Conversation State expire + cancel/topic
     #   2) Conversation Reasoner (interpret only)
-    #   3) Conversation Response Layer (HOW to reply — fail-open)
-    #   4) Conversation Intelligence + light pre-resolve
-    #   5) Follow-up / fixture guard
-    #   6) NL router / engines (main Resolver untouched)
+    #   3) Conversation Intelligence Layer (goal / hypotheses — fail-open)
+    #   4) Conversation Response Layer (HOW to reply — fail-open)
+    #   5) CI / pre-resolve
+    #   6) Follow-up / fixture guard
+    #   7) NL router / engines (main Resolver untouched)
 
     # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
     try:
@@ -1659,11 +1660,32 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _cr_exc:
         logger.warning("copilot: conversation reasoner skipped (%s)", _cr_exc)
 
+    # ── 0a2b2. Conversation Intelligence Layer (v4.2) — real intent ────────
+    # Hypotheses + context priority + humanizer plan. Rewrites last_reasoning
+    # for CRL. Does NOT edit Reasoner/CRL/State modules. Fail-open.
+    try:
+        from src.conversation.conversation_intelligence_layer import (
+            run_intelligence as _cil_run,
+        )
+
+        _cil_thought = _cil_run(message, ctx)
+        logger.warning(
+            "[AUDIT] ConversationIntelligenceLayer: goal=%s conf=%.2f strategy=%s selected=%r",
+            _cil_thought.user_intent,
+            _cil_thought.confidence,
+            _cil_thought.response_strategy,
+            _cil_thought.selected_interpretation,
+        )
+    except Exception as _cil_exc:
+        logger.warning("copilot: conversation intelligence layer skipped (%s)", _cil_exc)
+
     # ── 0a2c. Conversation Response Layer (v4.1) — HOW to reply ────────────
-    # Consumes last_reasoning. Short-circuits follow-ups to avoid full reports.
-    # Fail-open: on error, pipeline continues unchanged.
+    # Consumes last_reasoning (possibly refined by CIL). Fail-open.
     try:
         if payload is None:
+            from src.conversation.conversation_intelligence_layer import (
+                refine_crl_reply as _cil_refine,
+            )
             from src.conversation.conversation_response_layer import (
                 apply_crl_payload as _crl_apply,
                 attach_response_plan as _crl_attach,
@@ -1671,6 +1693,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             )
 
             _plan = _crl_plan(message, ctx)
+            # Humanize / override copy without editing CRL module
+            _refined = _cil_refine(_plan.reply_text, ctx)
+            if _refined:
+                _plan.reply_text = _refined
             _crl_attach(ctx, _plan)
             if _plan.should_short_circuit:
                 _crl_payload = _crl_apply(_plan, brain)
@@ -1678,6 +1704,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     payload = _crl_payload
                     intent = "conversation_assist"
                     entities = dict(_crl_payload.get("entities") or {})
+                    entities["cil"] = True
+                    if isinstance(ctx.get("conversation_goal"), dict):
+                        entities["cil_goal"] = ctx["conversation_goal"].get("goal_type")
+                    payload["entities"] = entities
                     routing_confidence = 0.9
                     skipped_nl = True
                     logger.warning(

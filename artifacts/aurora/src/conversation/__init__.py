@@ -4,6 +4,13 @@ from src.conversation.conversation_context import (
     ConversationManager,
     conversation_manager,
 )
+from src.conversation.conversation_intelligence_layer import (
+    ConversationGoal,
+    ConversationThought,
+    refine_crl_reply,
+    resolve_context_priority,
+    run_intelligence,
+)
 from src.conversation.conversation_reasoner import (
     ReasoningResult,
     attach_reasoning,
@@ -65,6 +72,8 @@ __all__ = [
     "PreResolveResult",
     "ReasoningResult",
     "ResponsePlan",
+    "ConversationGoal",
+    "ConversationThought",
     "active_fixture",
     "active_market",
     "apply_after_analysis",
@@ -93,6 +102,9 @@ __all__ = [
     "pre_resolve_message",
     "process_inbound_message",
     "reason",
+    "refine_crl_reply",
+    "resolve_context_priority",
+    "run_intelligence",
     "set_ci_pending",
     "shift_fixture_memory",
     "suggest_alternatives",
