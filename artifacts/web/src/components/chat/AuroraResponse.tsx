@@ -705,11 +705,17 @@ export function AuroraResponse({
     !integrityBlocked && isAnalysis
       ? pickInterestingMarkets(response.best_markets, isLiveCard)
       : [];
-  const showMarketsBlock = !integrityBlocked && isAnalysis;
   const recommendedMarket =
     interesting[0] ||
     displayableMarketRows(response.best_markets)[0] ||
     null;
+  const hasDisplayableMarkets = displayableMarketRows(response.best_markets).length > 0;
+  const hasAnalysis =
+    Boolean(cred?.display_mode === "FULL_ANALYSIS") ||
+    (isAnalysis && hasDisplayableMarkets);
+  // Never show empty market chrome (dashes) on social / capabilities / calendar
+  const showMarketsBlock =
+    !integrityBlocked && hasAnalysis && hasDisplayableMarkets && !isSocial;
 
   const favorBullets =
     !integrityBlocked &&
@@ -736,13 +742,13 @@ export function AuroraResponse({
     cred?.show_confidence !== false &&
     cred?.display_mode !== "FOLLOW_UP" &&
     cred?.display_mode !== "REASONING" &&
-    (response.confidence.score > 0 ||
-      !response.bankroll_recommendation.no_bet ||
-      hasMarkets ||
+    (hasDisplayableMarkets ||
       (response.positive_factors?.length ?? 0) > 0 ||
       (response.negative_factors?.length ?? 0) > 0 ||
-      hasNotes ||
-      hasHistory);
+      (hasNotes && isAnalysis) ||
+      (hasHistory && isAnalysis));
+  // Explicit: never open details chrome for capabilities/help with only knowledge_notes
+  const showTechnicalCard = showDetails && hasDisplayableMarkets && recommendedMarket != null;
 
   const showResumoChrome =
     !isSocial &&
@@ -1031,19 +1037,23 @@ export function AuroraResponse({
         ? (() => {
             const detailsBody = (
               <>
-                {showChromeHeader(chromePrefs, "markets_label") ? (
-                  <p
-                    className={`mb-2 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
-                  >
-                    {chromeHeading("markets_label", chromePrefs)}
-                  </p>
+                {showTechnicalCard ? (
+                  <>
+                    {showChromeHeader(chromePrefs, "markets_label") ? (
+                      <p
+                        className={`mb-2 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
+                      >
+                        {chromeHeading("markets_label", chromePrefs)}
+                      </p>
+                    ) : null}
+                    <TechnicalAnalysisCard
+                      response={response}
+                      recommended={recommendedMarket}
+                    />
+                  </>
                 ) : null}
-                <TechnicalAnalysisCard
-                  response={response}
-                  recommended={recommendedMarket}
-                />
 
-                {hasNotes && (
+                {hasNotes && isAnalysis && (
                   <section aria-label="Notas" className="mt-4">
                     {showChromeHeader(chromePrefs, "notes_label") ? (
                       <p

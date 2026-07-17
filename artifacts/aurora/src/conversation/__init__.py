@@ -39,7 +39,14 @@ from src.conversation.prediction_memory import (
     save_prediction,
     save_reasoning,
 )
-from src.conversation.response_variation_layer import pick_variant, scrub_banned
+from src.conversation.presence_humanization import (
+    apply_presence_humanization,
+    normalize_prefs,
+)
+from src.conversation.natural_conversation import (
+    detect_natural_intent,
+    try_natural_conversation,
+)
 from src.conversation.conversation_reasoner import (
     ReasoningResult,
     attach_reasoning,
@@ -135,6 +142,10 @@ __all__ = [
     "is_social_presence_turn",
     "is_topic_switch",
     "note_small_talk",
+    "apply_presence_humanization",
+    "detect_natural_intent",
+    "normalize_prefs",
+    "try_natural_conversation",
     "pick_variant",
     "plan_response",
     "pre_resolve",

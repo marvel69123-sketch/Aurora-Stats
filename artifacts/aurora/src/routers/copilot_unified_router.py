@@ -67,6 +67,14 @@ class CopilotRequest(BaseModel):
             "Also enabled via AURORA_DEBUG=1 or `#debug` in the message."
         ),
     )
+    # v4.5.2 — optional presentation prefs from FE (never fed into frozen engines)
+    conversation_preferences: dict | None = Field(
+        None,
+        description=(
+            "Optional UI presentation preferences: emojis, enthusiasm, structure, detail. "
+            "Used only for social/presence humanization. Never alters markets/engines."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1538,6 +1546,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     from src.core.nl_router import route as _nl_route
 
     message = body.message.strip()
+    _conv_prefs: dict = {}
+    try:
+        if isinstance(getattr(body, "conversation_preferences", None), dict):
+            _conv_prefs = dict(body.conversation_preferences or {})
+    except Exception:
+        _conv_prefs = {}
 
     from src.core.debug_audit import debug_mode_enabled as _debug_mode_enabled
 
@@ -1548,6 +1562,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     _db_create(session_id)
     # Phase 5B: memory cache first, SQLite fallback
     ctx   = conversation_manager.get(session_id) or {}
+    try:
+        ctx["_conversation_preferences"] = _conv_prefs
+    except Exception:
+        pass
     brain = get_brain_meta()
 
     request_id = secrets.token_hex(4)
@@ -1606,6 +1624,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         if payload is None and _hpl_is_social(_cue_dict):
             _hpl_text = _hpl_social(message, _cue_dict, ctx)
             if _hpl_text:
+                try:
+                    from src.conversation.presence_humanization import (
+                        apply_presence_humanization as _v452_hum,
+                    )
+
+                    _hpl_text = _v452_hum(_hpl_text, _conv_prefs)
+                except Exception:
+                    pass
                 payload = _hpl_payload(_hpl_text, brain)
                 intent = "small_talk"
                 entities = dict(payload.get("entities") or {})
@@ -1626,6 +1652,28 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _hpl_exc:
         logger.warning("copilot: human presence social skipped (%s)", _hpl_exc)
 
+    # ── 0a1. Natural Conversation (calendar / team opinion / capabilities) ─
+    try:
+        if payload is None:
+            from src.conversation.natural_conversation import (
+                try_natural_conversation as _v452_natural,
+            )
+
+            _nat = await _v452_natural(message, ctx, _conv_prefs)
+            if _nat:
+                payload = _nat
+                intent = str(payload.get("intent") or "conversation_assist")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.91
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] NaturalConversation: kind=%s intent=%s",
+                    entities.get("natural_kind"),
+                    intent,
+                )
+    except Exception as _nat_exc:
+        logger.warning("copilot: natural conversation skipped (%s)", _nat_exc)
+
     # Legacy Small Talk fallback (only if HPL did not handle)
     try:
         if payload is None:
@@ -1633,6 +1681,18 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
             _social = _try_small_talk(message, brain)
             if _social:
+                try:
+                    from src.conversation.presence_humanization import (
+                        apply_presence_humanization as _v452_hum2,
+                    )
+
+                    _sum = str(_social.get("executive_summary") or "")
+                    _hum = _v452_hum2(_sum, _conv_prefs)
+                    if _hum:
+                        _social["executive_summary"] = _hum
+                        _social["final_recommendation"] = _hum
+                except Exception:
+                    pass
                 payload = _social
                 intent = "small_talk"
                 entities = {"social": True}

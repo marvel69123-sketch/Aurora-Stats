@@ -9,13 +9,43 @@ import {
   resolveLiveFixture,
 } from "@/lib/liveMatch";
 import type { CopilotResponse, LiveFixtureCache, Message, Session } from "@/types/chat";
+import { loadConversationPreferences } from "@/lib/conversationPersonalization/storage";
 
 /**
- * v3.6.1 Phase 1: do NOT stamp presentationSnapshot.
- * Prefs are visual/settings-only; responses stay identical.
+ * v4.5.2: prefs are still presentation-first, but social humanization on the
+ * backend needs the current emoji/enthusiasm levels at send-time.
  */
 function capturePresentationSnapshot(): Message["presentationSnapshot"] {
-  return null;
+  try {
+    const p = loadConversationPreferences();
+    return {
+      profile: p.profile,
+      emojis: p.emojis,
+      enthusiasm: p.enthusiasm,
+      structure: p.structure,
+      headersLists: p.headersLists,
+      detail: p.detail,
+      capturedAt: Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function prefsForCopilotRequest() {
+  try {
+    const p = loadConversationPreferences();
+    return {
+      emojis: p.emojis,
+      enthusiasm: p.enthusiasm,
+      structure: p.structure,
+      detail: p.detail,
+      headersLists: p.headersLists,
+      profile: p.profile,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 const STORAGE_KEY = "aurora_chat_sessions";
@@ -121,6 +151,14 @@ function messageAgeMs(m: Message): number | null {
 async function callCopilot(
   message: string,
   backendSessionId?: string,
+  conversationPreferences?: {
+    emojis?: string;
+    enthusiasm?: string;
+    structure?: string;
+    detail?: string;
+    headersLists?: string;
+    profile?: string;
+  },
 ): Promise<CopilotResponse> {
   const res = await fetch(`${BASE}/aurora/copilot`, {
     method: "POST",
@@ -129,6 +167,9 @@ async function callCopilot(
       message,
       ...(backendSessionId ? { session_id: backendSessionId } : {}),
       ...(isDebugMode() || messageRequestsDebug(message) ? { debug: true } : {}),
+      ...(conversationPreferences
+        ? { conversation_preferences: conversationPreferences }
+        : {}),
     }),
   });
   if (!res.ok) {
@@ -433,7 +474,7 @@ export function useChat() {
     abortRef.current = new AbortController();
 
     try {
-      const response = await callCopilot(text, currentBackendId);
+      const response = await callCopilot(text, currentBackendId, prefsForCopilotRequest());
 
       setSessions((prev) =>
         sortSessions(

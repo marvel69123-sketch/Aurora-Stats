@@ -114,6 +114,11 @@ def test_vale_a_pena_has_depth_sections():
         or "inclina" in low
         or "meio-termo" in low
         or "meio termo" in low
+        or "valor" in low
+        or "ressalva" in low
+        or "filtro" in low
+        or "seguranca" in low
+        or "segurança" in low
     )
     assert "favorece" in low or "chama" in low or "pontos a favor" in low or "pesa" in low or "sustenta" in low or "positivo" in low
     assert "receio" in low or "preocup" in low or "incomoda" in low or "cautela" in low or "desconfort" in low

@@ -543,8 +543,12 @@ def resolve_display_mode(
         "emotional",
     }:
         return "SOCIAL"
-    if ents.get("social") or ents.get("human_presence"):
+    if ents.get("social") or ents.get("human_presence") or ents.get("natural_conversation"):
         return "SOCIAL"
+    if ents.get("has_analysis") is False and intent == "conversation_assist":
+        # Calendar / team opinion soft replies — no analysis chrome
+        if ents.get("natural_kind") or meta.get("has_analysis") is False:
+            return "SOCIAL"
     if meta.get("crl_mode") == "QUICK_REPLY" and ents.get("social"):
         return "SOCIAL"
 
