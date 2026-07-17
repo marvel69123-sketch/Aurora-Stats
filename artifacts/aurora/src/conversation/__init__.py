@@ -20,6 +20,26 @@ from src.conversation.human_presence import (
     build_social_presence_reply,
     is_social_presence_turn,
 )
+from src.conversation.reflection_credibility import (
+    ReflectionResult,
+    apply_credibility_to_payload,
+    reflect_and_apply,
+    run_reflection,
+)
+from src.conversation.deep_reasoning import (
+    DeepReflection,
+    run_deep_reasoning,
+)
+from src.conversation.context_reinforcement import reinforce_context
+from src.conversation.prediction_memory import (
+    get_market_history,
+    get_team_history,
+    purge_prediction_memory,
+    resolve_prediction,
+    save_prediction,
+    save_reasoning,
+)
+from src.conversation.response_variation_layer import pick_variant, scrub_banned
 from src.conversation.conversation_reasoner import (
     ReasoningResult,
     attach_reasoning,
@@ -84,7 +104,12 @@ __all__ = [
     "ConversationGoal",
     "ConversationThought",
     "ConversationIntent",
+    "DeepReflection",
+    "ReflectionResult",
     "active_fixture",
+    "apply_credibility_to_payload",
+    "get_market_history",
+    "get_team_history",
     "active_market",
     "apply_after_analysis",
     "apply_crl_payload",
@@ -110,14 +135,24 @@ __all__ = [
     "is_social_presence_turn",
     "is_topic_switch",
     "note_small_talk",
+    "pick_variant",
     "plan_response",
     "pre_resolve",
     "pre_resolve_message",
     "process_inbound_message",
+    "purge_prediction_memory",
     "reason",
     "refine_crl_reply",
+    "reflect_and_apply",
+    "reinforce_context",
     "resolve_context_priority",
+    "resolve_prediction",
+    "run_deep_reasoning",
     "run_intelligence",
+    "run_reflection",
+    "save_prediction",
+    "save_reasoning",
+    "scrub_banned",
     "set_ci_pending",
     "shift_fixture_memory",
     "suggest_alternatives",

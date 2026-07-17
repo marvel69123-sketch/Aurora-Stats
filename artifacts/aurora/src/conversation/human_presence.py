@@ -45,6 +45,15 @@ _PRESENCE_FAMILIES: dict[str, list[str]] = {
         "Até mais — boa sorte nos jogos!",
         "Falou! Quando quiser, a gente retoma.",
         "Até logo. Cuida aí.",
+        "Até amanhã — qualquer coisa é só chamar.",
+        "Boa noite! Descanso merecido.",
+        "Boa noite — quando quiser, a gente retoma o jogo.",
+        "Valeu pelo papo. Até a próxima!",
+    ],
+    "farewell_night": [
+        "Boa noite! Descanso merecido.",
+        "Boa noite — quando quiser, a gente retoma.",
+        "Tenha uma boa noite. Até mais!",
     ],
     "ack": [
         "Entendi o que você quis dizer.",
@@ -102,13 +111,29 @@ def build_social_presence_reply(
         return None
 
     if "FAREWELL" in social:
+        folded = re.sub(r"\s+", " ", (message or "").lower())
+        if "boa noite" in folded or "boa madrugada" in folded or "tenha uma boa noite" in folded:
+            return _pick("farewell_night", ctx)
+        # avoid night closings for "até amanhã" / falou
+        opts = list(_PRESENCE_FAMILIES.get("farewell") or [])
+        opts = [o for o in opts if "boa noite" not in o.lower() and "descans" not in o.lower()]
+        if opts:
+            recent = list((ctx or {}).get(HPL_RECENT_KEY) or [])
+            fresh = [o for o in opts if o not in recent]
+            choice = random.choice(fresh or opts)
+            if ctx is not None:
+                ctx[HPL_RECENT_KEY] = ([choice] + recent)[:8]
+            return choice
         return _pick("farewell", ctx)
-    if "THANKS" in social:
+    if "THANKS" in social and "FAREWELL" not in social:
         return _pick("thanks", ctx)
+    # Prefer farewell over greeting if both somehow present
     if "GREETING" in social and "WELL_BEING_CHECK" in social:
         return _pick("greeting_wellbeing", ctx)
     if "WELL_BEING_CHECK" in social:
         return _pick("wellbeing", ctx)
+    if "THANKS" in social:
+        return _pick("thanks", ctx)
     if "GREETING" in social:
         return _pick("greeting", ctx)
     return _pick("greeting_wellbeing", ctx)

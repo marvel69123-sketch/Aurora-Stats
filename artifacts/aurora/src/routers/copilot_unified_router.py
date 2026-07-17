@@ -1698,6 +1698,24 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _ctx_gate_exc:
         logger.warning("copilot: context gate skipped (%s)", _ctx_gate_exc)
 
+    # ── 0a2a. Context Reinforcement (v4.5) — soft priority / anti-forget ───
+    try:
+        from src.conversation.context_reinforcement import (
+            reinforce_context as _v45_reinforce,
+        )
+
+        _creinf = _v45_reinforce(ctx, message)
+        logger.warning(
+            "[AUDIT] ContextReinforcement: fx=%.2f mkt=%.2f rec=%.2f imp=%.2f fixture=%r",
+            float(_creinf.get("fixture_score") or 0),
+            float(_creinf.get("market_score") or 0),
+            float(_creinf.get("recency_score") or 0),
+            float(_creinf.get("importance_score") or 0),
+            _creinf.get("active_fixture"),
+        )
+    except Exception as _creinf_exc:
+        logger.warning("copilot: context reinforcement skipped (%s)", _creinf_exc)
+
     # ── 0a2b. Conversation Reasoner (v4.0) — thinks, does NOT reply ────────
     # Fail-open: errors never block Small Talk / CI / FollowUp / engines.
     try:
@@ -1756,6 +1774,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _refined = _cil_refine(_plan.reply_text, ctx)
             if _refined:
                 _plan.reply_text = _refined
+            # v4.5 Deep Reasoning (wraps v4.4 reflection) — deeper short-circuit copy
+            try:
+                from src.conversation.deep_reasoning import (
+                    run_deep_reasoning as _v45_deep,
+                )
+
+                _refl = _v45_deep(message, ctx, _plan.reply_text)
+                if _refl.chosen_answer and _plan.should_short_circuit:
+                    _plan.reply_text = _refl.chosen_answer
+                    logger.warning(
+                        "[AUDIT] DeepReasoning: intent=%s position=%s conf=%.2f",
+                        _refl.user_real_intent,
+                        _refl.position,
+                        _refl.confidence,
+                    )
+            except Exception as _refl_exc:
+                logger.warning("copilot: deep reasoning skipped (%s)", _refl_exc)
             _crl_attach(ctx, _plan)
             if _plan.should_short_circuit:
                 _crl_payload = _crl_apply(_plan, brain)
@@ -2569,6 +2604,86 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     if _invalid:
         payload["best_markets"] = []
         payload["fixture_found"] = False
+
+    # ── 0z. Deep Reasoning + Credibility (v4.5/v4.4) — final stamp ────────
+    # After integrity. Additive. Fail-open. Does not touch engines/CRL/CIL modules.
+    try:
+        from src.conversation.deep_reasoning import run_deep_reasoning as _v45_deep_final
+        from src.conversation.reflection_credibility import (
+            apply_credibility_to_payload as _v44_cred,
+            ReflectionResult,
+        )
+
+        _draft = str(payload.get("executive_summary") or "")
+        _refl_final = ctx.get("conversation_reflection")
+        if isinstance(_refl_final, dict) and _refl_final.get("user_real_intent"):
+            try:
+                _rr = ReflectionResult(
+                    user_real_intent=str(_refl_final.get("user_real_intent") or ""),
+                    possible_answers=list(_refl_final.get("possible_answers") or []),
+                    chosen_answer=_refl_final.get("chosen_answer"),
+                    why_this_answer=str(_refl_final.get("why_this_answer") or ""),
+                    confidence=float(_refl_final.get("confidence") or 0),
+                    position=_refl_final.get("position") or "none",
+                    risks=list(_refl_final.get("risks") or []),
+                    display_mode=_refl_final.get("display_mode") or "FOLLOW_UP",
+                    thinking_label=_refl_final.get("thinking_label"),
+                    humanized_reply=_refl_final.get("humanized_reply"),
+                    signals=list(_refl_final.get("signals") or []),
+                )
+            except Exception:
+                _rr = _v45_deep_final(message, ctx, _draft)
+        else:
+            _rr = _v45_deep_final(message, ctx, _draft)
+        payload = _v44_cred(payload, _rr, ctx)
+        # Attach deep reflection structure into metadata (presentation-safe)
+        try:
+            _deep = ctx.get("deep_reflection") or (
+                (_refl_final or {}).get("deep") if isinstance(_refl_final, dict) else None
+            )
+            if _deep:
+                _meta = dict(payload.get("response_metadata") or {})
+                _meta["deep_reflection"] = _deep
+                payload["response_metadata"] = _meta
+        except Exception:
+            pass
+        logger.warning(
+            "[AUDIT] CredibilityLayer: mode=%s show_confidence=%s thinking=%r",
+            (payload.get("response_metadata") or {})
+            .get("credibility", {})
+            .get("display_mode"),
+            (payload.get("response_metadata") or {})
+            .get("credibility", {})
+            .get("show_confidence"),
+            (payload.get("response_metadata") or {})
+            .get("credibility", {})
+            .get("thinking_label"),
+        )
+    except Exception as _cred_exc:
+        logger.warning("copilot: credibility layer skipped (%s)", _cred_exc)
+
+    # ── 0z2. Prediction / Experience Memory (v4.5) — PASSIVE store only ────
+    try:
+        from src.conversation.prediction_memory import (
+            maybe_store_from_turn as _v45_mem_store,
+        )
+
+        _pid = _v45_mem_store(
+            message=message,
+            payload=payload,
+            ctx=ctx,
+            session_id=session_id,
+            reflection=ctx.get("conversation_reflection")
+            if isinstance(ctx.get("conversation_reflection"), dict)
+            else None,
+        )
+        if _pid:
+            _meta = dict(payload.get("response_metadata") or {})
+            _meta["prediction_id"] = _pid
+            payload["response_metadata"] = _meta
+            logger.warning("[AUDIT] PredictionMemory: saved id=%s", _pid)
+    except Exception as _mem_exc:
+        logger.warning("copilot: prediction memory skipped (%s)", _mem_exc)
 
     # ── DEBUG audit block (optional) ─────────────────────────────────────
     try:

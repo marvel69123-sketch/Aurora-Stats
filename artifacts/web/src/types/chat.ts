@@ -89,6 +89,26 @@ export interface CopilotResponse {
     presentation?: string;
     mode?: string;
     source?: string;
+    show_header?: boolean;
+    crl_mode?: string;
+    /** v4.4 — Credibility Layer display contract */
+    credibility?: {
+      display_mode?: "SOCIAL" | "FOLLOW_UP" | "REASONING" | "FULL_ANALYSIS" | string;
+      show_confidence?: boolean;
+      show_resumo_chrome?: boolean;
+      show_header?: boolean;
+      show_badges?: boolean;
+      thinking_label?: string | null;
+      source?: string;
+    };
+    reflection?: {
+      user_real_intent?: string;
+      why_this_answer?: string;
+      confidence?: number;
+      position?: string;
+      risks?: string[];
+      display_mode?: string;
+    };
   };
   /** Present when request.debug / AURORA_DEBUG / #debug — audit provenance */
   debug?: DebugAudit | null;

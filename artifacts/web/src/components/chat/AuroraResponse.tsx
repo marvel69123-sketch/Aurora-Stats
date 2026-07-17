@@ -133,7 +133,20 @@ function isRealFeaturedMarket(market: string): boolean {
   );
 }
 
+function credibilityOf(response: CopilotResponse) {
+  return response.response_metadata?.credibility;
+}
+
 function deriveBadges(response: CopilotResponse): InsightBadgeKind[] {
+  const cred = credibilityOf(response);
+  if (
+    cred?.show_badges === false ||
+    cred?.display_mode === "SOCIAL" ||
+    cred?.display_mode === "FOLLOW_UP" ||
+    cred?.display_mode === "REASONING"
+  ) {
+    return [];
+  }
   if (
     response.intent === "greeting" ||
     response.intent === "identity" ||
@@ -557,7 +570,9 @@ export function AuroraResponse({
   const hasHistory = response.historical_references.length > 0;
 
   const badges = deriveBadges(response);
+  const cred = credibilityOf(response);
   const isSocial =
+    cred?.display_mode === "SOCIAL" ||
     response.intent === "greeting" ||
     response.intent === "identity" ||
     response.intent === "help" ||
@@ -566,10 +581,14 @@ export function AuroraResponse({
     response.intent === "emotional";
 
   const isAnalysis =
-    response.intent === "analyze_match" ||
-    response.intent === "follow_up" ||
-    response.intent === "live_opportunities" ||
-    response.intent === "live_team_analysis";
+    cred?.display_mode === "FULL_ANALYSIS" ||
+    ((response.intent === "analyze_match" ||
+      response.intent === "follow_up" ||
+      response.intent === "live_opportunities" ||
+      response.intent === "live_team_analysis") &&
+      cred?.display_mode !== "FOLLOW_UP" &&
+      cred?.display_mode !== "REASONING" &&
+      cred?.display_mode !== "SOCIAL");
 
   const baseCard = response.match_card ?? null;
   const fixtureStatus =
@@ -714,6 +733,9 @@ export function AuroraResponse({
 
   const showDetails =
     !isSocial &&
+    cred?.show_confidence !== false &&
+    cred?.display_mode !== "FOLLOW_UP" &&
+    cred?.display_mode !== "REASONING" &&
     (response.confidence.score > 0 ||
       !response.bankroll_recommendation.no_bet ||
       hasMarkets ||
@@ -721,6 +743,17 @@ export function AuroraResponse({
       (response.negative_factors?.length ?? 0) > 0 ||
       hasNotes ||
       hasHistory);
+
+  const showResumoChrome =
+    !isSocial &&
+    cred?.show_resumo_chrome !== false &&
+    cred?.display_mode !== "SOCIAL";
+
+  const thinkingLabel =
+    !isSocial &&
+    (cred?.display_mode === "FOLLOW_UP" || cred?.display_mode === "REASONING")
+      ? cred?.thinking_label || null
+      : null;
 
   const momentum =
     card?.momentum && card.momentum.label ? card.momentum : bootMomentum;
@@ -781,9 +814,18 @@ export function AuroraResponse({
         </p>
       ) : null}
 
+      {thinkingLabel ? (
+        <p
+          className="text-[0.75rem] leading-relaxed text-[#A0A0A0]/90"
+          aria-label="Reflexão"
+        >
+          {thinkingLabel}
+        </p>
+      ) : null}
+
       {summaryText ? (
         <section aria-label="Resumo">
-          {showChromeHeader(chromePrefs, "resumo") ? (
+          {showResumoChrome && showChromeHeader(chromePrefs, "resumo") ? (
             <p
               className={`mb-1.5 uppercase text-[#A0A0A0] ${chromeTitleClass(chromePrefs)}`}
             >

@@ -143,27 +143,36 @@ def _extract_teams(folded: str) -> list[str]:
 
 def _social_intents(folded: str) -> list[str]:
     intents: list[str] = []
+    # Farewell FIRST — "boa noite" must not be treated as greeting
     if re.search(
-        r"\b(oi|ola|hey|hello|hi|bom\s+dia|boa\s+tarde|boa\s+noite)\b",
+        r"\b("
+        r"tchau|ate\s+mais|ate\s+logo|ate\s+amanha|ate\s+já|ate\s+ja|"
+        r"flw|falou(?:\s+aurora)?|fui|"
+        r"boa\s+noite|tenha\s+uma\s+boa\s+noite|boa\s+madrugada|"
+        r"ate\s+breve|nos\s+falamos|depois\s+a\s+gente\s+retoma"
+        r")\b",
+        folded,
+    ):
+        intents.append("FAREWELL")
+    if re.search(
+        r"\b(oi|ola|hey|hello|hi|bom\s+dia|boa\s+tarde)\b",
         folded,
     ):
         intents.append("GREETING")
     if re.search(
-        r"\b(tudo\s+bem|td\s+bem|como\s+(?:voce\s+)?(?:esta|vai)|e\s+ai|e\s+ai)\b",
+        r"\b(tudo\s+bem|td\s+bem|como\s+(?:voce\s+)?(?:esta|vai)|e\s+ai)\b",
         folded,
     ):
         intents.append("WELL_BEING_CHECK")
     if re.search(r"\b(obrigad[oa]|valeu|thanks|brigado)\b", folded):
         intents.append("THANKS")
-    if re.search(r"\b(tchau|ate\s+mais|ate\s+logo|flw|falou)\b", folded):
-        intents.append("FAREWELL")
     # Pure casual short chat without sports markers
     if (
         intents
         and not re.search(r"\b(gol|escanteio|analis|aposta|mercado|x|vs)\b", folded)
         and len(folded.split()) <= 10
     ):
-        if "CASUAL_CHAT" not in intents and "GREETING" in intents:
+        if "CASUAL_CHAT" not in intents and ("GREETING" in intents or "FAREWELL" in intents):
             intents.append("CASUAL_CHAT")
     return intents
 
