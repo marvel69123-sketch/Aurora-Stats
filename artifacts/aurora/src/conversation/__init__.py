@@ -49,10 +49,12 @@ from src.conversation.natural_conversation import (
 )
 from src.conversation.emotional_presence import (
     detect_emotional_intent,
+    enforce_emotional_hard_guard,
     try_emotional_presence,
 )
 from src.conversation.user_profile_memory import (
     clear_profile,
+    consume_greeting_prefix,
     get_profile,
     greeting_prefix,
     save_profile,
@@ -171,8 +173,10 @@ __all__ = [
     "normalize_prefs",
     "try_natural_conversation",
     "detect_emotional_intent",
+    "enforce_emotional_hard_guard",
     "try_emotional_presence",
     "clear_profile",
+    "consume_greeting_prefix",
     "get_profile",
     "greeting_prefix",
     "save_profile",

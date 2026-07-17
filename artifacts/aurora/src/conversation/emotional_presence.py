@@ -1,10 +1,10 @@
 """
-Aurora v4.6 — Emotional Presence Intents.
+Aurora v4.7.2 — Emotional Presence Intents (hard-guard).
 
-Warm, human replies for pride / gratitude / affection.
-Never falls through to "Posso ajudar com análises...".
+Warm replies for pride / gratitude / affection.
+ABSOLUTE: never pitch analysis / "Posso ajudar com leituras...".
 
-Fail-open. Additive.
+Runs BEFORE Human Presence in the router. Fail-open. Additive.
 """
 
 from __future__ import annotations
@@ -17,49 +17,67 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Pitch phrases that must never reach the user on emotional turns
+_BANNED_PITCH = re.compile(
+    r"posso ajudar com\s+(?:an|leitur)|"
+    r"quer que eu analise|vamos analisar|"
+    r"diga um confronto|qual confronto|"
+    r"como assistente|leituras? de partidas|"
+    r"observar\?|gostaria de observar",
+    re.I,
+)
+
 _EMOTIONAL_SPECS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(
-            r"\b(tenho\s+orgulho\s+de\s+voce|orgulho\s+de\s+voce|"
-            r"muito\s+orgulhoso\s+de\s+voce|orgulhosa\s+de\s+voce|"
-            r"voce\s+e\s+minha\s+melhor\s+criacao|melhor\s+criacao)\b",
+            r"\b("
+            r"tenho\s+orgulho\s+de\s+voce|"
+            r"orgulho\s+de\s+voce|"
+            r"muito\s+orgulhos[oa]\s+de\s+voce|"
+            r"voce\s+e\s+minha\s+(?:melhor|maior)\s+criacao|"
+            r"(?:melhor|maior)\s+criacao"
+            r")\b",
             re.I,
         ),
         "pride",
     ),
     (
         re.compile(
-            r"\b(voce\s+me\s+ajuda\s+muito|me\s+ajuda\s+muito|"
+            r"\b("
+            r"voce\s+me\s+ajuda\s+muito|"
+            r"me\s+ajuda\s+muito|"
             r"voce\s+tem\s+me\s+ajudado|"
-            r"gosto\s+de\s+conversar\s+com\s+voce|adoro\s+conversar\s+com\s+voce|"
-            r"amo\s+conversar\s+com\s+voce)\b",
+            r"gosto\s+de\s+conversar\s+com\s+voce|"
+            r"adoro\s+conversar\s+com\s+voce|"
+            r"amo\s+conversar\s+com\s+voce"
+            r")\b",
             re.I,
         ),
         "affection",
     ),
     (
         re.compile(
-            r"\b(obrigad[oa]\s+aurora|valeu\s+aurora|thanks\s+aurora|"
-            r"obrigad[oa]\s+demais\s+aurora)\b",
+            r"\b("
+            r"obrigad[oa]\s+aurora|"
+            r"valeu\s+aurora|"
+            r"thanks\s+aurora|"
+            r"obrigad[oa]\s+demais\s+aurora"
+            r")\b",
             re.I,
         ),
         "thanks_named",
     ),
     (
         re.compile(
-            r"\b(voce\s+e\s+(?:incrivel|demais|maravilhosa|especial)|"
-            r"amo\s+voce)\b",
+            r"\b("
+            r"voce\s+e\s+(?:incrivel|demais|maravilhosa|especial)|"
+            r"amo\s+voce"
+            r")\b",
             re.I,
         ),
         "affection",
     ),
 ]
-
-_BANNED_PITCH = re.compile(
-    r"posso ajudar com an|quer que eu analise|vamos analisar|"
-    r"diga um confronto|como assistente",
-    re.I,
-)
 
 _REPLIES: dict[str, list[str]] = {
     "pride": [
@@ -79,6 +97,8 @@ _REPLIES: dict[str, list[str]] = {
     ],
 }
 
+_SAFE_FALLBACK = "Isso significa muito para mim 😊"
+
 
 def _fold(text: str) -> str:
     raw = unicodedata.normalize("NFKD", text or "")
@@ -94,6 +114,10 @@ def detect_emotional_intent(message: str) -> str | None:
     return None
 
 
+def is_banned_pitch(text: str | None) -> bool:
+    return bool(_BANNED_PITCH.search(text or ""))
+
+
 def build_emotional_reply(kind: str, ctx: dict[str, Any] | None = None) -> str:
     opts = list(_REPLIES.get(kind) or _REPLIES["affection"])
     recent = list((ctx or {}).get("emotional_recent") or [])
@@ -101,7 +125,6 @@ def build_emotional_reply(kind: str, ctx: dict[str, Any] | None = None) -> str:
     choice = random.choice(fresh or opts)
     if ctx is not None:
         ctx["emotional_recent"] = ([choice] + recent)[:6]
-    # Soft personalization with profile name
     try:
         from src.conversation.user_profile_memory import get_profile_name
 
@@ -110,9 +133,8 @@ def build_emotional_reply(kind: str, ctx: dict[str, Any] | None = None) -> str:
             choice = f"{choice.rstrip('.')} — obrigada, {name}."
     except Exception:
         pass
-    # Hard guard: never pitch analysis on emotional turns
-    if _BANNED_PITCH.search(choice or ""):
-        choice = "Isso significa muito para mim."
+    if is_banned_pitch(choice):
+        return _SAFE_FALLBACK
     return choice
 
 
@@ -130,14 +152,16 @@ def try_emotional_presence(
         try:
             from src.conversation.presence_humanization import apply_presence_humanization
 
-            reply = apply_presence_humanization(reply, prefs, family_hint="thanks")
+            hum = apply_presence_humanization(reply, prefs, family_hint="thanks")
+            # If humanization introduced a pitch, discard it
+            reply = hum if hum and not is_banned_pitch(hum) else reply
         except Exception:
             pass
-        if _BANNED_PITCH.search(reply or ""):
-            reply = build_emotional_reply(kind, ctx)
-        # Keep emotional turns short (human, not a report)
+        if is_banned_pitch(reply) or not (reply or "").strip():
+            reply = _SAFE_FALLBACK
         if len(reply) > 280:
             reply = reply[:280].rsplit(" ", 1)[0].rstrip(".,;") + "."
+
         try:
             from src.conversation.message_intelligence import build_conversational_payload
 
@@ -178,12 +202,16 @@ def try_emotional_presence(
                 "show_header": False,
                 "has_analysis": False,
                 "natural_conversation": True,
+                "skip_llm": True,
             }
         )
         payload["entities"] = ents
         payload["best_markets"] = []
         payload["match_card"] = None
         payload["knowledge_notes"] = []
+        # Force narrative fields after any builder side-effects
+        payload["executive_summary"] = reply
+        payload["final_recommendation"] = reply
         meta = dict(payload.get("response_metadata") or {})
         meta.update(
             {
@@ -191,6 +219,7 @@ def try_emotional_presence(
                 "source": "conversation.emotional_presence",
                 "show_header": False,
                 "has_analysis": False,
+                "skip_llm": True,
             }
         )
         payload["response_metadata"] = meta
@@ -198,3 +227,57 @@ def try_emotional_presence(
     except Exception as exc:
         logger.warning("try_emotional_presence fail-open: %s", exc)
         return None
+
+
+def enforce_emotional_hard_guard(
+    payload: dict[str, Any],
+    *,
+    message: str,
+    ctx: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Absolute last-mile guard: if this turn is/was emotional OR the user
+    message is emotional, never allow analysis-pitch narrative.
+    """
+    try:
+        if not isinstance(payload, dict):
+            return payload
+        ents = dict(payload.get("entities") or {})
+        kind = ents.get("emotional_kind") or detect_emotional_intent(message)
+        if not kind and not ents.get("emotional"):
+            # Still scrub accidental pitch on social presence
+            summary = str(payload.get("executive_summary") or "")
+            if is_banned_pitch(summary) and payload.get("intent") in {
+                "emotional",
+                "small_talk",
+            }:
+                safe = _SAFE_FALLBACK
+                payload["executive_summary"] = safe
+                payload["final_recommendation"] = safe
+            return payload
+
+        summary = str(payload.get("executive_summary") or "")
+        if is_banned_pitch(summary) or not summary.strip() or ents.get("emotional"):
+            if is_banned_pitch(summary) or not summary.strip():
+                safe = build_emotional_reply(str(kind or "affection"), ctx)
+                if is_banned_pitch(safe):
+                    safe = _SAFE_FALLBACK
+                payload["executive_summary"] = safe
+                payload["final_recommendation"] = safe
+                logger.warning(
+                    "[AUDIT] EmotionalHardGuard: restored kind=%s (banned pitch blocked)",
+                    kind,
+                )
+        payload["intent"] = "emotional"
+        ents["emotional"] = True
+        ents["emotional_kind"] = kind
+        ents["skip_llm"] = True
+        ents["has_analysis"] = False
+        ents["show_header"] = False
+        payload["entities"] = ents
+        payload["best_markets"] = []
+        payload["match_card"] = None
+        return payload
+    except Exception as exc:
+        logger.warning("enforce_emotional_hard_guard fail-open: %s", exc)
+        return payload

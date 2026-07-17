@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MenuIcon, Settings2Icon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { AuroraAvatar } from "@/components/chat/AuroraAvatar";
@@ -61,6 +61,11 @@ export default function App() {
             await setFromFile(file);
           }}
           onAvatarClear={clear}
+          onOpenIdentity={
+            conversationPersonalizationEnabled
+              ? () => setIdentityOpen(true)
+              : undefined
+          }
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
@@ -78,25 +83,12 @@ export default function App() {
               <MenuIcon size={18} />
             </button>
 
-            {/* [Avatar Aurora] ⚙️ — gear only when feature flag is true */}
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
-                <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
-                  Aurora
-                </p>
-              </div>
-              {conversationPersonalizationEnabled ? (
-                <button
-                  type="button"
-                  onClick={() => setIdentityOpen(true)}
-                  className="shrink-0 rounded-lg p-2 text-[#A0A0A0] transition-colors hover:bg-white/5 hover:text-[#ECECEC]"
-                  aria-label="Aurora Identity Center"
-                  title="Aurora Identity Center"
-                >
-                  <Settings2Icon size={16} />
-                </button>
-              ) : null}
+            {/* Header brand only — Identity Center lives in sidebar footer */}
+            <div className="flex min-w-0 items-center gap-2.5">
+              <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
+              <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
+                Aurora
+              </p>
             </div>
           </header>
 

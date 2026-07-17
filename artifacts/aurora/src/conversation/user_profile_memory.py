@@ -1,11 +1,10 @@
 """
-Aurora v4.6 — User Profile Memory (lightweight).
+Aurora v4.7.2 — User Profile Memory (single source of truth: ctx['about_you']).
 
-Stores a simple About You profile on conversation context / SQLite.
-No login. Supports forget commands.
+About You from Identity Center (localStorage → request.about_you → ctx).
+Supports teach / forget / query ("qual meu nome?", "para qual time eu torço?").
 
-Uses ctx["about_you"] — never overwrites betting ctx["user_profile"]
-(bankroll / risk / experience from conversation_engine).
+Never overwrites betting ctx["user_profile"].
 Fail-open. Additive.
 """
 
@@ -18,8 +17,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Separate from betting profile (ctx["user_profile"])
 PROFILE_KEY = "about_you"
+GREETING_SENT_KEY = "about_you_greeting_sent"
 
 
 def _fold(text: str) -> str:
@@ -66,6 +65,7 @@ def save_profile(ctx: dict[str, Any], patch: dict[str, Any]) -> dict[str, str]:
 
 def clear_profile(ctx: dict[str, Any]) -> None:
     ctx[PROFILE_KEY] = empty_profile()
+    ctx.pop(GREETING_SENT_KEY, None)
 
 
 def detect_forget_command(message: str) -> bool:
@@ -82,7 +82,6 @@ def detect_forget_command(message: str) -> bool:
 
 
 def detect_profile_teach(message: str) -> dict[str, str] | None:
-    """Lightweight 'meu nome é X' / 'meu time é Y' extraction."""
     folded = _fold(message)
     original = message or ""
     out: dict[str, str] = {}
@@ -93,7 +92,6 @@ def detect_profile_teach(message: str) -> dict[str, str] | None:
     )
     if m:
         out["name"] = m.group(1).strip(" .,!")[:40]
-    # Team: match on folded (accents) then recover title from original when possible
     m2 = re.search(
         r"\b(?:meu\s+time(?:\s+do\s+coracao)?\s+e|torco\s+(?:pro|para\s+o|pelo))\s+((?:o\s+|a\s+)?[a-z0-9][\w\s-]{1,40})",
         folded,
@@ -101,9 +99,8 @@ def detect_profile_teach(message: str) -> dict[str, str] | None:
     if m2:
         team = m2.group(1).strip(" .,!")
         team = re.sub(r"^(o|a)\s+", "", team).strip()
-        out["favorite_team"] = (team[:1].upper() + team[1:])[:40] if team else ""
-        if not out["favorite_team"]:
-            out.pop("favorite_team", None)
+        if team:
+            out["favorite_team"] = (team[:1].upper() + team[1:])[:40]
     m3 = re.search(
         r"\b(?:estou\s+testando|meu\s+projeto\s+[eé]|trabalho\s+(?:na|no|em))\s+([A-Za-zÀ-ÿ][\wÀ-ÿ\s-]{1,40})",
         original,
@@ -114,6 +111,85 @@ def detect_profile_teach(message: str) -> dict[str, str] | None:
     elif m3:
         out["project"] = m3.group(1).strip(" .,!")[:40]
     return out or None
+
+
+def detect_profile_query(message: str) -> str | None:
+    """
+    Return query kind: name | team | project | role | summary | None
+    """
+    folded = _fold(message)
+    if re.search(
+        r"\b(qual\s+(?:e\s+)?meu\s+nome|como\s+(?:e\s+)?meu\s+nome|"
+        r"voce\s+sabe\s+meu\s+nome|qual\s+o\s+meu\s+nome)\b",
+        folded,
+    ):
+        return "name"
+    if re.search(
+        r"\b("
+        r"para\s+qual\s+time\s+eu\s+torc\w*|"
+        r"qual\s+(?:e\s+)?meu\s+time|"
+        r"qual\s+time\s+eu\s+torc\w*|"
+        r"voce\s+sabe\s+(?:meu\s+time|para\s+quem\s+eu\s+torc\w*)|"
+        r"qual\s+(?:e\s+)?(?:o\s+)?meu\s+time\s+(?:do\s+coracao|favorito)"
+        r")\b",
+        folded,
+    ):
+        return "team"
+    if re.search(
+        r"\b(qual\s+(?:e\s+)?meu\s+projeto|em\s+que\s+projeto|"
+        r"voce\s+lembra\s+(?:do\s+meu\s+)?projeto)\b",
+        folded,
+    ):
+        return "project"
+    if re.search(
+        r"\b(qual\s+(?:e\s+)?meu\s+(?:papel|role)|o\s+que\s+voce\s+sabe\s+sobre\s+mim|"
+        r"me\s+conta\s+(?:o\s+)?que\s+voce\s+sabe\s+(?:de|sobre)\s+mim)\b",
+        folded,
+    ):
+        return "summary"
+    return None
+
+
+def build_profile_query_reply(kind: str, ctx: dict[str, Any] | None) -> str:
+    prof = get_profile(ctx)
+    if kind == "name":
+        name = (prof.get("name") or "").strip()
+        if name:
+            return f"Seu nome aqui é {name}."
+        return (
+            "Ainda não tenho seu nome guardado. "
+            "Você pode preencher em Sobre Você no Identity Center, "
+            "ou me dizer: “meu nome é …”."
+        )
+    if kind == "team":
+        team = (prof.get("favorite_team") or "").strip()
+        if team:
+            return f"Pelo que anotei, você torce para o {team}."
+        return (
+            "Ainda não sei para qual time você torce. "
+            "Pode salvar no Identity Center ou me dizer: “meu time é …”."
+        )
+    if kind == "project":
+        project = (prof.get("project") or "").strip()
+        if project:
+            return f"Lembro do projeto {project}."
+        return "Ainda não anotei um projeto seu. Pode me dizer qual é?"
+    # summary
+    bits = []
+    if prof.get("name"):
+        bits.append(f"nome: {prof['name']}")
+    if prof.get("role"):
+        bits.append(f"papel: {prof['role']}")
+    if prof.get("favorite_team"):
+        bits.append(f"time: {prof['favorite_team']}")
+    if prof.get("project"):
+        bits.append(f"projeto: {prof['project']}")
+    if bits:
+        return "Do que guardei sobre você: " + "; ".join(bits) + "."
+    return (
+        "Ainda não tenho informações suas salvas. "
+        "No Identity Center → Sobre Você dá para preencher nome, time e projeto."
+    )
 
 
 def greeting_prefix(ctx: dict[str, Any] | None) -> str | None:
@@ -134,22 +210,117 @@ def greeting_prefix(ctx: dict[str, Any] | None) -> str | None:
         return None
 
 
+def consume_greeting_prefix(
+    ctx: dict[str, Any] | None,
+    *,
+    social_intents: list[str] | None = None,
+) -> str | None:
+    """
+    Return greeting prefix at most ONCE per session.
+    Only for GREETING turns — never farewell / wellbeing-only.
+    """
+    try:
+        if not isinstance(ctx, dict):
+            return None
+        if ctx.get(GREETING_SENT_KEY):
+            return None
+        social = list(social_intents or [])
+        # Must be a greeting; skip pure farewell / thanks
+        if social:
+            if "FAREWELL" in social and "GREETING" not in social:
+                return None
+            if "THANKS" in social and "GREETING" not in social:
+                return None
+            if "GREETING" not in social and "WELLBEING" in social:
+                # "como você está" alone — no reopen greeting spam
+                return None
+            if "GREETING" not in social:
+                return None
+        prefix = greeting_prefix(ctx)
+        if prefix:
+            ctx[GREETING_SENT_KEY] = True
+        return prefix
+    except Exception:
+        return None
+
+
+def _soft_payload(reply: str, *, entities: dict[str, Any] | None = None) -> dict[str, Any]:
+    try:
+        from src.conversation.message_intelligence import build_conversational_payload
+
+        payload = build_conversational_payload(reply, {})
+    except Exception:
+        payload = {
+            "intent": "small_talk",
+            "entities": {},
+            "best_markets": [],
+            "executive_summary": reply,
+            "final_recommendation": reply,
+            "confidence": {
+                "score": 0.0,
+                "label": "insufficient",
+                "explanation": "",
+                "data_sources": [],
+            },
+            "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0,
+                "method": "quarter-Kelly",
+                "examples": {},
+                "no_bet": True,
+                "reasoning": "",
+            },
+            "positive_factors": [],
+            "negative_factors": [],
+            "historical_references": [],
+            "knowledge_notes": [],
+            "brain": {},
+        }
+    payload["intent"] = "small_talk"
+    ents = dict(payload.get("entities") or {})
+    ents.update(
+        {
+            "profile_memory": True,
+            "show_header": False,
+            "has_analysis": False,
+            "natural_conversation": True,
+            "skip_llm": True,
+        }
+    )
+    if entities:
+        ents.update(entities)
+    payload["entities"] = ents
+    payload["best_markets"] = []
+    payload["match_card"] = None
+    payload["executive_summary"] = reply
+    payload["final_recommendation"] = reply
+    return payload
+
+
 def try_profile_commands(
     message: str,
     ctx: dict[str, Any] | None,
     prefs: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Handle forget / teach profile. Returns soft payload or None."""
+    """Handle forget / teach / query. Returns soft payload or None."""
     try:
         if ctx is None:
             return None
+
         if detect_forget_command(message):
             clear_profile(ctx)
             reply = "Pronto — apaguei as informações pessoais que eu tinha guardado aqui."
-        else:
-            patch = detect_profile_teach(message)
-            if not patch:
-                return None
+            try:
+                from src.conversation.presence_humanization import apply_presence_humanization
+
+                reply = apply_presence_humanization(reply, prefs, family_hint="thanks")
+            except Exception:
+                pass
+            return _soft_payload(reply)
+
+        # Teach BEFORE query — "meu time do coração é X" must save, not ask
+        patch = detect_profile_teach(message)
+        if patch:
             save_profile(ctx, patch)
             bits = []
             if patch.get("name"):
@@ -159,30 +330,26 @@ def try_profile_commands(
             if patch.get("project"):
                 bits.append(f"lembrei do projeto {patch['project']}")
             reply = "Combinado — " + ", ".join(bits) + "."
+            try:
+                from src.conversation.presence_humanization import apply_presence_humanization
 
-        try:
-            from src.conversation.presence_humanization import apply_presence_humanization
+                reply = apply_presence_humanization(reply, prefs, family_hint="thanks")
+            except Exception:
+                pass
+            return _soft_payload(reply)
 
-            reply = apply_presence_humanization(reply, prefs, family_hint="thanks")
-        except Exception:
-            pass
-        from src.conversation.message_intelligence import build_conversational_payload
+        qkind = detect_profile_query(message)
+        if qkind:
+            reply = build_profile_query_reply(qkind, ctx)
+            try:
+                from src.conversation.presence_humanization import apply_presence_humanization
 
-        payload = build_conversational_payload(reply, {})
-        payload["intent"] = "small_talk"
-        ents = dict(payload.get("entities") or {})
-        ents.update(
-            {
-                "profile_memory": True,
-                "show_header": False,
-                "has_analysis": False,
-                "natural_conversation": True,
-            }
-        )
-        payload["entities"] = ents
-        payload["best_markets"] = []
-        payload["match_card"] = None
-        return payload
+                reply = apply_presence_humanization(reply, prefs, family_hint="thanks")
+            except Exception:
+                pass
+            return _soft_payload(reply, entities={"profile_query": qkind})
+
+        return None
     except Exception as exc:
         logger.warning("try_profile_commands fail-open: %s", exc)
         return None

@@ -21,40 +21,71 @@ _BR_TZ = timezone(timedelta(hours=-3))
 
 _TEAM_BLURBS: dict[str, str] = {
     "Botafogo": (
-        "Gosto do Botafogo quando encontra identidade ofensiva e joga com coragem. "
-        "Em fases boas, parece um time que exige do adversário o tempo todo; "
-        "quando oscila, a leitura muda bastante de uma semana para a outra. "
-        "É um clube que rende conversa — não só tabela."
+        "Olha… o Botafogo é daqueles times que eu gosto de acompanhar com atenção, "
+        "não só pela tabela. Quando encontra identidade ofensiva e joga com coragem, "
+        "parece um time que força o adversário a se adaptar o tempo todo — pressão, "
+        "transição, ritmo alto.\n\n"
+        "Ao mesmo tempo, é um clube de fases bem marcadas: numa semana transmite "
+        "confiança, na outra a leitura muda e a conversa da torcida muda junto. "
+        "Isso não é demérito; é personalidade.\n\n"
+        "Se eu fosse resumir numa frase: o Fogão rende papo bom — de jogo, de momento "
+        "e de expectativa — sem precisar virar tip cego."
     ),
     "Bahia": (
-        "O Bahia tem personalidade: às vezes aparece com intensidade e transição afiada, "
-        "outras vezes o jogo fica mais truncado. Eu gosto de olhar o momento do elenco "
-        "e se o time sustenta pressão — mais como conversa de arquibancada do que tip."
+        "O Bahia tem um charme próprio. Tem fases em que aparece com intensidade, "
+        "transição afiada e uma cara de time que quer impor o jogo; em outras, o ritmo "
+        "fica mais truncado e a partida pede paciência.\n\n"
+        "Eu gosto de olhar o momento do elenco e se o time sustenta pressão nos 90 "
+        "minutos — porque aí a conversa deixa de ser só “ganhou/perdeu” e vira leitura "
+        "de identidade.\n\n"
+        "É um clube que conversa bem: tem história, tem torcida e tem nuance. "
+        "Não trato como número frio."
     ),
     "Flamengo": (
-        "O Flamengo quase sempre carrega expectativa e elenco profundo. "
-        "Quando encaixa ritmo, fica pesado para qualquer um; quando trava, a frustração "
-        "aparece rápido. É daqueles times que a conversa nunca fica fria."
+        "O Flamengo quase sempre chega com expectativa alta e elenco profundo — "
+        "e isso muda a conversa antes mesmo do apito. Quando encaixa ritmo e volume, "
+        "fica pesado para qualquer adversário; quando trava, a frustração aparece "
+        "rápido, justamente porque a barra é outra.\n\n"
+        "Eu olharia menos o hype e mais o jogo: consegue sustentar pressão? O meio "
+        "segura o ritmo? O adversário acha espaço nas costas?\n\n"
+        "É daqueles times em que a conversa nunca fica fria — e por isso merece "
+        "leitura com calma, não só narrativa de arquibancada."
     ),
     "Palmeiras": (
-        "O Palmeiras me passa organização e consistência. "
-        "Mesmo em noites menos brilhantes, costuma ter um plano. "
-        "Eu olharia equilíbrio entre controle e criação — sem forçar conclusão rígida."
+        "O Palmeiras me passa organização e consistência. Mesmo em noites menos "
+        "brilhosas, costuma ter um plano — e isso, em futebol brasileiro, já é "
+        "uma assinatura forte.\n\n"
+        "Eu olharia o equilíbrio entre controle e criação: dominar não basta se não "
+        "vira chance clara. Quando esse equilíbrio aparece, o time parece maduro; "
+        "quando falta, a partida fica mais aberta do que a fama sugere.\n\n"
+        "É um clube que pede nuance na conversa — não rótulo pronto."
     ),
     "Santos": (
-        "O Santos é um clube de fases bem distintas. "
-        "Dependendo do momento, muda o humor da torcida e o jeito de jogar. "
-        "Eu evitaria cravar sem olhar o confronto do dia."
+        "O Santos é um clube de fases bem distintas — e isso faz parte do fascínio. "
+        "Dependendo do momento, muda o humor da torcida, o jeito de jogar e até o "
+        "peso emocional de cada jogo.\n\n"
+        "Eu evitaria cravar sem olhar o confronto do dia: o mesmo Santos pode "
+        "parecer ousado numa semana e mais contido na outra.\n\n"
+        "Em conversa, eu separaria romance da camisa da leitura do momento. "
+        "Os dois importam — só não podem se misturar sem filtro."
     ),
     "Corinthians": (
         "O Corinthians muitas vezes joga no detalhe e no clima da temporada. "
-        "Tem jogos em que a narrativa pesa tanto quanto o placar. "
-        "Gosto de separar paixão de leitura fria — e conversar os dois."
+        "Tem jogos em que a narrativa pesa tanto quanto o placar — e quem acompanha "
+        "sabe que isso não é exagero.\n\n"
+        "Eu gosto de separar paixão de leitura fria: a torcida puxa emoção, mas o "
+        "jogo ainda pede ritmo, transição e clareza no terço final.\n\n"
+        "É um time que rende conversa longa — justamente porque raramente é só "
+        "estatística."
     ),
     "Sao Paulo": (
-        "O São Paulo tende a ter trechos de posse e construção. "
-        "A pergunta que eu faço é se isso vira chance clara ou só domínio estéril. "
-        "Em conversa, é um time que pede nuance."
+        "O São Paulo tende a ter trechos de posse e construção. A pergunta que eu "
+        "faço é quase sempre a mesma: isso vira chance clara ou só domínio estéril?\n\n"
+        "Quando a criação acompanha o controle, o time fica elegante e perigoso; "
+        "quando não, a partida pede paciência — e a conversa fica mais técnica do "
+        "que apaixonada.\n\n"
+        "Em resumo: é um clube que pede nuance. Eu conversaria sobre momento e "
+        "estilo antes de qualquer conclusão rígida."
     ),
 }
 
@@ -380,12 +411,16 @@ async def _fetch_fixtures_for_date(
 def build_team_opinion_reply(team: str) -> str:
     blurb = _TEAM_BLURBS.get(team) or (
         f"Sobre o {team}, eu evitaria cravar sem um confronto específico na mesa. "
-        f"Em geral, eu olharia o momento recente, o clima do elenco e o adversário do dia."
+        f"Em geral, eu olharia o momento recente, o clima do elenco, o estilo de jogo "
+        f"e o adversário do dia — como numa conversa de quem acompanha o campeonato "
+        f"de verdade, não como um relatório automático.\n\n"
+        f"Times mudam de cara em poucas semanas; por isso eu prefiro opinião com "
+        f"contexto a veredito engessado."
     )
     return (
         f"{blurb}\n\n"
-        f"Se quiser, a gente pega um jogo do {team} e conversa com mais calma — "
-        f"pode ser opinião ou uma análise mais fundo."
+        f"Se quiser, a gente pega um jogo do {team} e aprofunda — pode ser só papo "
+        f"de futebol ou uma leitura mais detalhada do confronto."
     )
 
 

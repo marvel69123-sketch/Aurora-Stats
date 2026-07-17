@@ -45,6 +45,20 @@ _ROBOTIC = [
     ),
     (
         re.compile(
+            r"\bposso ajudar com leituras?(?:\s+de\s+partidas?)?(?:\s+e\s+mercados?)?\b[.!]?",
+            re.I,
+        ),
+        "",
+    ),
+    (
+        re.compile(
+            r"\bqual confronto voc[eê] gostaria de observar\??\b",
+            re.I,
+        ),
+        "",
+    ),
+    (
+        re.compile(
             r"\bcomo (?:sua )?assistente (?:de|esportiva)\b[.!]?",
             re.I,
         ),

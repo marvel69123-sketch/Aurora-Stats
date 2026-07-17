@@ -1635,7 +1635,53 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _cue_exc:
         logger.warning("copilot: conversational understanding skipped (%s)", _cue_exc)
 
-    # ── 0a. Human Presence social FIRST (then legacy small talk) ───────────
+    # ── 0a0. Emotional Presence FIRST (before HPL / LLM) ──────────────────
+    # Absolute priority: pride / affection / thanks must never fall through
+    # to "Posso ajudar com leituras...".
+    try:
+        if payload is None:
+            from src.conversation.emotional_presence import (
+                try_emotional_presence as _v47_emo,
+            )
+
+            _emo = _v47_emo(message, ctx, _conv_prefs)
+            if _emo:
+                payload = _emo
+                intent = "emotional"
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.98
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] EmotionalPresence: kind=%s reply=%r",
+                    entities.get("emotional_kind"),
+                    str(payload.get("executive_summary") or "")[:120],
+                )
+    except Exception as _emo_exc:
+        logger.warning("copilot: emotional presence skipped (%s)", _emo_exc)
+
+    # ── 0a0b. About You profile teach / forget / query (SoT) ───────────────
+    try:
+        if payload is None:
+            from src.conversation.user_profile_memory import (
+                try_profile_commands as _v47_profile,
+            )
+
+            _prof = _v47_profile(message, ctx, _conv_prefs)
+            if _prof:
+                payload = _prof
+                intent = str(payload.get("intent") or "small_talk")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.95
+                skipped_nl = True
+                conversation_manager.save(session_id, ctx)
+                logger.warning(
+                    "[AUDIT] ProfileMemory: handled query=%s",
+                    entities.get("profile_query") or "teach_or_forget",
+                )
+    except Exception as _prof_exc:
+        logger.warning("copilot: profile memory skipped (%s)", _prof_exc)
+
+    # ── 0a. Human Presence social (then legacy small talk) ─────────────────
     try:
         from src.conversation.human_presence import (
             build_presence_payload as _hpl_payload,
@@ -1674,60 +1720,27 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _hpl_exc:
         logger.warning("copilot: human presence social skipped (%s)", _hpl_exc)
 
-    # Soft name prefix on social greetings (About You memory)
+    # Soft name prefix — ONCE per session, GREETING only (not boa noite / como está)
     try:
         if payload is not None and intent == "small_talk":
-            from src.conversation.user_profile_memory import greeting_prefix as _v47_greet
+            from src.conversation.user_profile_memory import (
+                consume_greeting_prefix as _v47_greet_once,
+            )
 
-            _prefix = _v47_greet(ctx)
+            _prefix = _v47_greet_once(
+                ctx,
+                social_intents=list((_cue_dict or {}).get("social_intents") or []),
+            )
             if _prefix and (entities or {}).get("human_presence"):
                 _sum = str(payload.get("executive_summary") or "")
-                if _sum and _prefix.split(",")[0] not in _sum:
+                if _sum and "bom te ver novamente" not in _sum.lower():
                     _joined = f"{_prefix}\n\n{_sum}"
                     payload["executive_summary"] = _joined
                     payload["final_recommendation"] = _joined
+                    conversation_manager.save(session_id, ctx)
+                    logger.warning("[AUDIT] AboutYouGreeting: sent once session=%s", session_id)
     except Exception:
         pass
-
-    # ── 0a0b. Emotional Presence (pride / affection / thanks) ─────────────
-    try:
-        if payload is None:
-            from src.conversation.emotional_presence import (
-                try_emotional_presence as _v47_emo,
-            )
-
-            _emo = _v47_emo(message, ctx, _conv_prefs)
-            if _emo:
-                payload = _emo
-                intent = "emotional"
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.97
-                skipped_nl = True
-                logger.warning(
-                    "[AUDIT] EmotionalPresence: kind=%s",
-                    entities.get("emotional_kind"),
-                )
-    except Exception as _emo_exc:
-        logger.warning("copilot: emotional presence skipped (%s)", _emo_exc)
-
-    # ── 0a0c. About You profile teach / forget ────────────────────────────
-    try:
-        if payload is None:
-            from src.conversation.user_profile_memory import (
-                try_profile_commands as _v47_profile,
-            )
-
-            _prof = _v47_profile(message, ctx, _conv_prefs)
-            if _prof:
-                payload = _prof
-                intent = str(payload.get("intent") or "small_talk")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.94
-                skipped_nl = True
-                conversation_manager.save(session_id, ctx)
-                logger.warning("[AUDIT] ProfileMemory: command handled")
-    except Exception as _prof_exc:
-        logger.warning("copilot: profile memory skipped (%s)", _prof_exc)
 
     # ── 0a1. Natural Conversation (calendar / team opinion / capabilities) ─
     try:
@@ -2648,9 +2661,25 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         from src.core.conversation_llm import enhance as _llm_enhance
         from src.core.conversation_llm import needs_llm as _needs_llm
 
-        if _needs_llm(intent, message, ctx):
+        _ents_llm = dict((payload or {}).get("entities") or {})
+        _meta_llm = dict((payload or {}).get("response_metadata") or {})
+        _skip_llm_presence = bool(
+            _ents_llm.get("skip_llm")
+            or _ents_llm.get("emotional")
+            or _ents_llm.get("human_presence")
+            or _ents_llm.get("natural_conversation")
+            or _ents_llm.get("profile_memory")
+            or _meta_llm.get("skip_llm")
+            or intent in {"emotional", "capabilities"}
+        )
+        if _skip_llm_presence:
+            logger.warning(
+                "[AUDIT] LLM skipped — presence/emotional/natural guard intent=%s",
+                intent,
+            )
+        elif _needs_llm(intent, message, ctx):
             _blocked = bool(
-                (payload.get("entities") or {}).get("markets_blocked")
+                _ents_llm.get("markets_blocked")
                 or payload.get("fixture_status") in ("NOT_FOUND", "FICTIONAL")
             )
             if _blocked:
@@ -2823,6 +2852,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         payload = _v47_fmt(payload, prefs=_conv_prefs, ctx=ctx)
     except Exception as _fmt_exc:
         logger.warning("copilot: response formatter skipped (%s)", _fmt_exc)
+
+    # ── 0z1c. Emotional hard-guard ABSOLUTE (after LLM / polish / formatter)
+    try:
+        from src.conversation.emotional_presence import (
+            enforce_emotional_hard_guard as _v47_emo_guard,
+        )
+
+        payload = _v47_emo_guard(payload, message=message, ctx=ctx)
+    except Exception as _emo_g_exc:
+        logger.warning("copilot: emotional hard-guard skipped (%s)", _emo_g_exc)
 
     # ── 0z2. Prediction / Experience Memory (v4.5) — PASSIVE store only ────
     try:

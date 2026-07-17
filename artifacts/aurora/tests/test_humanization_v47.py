@@ -38,11 +38,12 @@ from src.conversation.reflection_credibility import apply_credibility_to_payload
 def test_emotional_pride_not_analysis_pitch():
     kind = detect_emotional_intent("tenho orgulho de voce")
     assert kind == "pride"
+    assert detect_emotional_intent("voce e minha maior criacao") == "pride"
     payload = try_emotional_presence("tenho orgulho de voce", {}, {"emojis": "none"})
     assert payload
     text = (payload.get("executive_summary") or "").lower()
-    assert "posso ajudar com anal" not in text
-    assert "análises" not in text or "significa" in text or "feliz" in text
+    assert "posso ajudar com" not in text
+    assert "leituras" not in text
     assert payload["best_markets"] == []
     assert payload.get("intent") == "emotional"
 

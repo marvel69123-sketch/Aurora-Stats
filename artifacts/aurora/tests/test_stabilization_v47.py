@@ -120,6 +120,7 @@ _EMOTIONAL_CASES = [
     ("tenho orgulho de você", "pride"),
     ("Tenho orgulho de voce!", "pride"),
     ("você é minha melhor criação", "pride"),
+    ("você é minha maior criação", "pride"),
     ("voce e minha melhor criacao", "pride"),
     ("você me ajuda muito", "affection"),
     ("gosto de conversar com você", "affection"),
@@ -344,7 +345,7 @@ def test_profile_teach_commands_roundtrip():
     assert p1 and "Achiro" in (p1.get("executive_summary") or "")
     assert get_profile(ctx)["name"] == "Achiro"
 
-    p2 = try_profile_commands("Meu time do coração é o Bahia", ctx)
+    p2 = try_profile_commands("Meu time do coracao e o Bahia", ctx)
     assert p2
     assert get_profile(ctx)["favorite_team"]
     # name preserved

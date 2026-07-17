@@ -29,6 +29,8 @@ interface SidebarProps {
   onTogglePin: (id: string) => void;
   onAvatarUpload: (file: File) => Promise<void>;
   onAvatarClear: () => void;
+  /** Opens Aurora Identity Center (Avatar / Personalidade / Preferências / Sobre Você). */
+  onOpenIdentity?: () => void;
   isOpen: boolean;
   onClose: () => void;
   collapsed?: boolean;
@@ -48,12 +50,21 @@ export function Sidebar({
   onTogglePin,
   onAvatarUpload,
   onAvatarClear,
+  onOpenIdentity,
   isOpen,
   onClose,
   collapsed = false,
   onToggleCollapse,
 }: SidebarProps) {
   const [avatarOpen, setAvatarOpen] = useState(false);
+
+  const openIdentityOrAvatar = () => {
+    if (onOpenIdentity) {
+      onOpenIdentity();
+      return;
+    }
+    setAvatarOpen(true);
+  };
 
   const groups = useMemo(() => {
     const map = new Map<DateGroup, Session[]>();
@@ -172,13 +183,22 @@ export function Sidebar({
         >
           <button
             type="button"
-            onClick={() => setAvatarOpen(true)}
+            onClick={openIdentityOrAvatar}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
               "text-[#ECECEC]/80 hover:bg-white/[0.06] hover:text-[#ECECEC] transition-colors",
               collapsed && "md:w-10 md:justify-center md:px-0",
             )}
-            title="Avatar da Aurora"
+            title={
+              onOpenIdentity
+                ? "Aurora Identity Center"
+                : "Avatar da Aurora"
+            }
+            aria-label={
+              onOpenIdentity
+                ? "Abrir Aurora Identity Center"
+                : "Personalizar avatar"
+            }
           >
             <AuroraAvatar url={avatarUrl} size="sm" />
             {!collapsed && (
@@ -188,7 +208,9 @@ export function Sidebar({
                 </p>
                 <p className="flex items-center gap-1 text-[11px] text-[#A0A0A0]">
                   <Settings2Icon size={11} />
-                  Personalizar avatar
+                  {onOpenIdentity
+                    ? "Avatar · Personalidade · Sobre você"
+                    : "Personalizar avatar"}
                 </p>
               </div>
             )}
@@ -201,13 +223,16 @@ export function Sidebar({
         </footer>
       </aside>
 
-      <AvatarSettingsDialog
-        open={avatarOpen}
-        avatarUrl={avatarUrl}
-        onClose={() => setAvatarOpen(false)}
-        onUpload={onAvatarUpload}
-        onClear={onAvatarClear}
-      />
+      {/* Fallback when Identity Center flag is off */}
+      {!onOpenIdentity ? (
+        <AvatarSettingsDialog
+          open={avatarOpen}
+          avatarUrl={avatarUrl}
+          onClose={() => setAvatarOpen(false)}
+          onUpload={onAvatarUpload}
+          onClear={onAvatarClear}
+        />
+      ) : null}
     </>
   );
 }

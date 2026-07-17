@@ -70,8 +70,9 @@ MAX_TOKENS      = 800                 # keep responses concise for the chat UI
 CACHE_TTL_SECS  = 300                 # 5-minute in-process cache
 
 # Intents that should ALWAYS be enhanced by the LLM
+# NOTE: "emotional" removed — Emotional Presence owns those turns (v4.7.2).
+# LLM fallback "Posso ajudar com leituras..." must never overwrite pride/thanks.
 _LLM_INTENTS: frozenset[str] = frozenset({
-    "emotional",
     "fear",
     "had_losses",
     "beginner",
@@ -142,17 +143,19 @@ def needs_llm(intent: str, message: str, ctx: dict) -> bool:
 
     Rules (in priority order):
       1. Pure-calculation intents → always False.
-      2. Conversational / emotional intents → always True.
-      3. Greeting / identity / capabilities / help → False (templated responses are fine).
-      4. Fallback: True when message has >10 words and context has a last_match
+      2. Presence / emotional / natural conversation → False (dedicated layers).
+      3. Selected conversational intents → True.
+      4. Greeting / identity / capabilities / help → False (templated responses are fine).
+      5. Fallback: True when message has >10 words and context has a last_match
          (likely a nuanced follow-up the rule engine missed).
     """
     if intent in _NO_LLM_INTENTS:
         return False
+    # v4.7.2 — never let LLM clobber emotional / presence short-circuits
+    if intent in ("emotional", "small_talk", "capabilities", "greeting", "identity", "help"):
+        return False
     if intent in _LLM_INTENTS:
         return True
-    if intent in ("greeting", "identity", "capabilities", "help"):
-        return False
     # Nuanced message with prior context
     word_count = len(message.split())
     if word_count > 10 and ctx.get("last_match"):

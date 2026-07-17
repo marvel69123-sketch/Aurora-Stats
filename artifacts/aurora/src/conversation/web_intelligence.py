@@ -189,6 +189,12 @@ async def maybe_enrich_with_web(
         meta["need_web"] = decision.to_dict()
 
         if decision.need == "none":
+            logger.warning(
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=skipped",
+                decision.need,
+                decision.reason,
+                None,
+            )
             payload["response_metadata"] = meta
             return payload
 
@@ -198,13 +204,27 @@ async def maybe_enrich_with_web(
             query = f"{topic} futebol momento atual"
         elif decision.reason == "historical_narrative":
             query = f"{message} futebol"
+        meta["need_web"]["query"] = query
+
+        logger.warning(
+            "[AUDIT] NeedWeb: decision=%s reason=%s query=%r (fetching…)",
+            decision.need,
+            decision.reason,
+            query,
+        )
 
         try:
             snippet = await asyncio.wait_for(
                 _duckduckgo_snippet(query),
                 timeout=WEB_TIMEOUT_S + 0.2,
             )
-        except Exception:
+        except Exception as fetch_exc:
+            logger.warning(
+                "[AUDIT] NeedWeb: decision=%s query=%r result_count=0 status=error err=%s",
+                decision.need,
+                query,
+                fetch_exc,
+            )
             snippet = None
 
         if not snippet:
@@ -212,6 +232,13 @@ async def maybe_enrich_with_web(
             payload["executive_summary"] = original_summary
             payload["final_recommendation"] = original_final
             meta["need_web"]["status"] = "fallback_no_web"
+            meta["need_web"]["result_count"] = 0
+            logger.warning(
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=fallback_no_web",
+                decision.need,
+                decision.reason,
+                query,
+            )
             payload["response_metadata"] = meta
             return payload
 
@@ -227,10 +254,25 @@ async def maybe_enrich_with_web(
                 payload["final_recommendation"] = combined
             meta["need_web"]["status"] = "enriched"
             meta["need_web"]["note_len"] = len(note)
+            meta["need_web"]["result_count"] = 1
+            logger.warning(
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=1 status=enriched note_len=%s",
+                decision.need,
+                decision.reason,
+                query,
+                len(note),
+            )
         else:
             payload["executive_summary"] = original_summary
             payload["final_recommendation"] = original_final
             meta["need_web"]["status"] = "empty"
+            meta["need_web"]["result_count"] = 0
+            logger.warning(
+                "[AUDIT] NeedWeb: decision=%s reason=%s query=%r result_count=0 status=empty",
+                decision.need,
+                decision.reason,
+                query,
+            )
 
         payload["response_metadata"] = meta
         return payload
