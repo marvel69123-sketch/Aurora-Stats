@@ -12,7 +12,7 @@ const BADGE_META: Record<
       "border-emerald-400/35 bg-emerald-400/[0.10] text-emerald-200/95",
   },
   caution: {
-    label: "🟡 Confiança moderada",
+    label: "Leitura cautelosa",
     className: "border-amber-400/35 bg-amber-400/[0.10] text-amber-200/95",
   },
   high_risk: {

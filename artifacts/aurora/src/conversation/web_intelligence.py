@@ -20,8 +20,118 @@ from typing import Any, Literal
 logger = logging.getLogger(__name__)
 
 WebNeed = Literal["none", "optional", "required"]
+WebMode = Literal["none", "light", "deep", "research"]
 
 WEB_TIMEOUT_S = 2.8
+
+
+def decide_web_mode(
+    message: str,
+    ctx: dict[str, Any] | None = None,
+) -> WebMode:
+    """NONE | LIGHT | DEEP | RESEARCH from DeepThinking + message."""
+    thinking = (ctx or {}).get("deep_thinking") if isinstance(ctx, dict) else {}
+    thinking = thinking if isinstance(thinking, dict) else {}
+    if thinking.get("web_mode") in {"none", "light", "deep", "research"}:
+        return thinking["web_mode"]  # type: ignore[return-value]
+    folded = _fold(message)
+    kind = thinking.get("topic_kind")
+    if thinking.get("web_need") == "none" or kind in {
+        "calendar",
+        "fixture",
+        "kickoff",
+        "emotional",
+    }:
+        return "none"
+    if re.search(
+        r"\b(analise\s+detalhada|analise\s+completa|pesquisa\s+profunda|"
+        r"faca\s+uma\s+analise|relatorio\s+detalhado)\b",
+        folded,
+    ):
+        return "research"
+    if kind == "moment" or re.search(
+        r"\b(como\s+esta|atualmente|momento\s+atual)\b", folded
+    ):
+        return "deep"
+    if kind in {"opinion", "historical", "outlook"} or thinking.get("needs_web"):
+        return "light" if kind == "opinion" else "deep"
+    if thinking.get("web_need") in {"optional", "required"}:
+        return "deep" if thinking.get("web_need") == "required" else "light"
+    return "none"
+
+
+def synthesize_web_context(
+    *,
+    snippets: list[str],
+    team: str | None,
+    mode: WebMode,
+    message: str,
+) -> dict[str, Any]:
+    """WEB builds knowledge for the brain — does not write the answer."""
+    facts: list[str] = []
+    narratives: list[str] = []
+    recent: list[str] = []
+    conf = 0.0
+    for snip in snippets:
+        clean = re.sub(r"\s+", " ", (snip or "")).strip()
+        if not clean:
+            continue
+        short = clean[:220]
+        facts.append(short)
+        if re.search(
+            r"\b(hoje|ontem|semana|mes|202[4-9]|contrato|lesao|tecnico|classific)\b",
+            _fold(short),
+        ):
+            recent.append(short[:160])
+        narratives.append(short[:180])
+    if facts:
+        conf = (
+            min(0.55 + 0.15 * len(facts), 0.9)
+            if mode == "research"
+            else min(0.45 + 0.12 * len(facts), 0.75)
+        )
+    return {
+        "facts": facts[:5],
+        "narratives": narratives[:3],
+        "recent_events": recent[:3],
+        "confidence": round(conf, 2),
+        "team": team,
+        "mode": mode,
+        "query_hint": (message or "")[:80],
+    }
+
+
+def build_reasoning_from_web(
+    web_context: dict[str, Any],
+    *,
+    team: str | None = None,
+    moment: bool = False,
+) -> str:
+    """Draft born FROM web_context (or local fail-open)."""
+    team_name = team or web_context.get("team") or "esse time"
+    facts = web_context.get("facts") or []
+    recent = web_context.get("recent_events") or []
+    conf = float(web_context.get("confidence") or 0)
+    if facts and conf >= 0.4:
+        fact_line = recent[0] if recent else facts[0]
+        return (
+            f"Olhando o {team_name} agora, o que pesa no meu raciocínio "
+            f"não é só a camisa — é o recorte público recente.\n\n"
+            f"O que aparece no contexto: {fact_line.rstrip('.')}. "
+            f"Isso me faz enxergar o momento com mais nuance — "
+            f"{'identidade e regularidade' if moment else 'leitura sem veredito engessado'} "
+            f"em vez de opinião automática.\n\n"
+            f"Se quiser, a gente aprofunda o próximo confronto do {team_name}."
+        )
+    try:
+        from src.conversation.brain_authority import opinion_local_reasoning
+
+        return opinion_local_reasoning(str(team_name), moment=moment)
+    except Exception:
+        return (
+            f"Sobre o {team_name}: sem um recorte fresco confirmado, "
+            f"eu olharia momento, elenco e adversário antes de cravar."
+        )
 
 
 def _fold(text: str) -> str:
@@ -141,72 +251,147 @@ async def gather_web_for_thinking(
     ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    EARLY web fetch — BEFORE draft. Stores ctx['web_thinking'].
-    Controlled by DeepThinking.needs_web / web_need.
+    EARLY web fetch + synthesis — BEFORE draft.
+    NeedWeb → Gather → Synthesis → reasoning uses web_context.
     """
     audit: dict[str, Any] = {
         "need": "none",
+        "mode": "none",
         "reason": "not_run",
         "query": None,
         "result_count": 0,
         "summary": None,
+        "web_context": None,
         "used_in_reasoning": False,
         "changed_reasoning": False,
         "status": "skipped",
     }
     try:
         thinking = (ctx or {}).get("deep_thinking") or {}
+        mode = decide_web_mode(message, ctx)
+        audit["mode"] = mode
         decision = decide_need_web(message, ctx=ctx)
-        audit.update(decision.to_dict())
-        if decision.need == "none":
+        audit["reason"] = decision.reason
+        audit["topic"] = decision.topic
+        audit["need"] = decision.need if mode != "none" else "none"
+
+        if mode == "none" or decision.need == "none":
             audit["status"] = "skipped"
+            audit["need"] = "none"
             logger.warning(
-                "[AUDIT] WebInfluence: summary_used=False changed_reasoning=False "
-                "need=none (pre-draft skip)"
+                "[AUDIT] WebInfluence: mode=none summary_used=False changed_reasoning=False"
             )
             if ctx is not None:
                 ctx["web_thinking"] = audit
+                ctx["web_context"] = None
                 ctx["last_need_web"] = audit
             return audit
 
-        topic = decision.topic or thinking.get("topic_team") or message[:80]
-        if decision.reason.startswith("deep_thinking") and thinking.get("topic_kind") == "historical":
-            query = f"Copa do Mundo futebol {message}"
-        elif decision.need == "optional" and topic:
-            query = f"{topic} futebol momento atual noticias"
+        topic = (
+            decision.topic
+            or thinking.get("topic_team")
+            or thinking.get("topic_fixture")
+            or message[:80]
+        )
+        if mode == "research":
+            queries = [
+                f"{topic} futebol 2026 desempenho analise",
+                f"{topic} temporada atual noticias",
+                f"{topic} elenco tecnico momento",
+            ]
+        elif mode == "deep":
+            queries = [
+                f"{topic} futebol momento atual noticias",
+                f"{topic} resultados recentes",
+            ]
         else:
-            query = f"{message} futebol"
-        audit["query"] = query
+            queries = [f"{topic} futebol momento atual"]
 
-        try:
-            snippet = await asyncio.wait_for(
-                _duckduckgo_snippet(query),
-                timeout=WEB_TIMEOUT_S + 0.2,
-            )
-        except Exception:
-            snippet = None
+        snippets: list[str] = []
+        sources_used: list[str] = []
+        used_query = queries[0]
+        for q in queries:
+            used_query = q
+            try:
+                snippet = await asyncio.wait_for(
+                    _duckduckgo_snippet(q),
+                    timeout=WEB_TIMEOUT_S + 0.2,
+                )
+            except Exception:
+                snippet = None
+            if snippet:
+                snippets.append(snippet)
+                if "duckduckgo" not in sources_used:
+                    sources_used.append("duckduckgo")
+            if mode == "light" and snippets:
+                break
+            if mode == "deep" and len(snippets) >= 1:
+                break
+            if mode == "research" and len(snippets) >= 2:
+                break
 
-        if snippet:
-            short = re.sub(r"\s+", " ", snippet)[:200]
+        # Secondary knowledge for DEEP/RESEARCH when DDG is empty — real extract.
+        if mode in {"deep", "research"} and len(snippets) < (2 if mode == "research" else 1):
+            wiki_topic = str(
+                thinking.get("topic_team")
+                or decision.topic
+                or topic
+                or message
+            )[:80]
+            try:
+                wiki = await asyncio.wait_for(
+                    _wikipedia_summary(wiki_topic),
+                    timeout=WEB_TIMEOUT_S + 0.2,
+                )
+            except Exception:
+                wiki = None
+            if wiki:
+                snippets.append(wiki)
+                sources_used.append("wikipedia")
+                if not used_query:
+                    used_query = f"wikipedia:{wiki_topic}"
+
+        audit["query"] = used_query
+        audit["sources_used"] = sources_used
+        team = thinking.get("topic_team") or (str(topic).split()[0] if topic else None)
+        web_ctx = synthesize_web_context(
+            snippets=snippets,
+            team=str(team) if team else None,
+            mode=mode,
+            message=message,
+        )
+        audit["web_context"] = web_ctx
+        audit["result_count"] = len(snippets)
+
+        if snippets:
+            short = re.sub(r"\s+", " ", snippets[0])[:200]
             audit["summary"] = short
-            audit["result_count"] = 1
             audit["status"] = "ready_for_reasoning"
+            audit["changed_reasoning"] = True
             logger.warning(
-                "[AUDIT] WebInfluence: pre-draft ready query=%r summary=%r",
-                query,
-                short[:80],
+                "[AUDIT] WebSynthesis: mode=%s facts=%d conf=%.2f sources=%s query=%r",
+                mode,
+                len(web_ctx.get("facts") or []),
+                float(web_ctx.get("confidence") or 0),
+                sources_used,
+                used_query,
             )
         else:
             audit["status"] = "fallback_no_web"
-            audit["result_count"] = 0
+            audit["sources_used"] = []
+            web_ctx["confidence"] = 0.0
+            audit["changed_reasoning"] = True
+            audit["local_reasoning"] = True
             logger.warning(
-                "[AUDIT] WebInfluence: summary_used=False changed_reasoning=False "
-                "status=fallback_no_web query=%r",
-                query,
+                "[AUDIT] WebSynthesis: mode=%s status=fallback_no_web "
+                "local_reasoning query=%r",
+                mode,
+                used_query,
             )
 
         if ctx is not None:
             ctx["web_thinking"] = audit
+            ctx["web_context"] = web_ctx
             ctx["last_need_web"] = audit
         return audit
     except Exception as exc:
@@ -222,26 +407,48 @@ def weave_web_into_draft(
     *,
     team: str | None = None,
 ) -> tuple[str, bool]:
-    """
-    WEB alters reasoning — weave into draft BEFORE finalization.
-    Returns (new_draft, changed).
-    """
+    """Prefer web_context synthesis over raw snippet append."""
     try:
+        thinking = (ctx or {}).get("deep_thinking") or {}
+        team_name = team or thinking.get("topic_team") or "esse time"
+        moment = thinking.get("topic_kind") == "moment"
+        web_ctx = (ctx or {}).get("web_context")
         web = (ctx or {}).get("web_thinking") or {}
+
+        if isinstance(web_ctx, dict) and (
+            web_ctx.get("facts")
+            or web.get("status") == "fallback_no_web"
+            or web.get("local_reasoning")
+        ):
+            reasoned = build_reasoning_from_web(
+                web_ctx, team=str(team_name), moment=moment
+            )
+            if reasoned:
+                web = dict(web)
+                web["used_in_reasoning"] = True
+                web["changed_reasoning"] = True
+                web["summary_used"] = bool(web_ctx.get("facts"))
+                web["status"] = "woven"
+                if ctx is not None:
+                    ctx["web_thinking"] = web
+                    ctx["last_need_web"] = web
+                logger.warning(
+                    "[AUDIT] WebInfluence: summary_used=%s changed_reasoning=True "
+                    "via=web_synthesis",
+                    bool(web_ctx.get("facts")),
+                )
+                return reasoned, True
+
         summary = (web.get("summary") or "").strip()
         if not summary or web.get("status") not in {"ready_for_reasoning", "enriched"}:
             return draft, False
 
-        thinking = (ctx or {}).get("deep_thinking") or {}
-        team_name = team or thinking.get("topic_team") or "esse time"
-        # Reasoning bridge — not a raw append dump
         bridge = (
             f"Minha percepção sobre o {team_name}, olhando o momento e o que aparece "
             f"no contexto público recente ({summary.rstrip('.')}), é que isso muda "
             f"o peso da conversa: eu não trato só a camisa — trato o agora."
         )
         body = (draft or "").strip()
-        # Insert bridge after first paragraph when possible
         parts = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
         if len(parts) >= 2:
             woven = parts[0] + "\n\n" + bridge + "\n\n" + "\n\n".join(parts[1:])
@@ -249,7 +456,7 @@ def weave_web_into_draft(
             woven = body + "\n\n" + bridge
         else:
             woven = bridge
-
+        web = dict(web)
         web["used_in_reasoning"] = True
         web["changed_reasoning"] = True
         web["summary_used"] = True
@@ -257,15 +464,55 @@ def weave_web_into_draft(
         if ctx is not None:
             ctx["web_thinking"] = web
             ctx["last_need_web"] = web
-        logger.warning(
-            "[AUDIT] WebInfluence: summary_used=True changed_reasoning=True "
-            "summary=%r",
-            summary[:80],
-        )
         return woven, True
     except Exception as exc:
         logger.warning("weave_web_into_draft fail-open: %s", exc)
         return draft, False
+
+
+async def _wikipedia_summary(topic: str) -> str | None:
+    """Secondary knowledge source for RESEARCH/DEEP — fail-open."""
+    try:
+        import httpx
+
+        raw = (topic or "").strip()
+        if not raw:
+            return None
+        folded = _fold(raw)
+        # Known Brazilian clubs → canonical PT titles (knowledge, not fluff)
+        club_map = {
+            "flamengo": "Clube_de_Regatas_do_Flamengo",
+            "botafogo": "Botafogo_de_Futebol_e_Regatas",
+            "santos": "Santos_Futebol_Clube",
+            "bahia": "Esporte_Clube_Bahia",
+            "gremio": "Grêmio_Foot-Ball_Porto_Alegrense",
+            "mirassol": "Mirassol_Futebol_Clube",
+            "juventus": "Juventus_Football_Club",
+        }
+        candidates: list[tuple[str, str]] = []
+        for key, title in club_map.items():
+            if key in folded:
+                candidates.append(("pt", title))
+                candidates.append(("en", title))
+                break
+        slug = raw.replace(" ", "_")[:80]
+        if not candidates:
+            candidates = [("pt", slug), ("en", slug)]
+        headers = {"Accept": "application/json", "User-Agent": "AuroraStats/1.0"}
+        async with httpx.AsyncClient(timeout=WEB_TIMEOUT_S) as client:
+            for lang, cand in candidates[:4]:
+                url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{cand}"
+                resp = await client.get(url, headers=headers)
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                extract = (data.get("extract") or "").strip()
+                if extract and len(extract) > 40:
+                    return extract[:450]
+        return None
+    except Exception as exc:
+        logger.warning("wikipedia summary fail-open: %s", exc)
+        return None
 
 
 async def _duckduckgo_snippet(query: str) -> str | None:

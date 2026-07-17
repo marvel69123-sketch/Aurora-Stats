@@ -222,6 +222,63 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
             "brasileirao": "brasileir" in folded,
         }
 
+    # Kickoff lookup — BEFORE opinion
+    if re.search(
+        r"\b(joga\s+que\s+horas|que\s+horas\s+(?:joga|e)|horario\s+(?:do\s+)?jogo|"
+        r"que\s+horas\s+e\s+o\s+jogo)\b",
+        folded,
+    ):
+        team = _extract_one_team(folded)
+        if not team:
+            for key in ("juventus", "santos", "bahia", "flamengo", "botafogo", "gremio", "mirassol"):
+                if key in folded:
+                    team = key[:1].upper() + key[1:]
+                    break
+        return {"kind": "kickoff_lookup", "team": team, "date_offset": 0}
+
+    # Deep research ask
+    if re.search(
+        r"\b(analise\s+detalhada|faca\s+uma\s+analise|analise\s+completa|"
+        r"pesquisa\s+profunda)\b",
+        folded,
+    ):
+        team = _extract_one_team(folded)
+        if team:
+            return {"kind": "team_opinion", "team": team, "moment": True, "research": True}
+
+    # Single/pair team calendar — "jogo do X hoje", "tem jogo do X", "X x Y hoje"
+    if re.search(
+        r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+d[oe]|proximo\s+jogo|"
+        r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo)\b",
+        folded,
+    ) or re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
+        # Prefer pair
+        m_pair = re.search(
+            r"([A-Za-zÀ-ÿ][\wÀ-ÿ.-]{2,20})\s+[xX]\s+([A-Za-zÀ-ÿ][\wÀ-ÿ.-]{2,20})",
+            message or "",
+        )
+        teams: list[str] = []
+        if m_pair:
+            for raw in (m_pair.group(1), m_pair.group(2)):
+                t = _extract_one_team(_fold(raw)) or (raw[:1].upper() + raw[1:])
+                if t and t not in teams:
+                    teams.append(t)
+        if not teams:
+            one = _extract_one_team(folded)
+            if one:
+                teams = [one]
+        if teams:
+            offset = 0
+            if re.search(r"\bamanha\b", folded):
+                offset = 1
+            return {
+                "kind": "team_calendar",
+                "teams": teams[:2],
+                "team": teams[0],
+                "date_offset": offset,
+                "fixture_pair": len(teams) >= 2,
+            }
+
     # Historical Copa opinion
     if re.search(
         r"\b(o\s+que\s+achou\s+da\s+copa|copa\s+(?:do\s+mundo\s+)?(?:de\s+)?20\d{2}|"
@@ -285,6 +342,17 @@ def _extract_one_team(folded: str) -> str | None:
         for key in sorted(_TEAM_NAMES.keys(), key=len, reverse=True):
             if re.search(rf"\b{re.escape(key)}\b", folded):
                 return _TEAM_NAMES[key]
+    except Exception:
+        pass
+    try:
+        from src.conversation.context_recovery import fuzzy_resolve_team
+
+        for tok in re.findall(r"[a-z0-9]+", folded):
+            if len(tok) < 3:
+                continue
+            canon = fuzzy_resolve_team(tok)
+            if canon:
+                return canon
     except Exception:
         pass
     return None
@@ -475,9 +543,59 @@ async def try_natural_conversation(
 ) -> dict[str, Any] | None:
     """
     Short-circuit payload or None. Fail-open → None.
+    Brain Authority: respects ctx['deep_thinking'] topic_kind.
     """
     try:
         detected = detect_natural_intent(message)
+        # If detector missed but DeepThinking says calendar, synthesize
+        if not detected and ctx:
+            try:
+                from src.conversation.brain_authority import (
+                    get_thinking,
+                    is_calendar_authority,
+                )
+
+                th = get_thinking(ctx)
+                if is_calendar_authority(ctx):
+                    teams = list(th.get("topic_teams") or [])
+                    if th.get("topic_team") and th["topic_team"] not in teams:
+                        teams = [th["topic_team"]] + teams
+                    kind = th.get("topic_kind")
+                    if kind == "kickoff":
+                        detected = {
+                            "kind": "kickoff_lookup",
+                            "team": th.get("topic_team"),
+                            "date_offset": 0,
+                        }
+                    elif teams:
+                        detected = {
+                            "kind": "team_calendar",
+                            "teams": teams[:2],
+                            "team": teams[0],
+                            "date_offset": 0,
+                            "fixture_pair": len(teams) >= 2,
+                        }
+            except Exception:
+                pass
+        # Pronoun / bare moment follow-up: "como ele esta?" uses DT topic_team
+        if not detected and ctx:
+            try:
+                from src.conversation.brain_authority import get_thinking
+
+                th = get_thinking(ctx)
+                folded_m = _fold(message)
+                if th.get("topic_kind") in {"opinion", "moment"} and th.get("topic_team"):
+                    if re.search(
+                        r"\b(como\s+(?:ele|ela|esta|vai)|atualmente|e\s+agora)\b",
+                        folded_m,
+                    ):
+                        detected = {
+                            "kind": "team_opinion",
+                            "team": th["topic_team"],
+                            "moment": True,
+                        }
+            except Exception:
+                pass
         if not detected:
             return None
 
@@ -487,6 +605,19 @@ async def try_natural_conversation(
         family = "casual"
         entities: dict[str, Any] = {"natural_kind": kind}
 
+        # DeepThinking SoT — block opinion when calendar/fixture
+        if kind == "team_opinion":
+            try:
+                from src.conversation.brain_authority import natural_may_emit_opinion
+
+                if not natural_may_emit_opinion(ctx):
+                    logger.warning(
+                        "[AUDIT] Natural: opinion BLOCKED by DeepThinking SoT"
+                    )
+                    return None
+            except Exception:
+                pass
+
         if kind == "capabilities":
             reply = build_capabilities_reply()
             intent = "capabilities"
@@ -495,21 +626,82 @@ async def try_natural_conversation(
             reply = build_hobbies_reply()
             intent = "small_talk"
             family = "casual"
+        elif kind in {"team_calendar", "kickoff_lookup"}:
+            teams = list(detected.get("teams") or [])
+            team = detected.get("team") or (teams[0] if teams else None)
+            if team and team not in teams:
+                teams = [team] + teams
+            offset = int(detected.get("date_offset") or 0)
+            date_iso = _target_date(offset)
+            label = "hoje" if offset == 0 else "amanhã"
+            items = await _fetch_fixtures_for_date(
+                date_iso, league_id=BRASILEIRAO_LEAGUE_ID
+            )
+            if not items:
+                items = await _fetch_fixtures_for_date(date_iso, league_id=None)
+            matched = _filter_fixtures_by_teams(items, teams)
+            if matched:
+                title = (
+                    f"⚽ {teams[0]} x {teams[1]} — {label}"
+                    if len(teams) >= 2
+                    else f"⚽ Jogos do {teams[0]} — {label}"
+                )
+                if kind == "kickoff_lookup":
+                    title = f"⏰ Horário — {team or 'jogo'} ({label})"
+                reply = _format_agenda_blocks(matched, title=title)
+                reply += "\n\nQuer olhar algum desses comigo?"
+            else:
+                from src.conversation.brain_authority import calendar_empty_reply
+
+                reply = calendar_empty_reply(
+                    team=str(team) if team else None,
+                    teams=teams[:2],
+                    kind="kickoff" if kind == "kickoff_lookup" else "calendar",
+                )
+            intent = "conversation_assist"
+            family = "calendar"
+            entities["calendar_date"] = date_iso
+            entities["fixture_count"] = len(matched)
+            entities["agenda_formatted"] = True
+            entities["team_calendar"] = True
+            if teams:
+                entities["teams"] = teams[:2]
         elif kind == "team_opinion":
             team = str(detected.get("team") or "esse time")
-            reply = build_team_opinion_reply(team)
-            # WEB alters reasoning (pre-draft weave)
+            moment = bool(detected.get("moment"))
+            # Prefer contextual local reasoning over static blurb when no WEB weave
             try:
+                from src.conversation.brain_authority import opinion_local_reasoning
                 from src.conversation.web_intelligence import weave_web_into_draft
 
-                reply, _ = weave_web_into_draft(reply, ctx, team=team)
+                web = (ctx or {}).get("web_thinking") or {}
+                if web.get("summary") and web.get("status") in {
+                    "ready_for_reasoning",
+                    "enriched",
+                }:
+                    reply = build_team_opinion_reply(team)
+                    reply, _ = weave_web_into_draft(reply, ctx, team=team)
+                else:
+                    reply = opinion_local_reasoning(team, moment=moment)
+                    # Mark fail-open local reasoning
+                    if ctx is not None and isinstance(web, dict):
+                        web = dict(web)
+                        web["local_reasoning"] = True
+                        web["changed_reasoning"] = True
+                        web["summary_used"] = False
+                        ctx["web_thinking"] = web
+                        logger.warning(
+                            "[AUDIT] WebInfluence: summary_used=False "
+                            "changed_reasoning=True local_reasoning=True team=%r",
+                            team,
+                        )
             except Exception:
-                pass
+                reply = build_team_opinion_reply(team)
             intent = "conversation_assist"
             family = "team_opinion"
             entities["team"] = team
             entities["opinion_time"] = True
-            if detected.get("moment"):
+            if moment:
                 entities["moment_now"] = True
         elif kind == "historical_copa":
             try:
@@ -600,3 +792,28 @@ async def try_natural_conversation(
     except Exception as exc:
         logger.warning("try_natural_conversation fail-open: %s", exc)
         return None
+
+
+def _filter_fixtures_by_teams(
+    items: list[dict[str, Any]], teams: list[str]
+) -> list[dict[str, Any]]:
+    if not items or not teams:
+        return []
+    folds = [_fold(t) for t in teams if t]
+    out: list[dict[str, Any]] = []
+    for it in items:
+        try:
+            teams_obj = (it.get("teams") or {}) if isinstance(it, dict) else {}
+            home = _fold(str((teams_obj.get("home") or {}).get("name") or ""))
+            away = _fold(str((teams_obj.get("away") or {}).get("name") or ""))
+            blob = f"{home} {away}"
+            if len(folds) >= 2:
+                if all(f in blob for f in folds):
+                    out.append(it)
+            else:
+                f0 = folds[0]
+                if f0 in home or f0 in away:
+                    out.append(it)
+        except Exception:
+            continue
+    return out

@@ -72,8 +72,9 @@ const CONF_PT: Record<string, string> = {
   strong: "alta",
   forte: "alta",
   alta: "alta",
-  moderate: "moderada",
-  moderada: "moderada",
+  moderate: "cautelosa",
+  moderada: "cautelosa",
+  cautelosa: "cautelosa",
   adequate: "adequada",
   adequada: "adequada",
   weak: "fraca",
@@ -215,14 +216,14 @@ function compactSummary(
   }
   if (out.length === 0 && fallbackMatch) {
     if (opts?.isLive || opts?.hasLiveData) {
-      out.push("Análise baseada nos dados disponíveis no momento.");
+      out.push("Pelo que vejo agora com os dados do momento.");
       usedIdeas.add("summary_live_data");
     } else {
-      out.push("Análise baseada nos dados disponíveis no momento.");
+      out.push("Pelo que vejo agora, ainda falta contexto para cravar.");
       usedIdeas.add("summary_fallback");
     }
   } else if (out.length === 1 && /reconhecido/i.test(out[0])) {
-    out[0] = "Análise baseada nos dados disponíveis no momento.";
+    out[0] = "Pelo que vejo agora, ainda falta contexto para cravar.";
     usedIdeas.add("summary_limited");
   }
   return out.slice(0, 2).join(" ");

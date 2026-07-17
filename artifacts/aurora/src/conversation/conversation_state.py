@@ -255,7 +255,20 @@ def hydrate_from_legacy(ctx: dict[str, Any]) -> dict[str, Any]:
     """
     Ensure conversation_state mirrors last_* when state is empty but legacy
     fixture memory exists. Never invents teams.
+
+    Brain Authority: blocked after Topic Boundary (block_hydrate_legacy).
     """
+    try:
+        from src.conversation.brain_authority import hydrate_allowed
+
+        if not hydrate_allowed(ctx):
+            logger.warning(
+                "[AUDIT] ConversationState: hydrate_from_legacy BLOCKED (topic boundary)"
+            )
+            return get_state(ctx)
+    except Exception:
+        pass
+
     state = get_state(ctx)
     if state.get("active_fixture") or state.get("active_market"):
         return state

@@ -93,6 +93,7 @@ def run_deep_thinking_engine(
                     "topic_kind": "historical",
                     "web_need": "required",
                     "needs_web": True,
+                    "web_mode": "deep",
                     "depth": "deep",
                     "response_mode": "detailed",
                     "needs_inference": True,
@@ -108,6 +109,13 @@ def run_deep_thinking_engine(
             moment = temporal == "now" or bool(
                 re.search(r"\b(agora|agr|atualmente|momento)\b", folded)
             )
+            # Pronoun follow-up: keep prior topic_team ("como ele está?")
+            if not team and ctx:
+                prev = (ctx.get("deep_thinking") or {}).get("topic_team")
+                if prev and re.search(
+                    r"\b(como\s+(?:ele|ela|esta|vai)|atualmente)\b", folded
+                ):
+                    team = prev
             decision.update(
                 {
                     "user_real_want": (
@@ -118,11 +126,50 @@ def run_deep_thinking_engine(
                     "topic_team": team,
                     "web_need": "optional",
                     "needs_web": True,
+                    "web_mode": "deep" if moment else "light",
                     "depth": "deep" if moment else "medium",
                     "response_mode": "detailed" if moment else "normal",
                     "needs_inference": conf >= 0.7 or bool(team),
                     "needs_context_completion": conf >= 0.7,
                     "surface_risk": 0.15 if team else 0.45,
+                }
+            )
+        elif re.search(
+            r"\b(analise\s+detalhada|faca\s+uma\s+analise|analise\s+completa|"
+            r"pesquisa\s+profunda)\b",
+            folded,
+        ) and teams:
+            team = teams[0]
+            decision.update(
+                {
+                    "user_real_want": f"análise detalhada / research sobre {team}",
+                    "topic_kind": "moment",
+                    "topic_team": team,
+                    "web_need": "required",
+                    "needs_web": True,
+                    "web_mode": "research",
+                    "depth": "deep",
+                    "response_mode": "detailed",
+                    "needs_inference": True,
+                    "surface_risk": 0.15,
+                }
+            )
+        elif goal == "kickoff_lookup" or re.search(
+            r"\b(joga\s+que\s+horas|que\s+horas)\b", folded
+        ):
+            team = teams[0] if teams else None
+            decision.update(
+                {
+                    "user_real_want": f"horário/kickoff ({team or 'time'})",
+                    "topic_kind": "kickoff",
+                    "topic_team": team,
+                    "web_need": "optional",
+                    "needs_web": True,
+                    "depth": "simple",
+                    "response_mode": "brief",
+                    "needs_inference": True,
+                    "needs_context_completion": True,
+                    "surface_risk": 0.2,
                 }
             )
         elif goal == "match_outlook" or re.search(
@@ -143,15 +190,26 @@ def run_deep_thinking_engine(
                     "surface_risk": 0.25,
                 }
             )
-        elif goal in {"calendar_or_fixture"} or (
-            teams and temporal in {"today", "tomorrow"}
+        elif goal == "calendar_or_fixture" or recovery.get("topic_kind_hint") in {
+            "fixture",
+            "calendar",
+        } or (
+            teams
+            and temporal in {"today", "tomorrow"}
+            and not re.search(r"\b(ganha|vence|empata|acha|como\s+esta)\b", folded)
         ):
             team = teams[0] if teams else None
+            is_pair = len(teams) >= 2 or recovery.get("topic_kind_hint") == "fixture"
             decision.update(
                 {
-                    "user_real_want": f"ver jogo/agenda ({team or 'times'})",
-                    "topic_kind": "calendar",
+                    "user_real_want": (
+                        f"ver confronto/agenda ({' x '.join(teams[:2])})"
+                        if is_pair
+                        else f"ver jogo/agenda ({team or 'times'})"
+                    ),
+                    "topic_kind": "fixture" if is_pair else "calendar",
                     "topic_team": team,
+                    "topic_teams": teams[:2],
                     "web_need": "none",
                     "needs_web": False,
                     "depth": "simple",
@@ -162,11 +220,28 @@ def run_deep_thinking_engine(
                 }
             )
         else:
-            decision["surface_risk"] = 0.55
-            decision["needs_inference"] = conf >= 0.55
-            if teams:
-                decision["topic_team"] = teams[0]
-                decision["needs_context_completion"] = True
+            # "e o Time?" with recovered team → soft opinion pivot
+            if teams and re.search(r"\be\s+(?:o|a|do|da)\b", folded):
+                decision.update(
+                    {
+                        "user_real_want": f"pivot de assunto para {teams[0]}",
+                        "topic_kind": "opinion",
+                        "topic_team": teams[0],
+                        "web_need": "optional",
+                        "needs_web": True,
+                        "depth": "medium",
+                        "response_mode": "normal",
+                        "needs_inference": True,
+                        "needs_context_completion": True,
+                        "surface_risk": 0.25,
+                    }
+                )
+            else:
+                decision["surface_risk"] = 0.55
+                decision["needs_inference"] = conf >= 0.55
+                if teams:
+                    decision["topic_team"] = teams[0]
+                    decision["needs_context_completion"] = True
 
         if conf >= 0.7:
             decision["needs_inference"] = True
@@ -250,7 +325,7 @@ def _enrich_template(
     extras: list[str] = []
     if team:
         extras.append(
-            f"Pensando no {team}: o que importa é o momento — identidade no campo "
+            f"Sobre o {team}: o que importa é o momento — identidade no campo "
             f"e o próximo adversário — mais do que um rótulo pronto."
         )
     if web.get("summary") and web.get("used_in_reasoning"):

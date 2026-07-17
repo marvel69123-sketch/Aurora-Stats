@@ -44,6 +44,7 @@ _TYPO_TEAMS: dict[str, str] = {
     "fluminense": "Fluminense",
     "flu": "Fluminense",
     "gremio": "Gremio",
+    "grêmio": "Gremio",
     "inter": "Internacional",
     "internacional": "Internacional",
     "cruzeiro": "Cruzeiro",
@@ -53,6 +54,10 @@ _TYPO_TEAMS: dict[str, str] = {
     "vitoria": "Vitoria",
     "chape": "Chapecoense",
     "chapecoense": "Chapecoense",
+    "mirassol": "Mirassol",
+    "mira": "Mirassol",
+    "juventus": "Juventus",
+    "juve": "Juventus",
 }
 
 _SLANG: list[tuple[re.Pattern[str], str]] = [
@@ -233,6 +238,25 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                 if canon not in teams:
                     teams.append(canon)
 
+        # A vs B / A x B — capture both sides (tight tokens, not prose spans)
+        vs_m = re.search(
+            r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})\s+(?:x|vs\.?|versus)\s+"
+            r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})(?!\w)",
+            recovered,
+            flags=re.I,
+        )
+        if vs_m:
+            for raw_side in (vs_m.group(1), vs_m.group(2)):
+                side = raw_side.strip(" .,!?")
+                if _fold(side) in _COMMON_WORDS:
+                    continue
+                canon = fuzzy_resolve_team(side)
+                if not canon and len(side) >= 4:
+                    canon = side[:1].upper() + side[1:].lower()
+                if canon and canon not in teams:
+                    teams.append(canon)
+                    notes.append(f"vs_side:{canon}")
+
         temporal = None
         if re.search(r"\bhoje\b", folded_r):
             temporal = "today"
@@ -243,17 +267,45 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
 
         goal = None
         conf = 0.4
-        # want to see / watch game
+        topic_kind_hint = None
+
+        # Kickoff / hours
         if re.search(
-            r"\b(quero\s+ver|ver\s+o\s+jogo|jogo\s+d[oe]|partidas?\s+d[oe])\b",
+            r"\b(joga\s+que\s+horas|que\s+horas|horario\s+d[oe]|que\s+horas\s+joga)\b",
             folded_r,
         ):
+            goal = "kickoff_lookup"
+            topic_kind_hint = "kickoff"
+            conf = 0.82
+            if teams:
+                recovered = f"{teams[0]} joga que horas?"
+                notes.append("completed:kickoff")
+        # Calendar / fixture (preserve A x B — never collapse to one team)
+        elif re.search(
+            r"\b(quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
+            r"quero\s+ver|ver\s+o\s+jogo|tem\s+jogo|jogo\s+d[oe]|"
+            r"partidas?\s+d[oe]|proximo\s+jogo)\b",
+            folded_r,
+        ) or (vs_m and temporal):
             goal = "calendar_or_fixture"
-            conf = 0.75
-            if teams and temporal == "today":
+            conf = 0.78
+            when = "hoje" if temporal == "today" else (
+                "amanhã" if temporal == "tomorrow" else ""
+            )
+            if len(teams) >= 2:
+                topic_kind_hint = "fixture"
+                recovered = f"jogo {teams[0]} x {teams[1]}" + (f" {when}" if when else "")
+                notes.append("completed:fixture_pair")
+                conf = 0.9
+            elif teams and temporal == "today":
+                topic_kind_hint = "calendar"
                 recovered = f"jogo do {teams[0]} hoje"
                 notes.append("completed:team_today")
                 conf = 0.85
+            elif teams:
+                topic_kind_hint = "calendar"
+                recovered = f"jogo do {teams[0]}" + (f" {when}" if when else "")
+                notes.append("completed:team_calendar")
         # opinion / moment
         elif re.search(
             r"\b(o\s+que\s+(?:voce\s+)?acha|oq\s+acha|achou|momento|"
@@ -262,6 +314,7 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
         ):
             goal = "team_opinion"
             conf = 0.8
+            topic_kind_hint = "moment" if temporal == "now" else "opinion"
             if teams and temporal == "now":
                 recovered = f"o que acha do {teams[0]} agora"
                 notes.append("completed:opinion_now")
@@ -271,6 +324,7 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
         # win today?
         elif re.search(r"\b(ganha|vence|empata)\b", folded_r) and teams:
             goal = "match_outlook"
+            topic_kind_hint = "outlook"
             conf = 0.78
             if temporal == "today":
                 recovered = f"o {teams[0]} ganha hoje?"
@@ -278,14 +332,23 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
         # bare "bota hj"
         elif teams and temporal and len(tokens) <= 3:
             goal = "calendar_or_fixture"
+            topic_kind_hint = "calendar"
             conf = 0.82
             when = "hoje" if temporal == "today" else "amanhã"
             recovered = f"jogo do {teams[0]} {when}"
             notes.append("completed:bare_team_time")
+        # "e o santos?" / "e do flamengo?" — entity pivot
+        elif teams and re.search(r"\be\s+(?:o|a|do|da)\s+\w+", folded_r):
+            goal = "team_opinion"
+            topic_kind_hint = "opinion"
+            conf = 0.78
+            recovered = f"o que acha do {teams[0]}"
+            notes.append("completed:entity_pivot")
 
         # Historical / copa
         if re.search(r"\bcopa\b", folded_r) and re.search(r"\b20\d{2}\b", folded_r):
             goal = "historical_narrative"
+            topic_kind_hint = "historical"
             conf = max(conf, 0.88)
             notes.append("historical_copa")
 
@@ -302,7 +365,10 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
             notes=notes,
         )
         if ctx is not None:
-            ctx["context_recovery"] = result.to_dict()
+            data = result.to_dict()
+            if topic_kind_hint:
+                data["topic_kind_hint"] = topic_kind_hint
+            ctx["context_recovery"] = data
         return result
     except Exception as exc:
         logger.warning("context_recovery fail-open: %s", exc)

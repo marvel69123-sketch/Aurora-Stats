@@ -348,6 +348,8 @@ def plan_response(
     """
     Decide HOW to respond from last_reasoning.
     Fail-open: FULL_ANALYSIS pass-through on errors.
+
+    Brain Authority: DeepThinking calendar/fixture blocks continue-fixture SC.
     """
     try:
         reasoning = _get_reasoning(ctx)
@@ -358,6 +360,26 @@ def plan_response(
 
         # Clarifies / conversational modes must short-circuit to avoid full report
         should_sc = bool(short and reply)
+
+        # DeepThinking SoT — never sticky-continue on new calendar/kickoff topic
+        try:
+            from src.conversation.brain_authority import crl_may_continue_fixture
+
+            action = str(reasoning.get("next_action") or "")
+            if should_sc and action in {
+                "USE_ACTIVE_CONTEXT",
+                "PASS_MARKET_FOLLOWUP",
+            }:
+                if not crl_may_continue_fixture(ctx):
+                    should_sc = False
+                    reply = None
+                    mode = "FULL_ANALYSIS"
+                    show_header = True
+                    logger.warning(
+                        "[AUDIT] CRL: short_circuit BLOCKED by DeepThinking SoT"
+                    )
+        except Exception:
+            pass
 
         plan = ResponsePlan(
             mode=mode,

@@ -92,6 +92,8 @@ _TEAM_NAMES: dict[str, str] = {
     "sao paulo": "Sao Paulo",
     "fluminense": "Fluminense",
     "gremio": "Gremio",
+    "mirassol": "Mirassol",
+    "juventus": "Juventus",
     "internacional": "Internacional",
     "atletico mineiro": "Atletico Mineiro",
     "cruzeiro": "Cruzeiro",

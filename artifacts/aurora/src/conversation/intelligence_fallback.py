@@ -51,16 +51,19 @@ def build_copa_opinion(year: str | None = None) -> str:
 
 
 def build_local_team_thinking(team: str, *, moment: bool = False) -> str:
-    tip = "agora" if moment else "no momento"
-    return (
-        f"Pensando no {team} {tip}: eu evitaria uma opinião engessada. "
-        f"Times mudam de cara em poucas semanas — ritmo, elenco disponível e "
-        f"adversário pesam mais do que fama.\n\n"
-        f"O que eu olharia: identidade ofensiva, se sustenta pressão, e se a "
-        f"torcida está vendo um plano ou só reação. Sem uma fonte fresca na mesa, "
-        f"prefiro conversar com nuance do que cravar veredito.\n\n"
-        f"Se quiser, me passa o próximo jogo do {team} e a gente aprofunda de verdade."
-    )
+    """Local opinion — never the old 'Pensando no…' template."""
+    try:
+        from src.conversation.brain_authority import opinion_local_reasoning
+
+        return opinion_local_reasoning(team, moment=moment)
+    except Exception:
+        tip = "agora" if moment else "no momento"
+        return (
+            f"Sobre o {team} {tip}: eu evitaria uma opinião engessada. "
+            f"Times mudam de cara em poucas semanas — ritmo, elenco disponível e "
+            f"adversário pesam mais do que fama.\n\n"
+            f"Se quiser, me passa o próximo jogo do {team} e a gente aprofunda."
+        )
 
 
 def detect_historical_copa(message: str) -> str | None:
@@ -100,6 +103,23 @@ def try_intelligence_fallback(
         # Recovered team opinion that natural layer might still miss
         recovery = (ctx or {}).get("context_recovery") or {}
         thinking = (ctx or {}).get("deep_thinking") or {}
+        # Brain Authority — never opinion fallback on calendar topics
+        try:
+            from src.conversation.brain_authority import is_calendar_authority
+
+            if is_calendar_authority(ctx):
+                from src.conversation.brain_authority import calendar_empty_reply
+
+                teams = list(recovery.get("teams") or thinking.get("topic_teams") or [])
+                team = thinking.get("topic_team") or (teams[0] if teams else None)
+                reply = calendar_empty_reply(
+                    team=str(team) if team else None,
+                    teams=teams[:2],
+                    kind=str(thinking.get("topic_kind") or "calendar"),
+                )
+                return _payload(reply, kind="calendar_authority", team=team, prefs=prefs)
+        except Exception:
+            pass
         if (
             recovery.get("inferred_goal") == "team_opinion"
             or thinking.get("topic_kind") in {"opinion", "moment"}
@@ -140,17 +160,33 @@ def ensure_non_empty_payload(
         if year:
             reply = build_copa_opinion(year)
         else:
-            recovery = (ctx or {}).get("context_recovery") or {}
-            teams = recovery.get("teams") or []
-            if teams:
-                reply = build_local_team_thinking(str(teams[0]))
-            else:
-                reply = (
-                    "Deixa eu pensar com calma no que você perguntou.\n\n"
-                    "Pelo que entendi, você quer uma leitura esportiva — não um "
-                    "menu genérico. Me dá um pouco mais de contexto (time, jogo "
-                    "ou tema) que eu aprofundo com honestidade."
-                )
+            try:
+                from src.conversation.brain_authority import ensure_fallback_for_thinking
+
+                reply = ensure_fallback_for_thinking(message, ctx)
+            except Exception:
+                recovery = (ctx or {}).get("context_recovery") or {}
+                teams = recovery.get("teams") or []
+                thinking = (ctx or {}).get("deep_thinking") or {}
+                if thinking.get("topic_kind") in {
+                    "calendar",
+                    "fixture",
+                    "kickoff",
+                    "outlook",
+                }:
+                    reply = (
+                        "Não consegui localizar o jogo solicitado agora. "
+                        "Me passa o confronto (A x B) ou o campeonato."
+                    )
+                elif teams:
+                    reply = build_local_team_thinking(str(teams[0]))
+                else:
+                    reply = (
+                        "Deixa eu pensar com calma no que você perguntou.\n\n"
+                        "Pelo que entendi, você quer uma leitura esportiva — não um "
+                        "menu genérico. Me dá um pouco mais de contexto (time, jogo "
+                        "ou tema) que eu aprofundo com honestidade."
+                    )
 
         try:
             from src.conversation.presence_humanization import apply_presence_humanization

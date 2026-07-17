@@ -23,9 +23,15 @@ export function formatCasual(
         ? "Olha, com o que temos agora, dá para montar um bom cenário."
         : "Com os dados de agora, dá para ler o cenário assim.",
     )
+    .replace(/^Pelo que vejo agora, ainda falta contexto para cravar\./i, (m) =>
+      prefs?.enthusiasm === "high"
+        ? "Olha, ainda falta um pouco de contexto pra cravar."
+        : m,
+    )
     .replace(/^Leitura com base /i, "Pelo que dá para ver, ")
     .replace(/\bCenário de baixa confiança\./gi, "Ainda está meio incerto.")
-    .replace(/\bConfiança baixa neste momento\./gi, "Confiança ainda baixa por aqui.");
+    .replace(/\bConfiança baixa neste momento\./gi, "Confiança ainda baixa por aqui.")
+    .replace(/\bConfiança moderada\b/gi, "Leitura cautelosa");
 
   if (prefs?.emojis === "none" || !prefs) {
     return out;

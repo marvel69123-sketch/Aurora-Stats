@@ -1619,6 +1619,79 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _v48_think(message, ctx, recovery=_rec.to_dict())
         except Exception:
             pass
+        # ── Reference Resolver (Final Stabilization) ─────────────────────
+        try:
+            from src.conversation.conversation_focus import (
+                apply_reference_resolution as _fc_resolve,
+                confidence_clarification_payload as _fc_clarify,
+            )
+
+            _before = message
+            message = _fc_resolve(message, ctx)
+            # Re-think if rewritten
+            if message != _before:
+                try:
+                    from src.conversation.response_review import (
+                        run_deep_thinking_engine as _v48_think2,
+                    )
+
+                    _v48_think2(
+                        message,
+                        ctx,
+                        recovery=(_rec.to_dict() if _rec else None),
+                    )
+                except Exception:
+                    pass
+            if ctx.get("pending_clarification") and payload is None:
+                payload = _fc_clarify(
+                    str(ctx.pop("pending_clarification")), _conv_prefs
+                )
+                intent = "conversation_assist"
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.9
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] ConfidenceResolver: clarification short-circuit"
+                )
+        except Exception as _fc_exc:
+            logger.warning("copilot: reference resolver skipped (%s)", _fc_exc)
+        # ── Topic Boundary BEFORE focus update (use prior focus) ──────────
+        try:
+            from src.conversation.brain_authority import (
+                apply_topic_boundary as _ba_clear,
+                should_clear_topic_boundary as _ba_should,
+            )
+
+            if payload is None:
+                _clear, _why = _ba_should(
+                    message, ctx, recovery=(_rec.to_dict() if _rec else None)
+                )
+                if _clear:
+                    _ba_clear(ctx, reason=_why)
+                    try:
+                        conversation_manager.save(session_id, ctx)
+                    except Exception:
+                        pass
+        except Exception as _tb_exc:
+            logger.warning("copilot: topic boundary skipped (%s)", _tb_exc)
+        # ── Persist conversation focus AFTER boundary ─────────────────────
+        try:
+            from src.conversation.conversation_focus import (
+                update_conversation_focus as _fc_update,
+            )
+
+            if payload is None or not (payload.get("entities") or {}).get(
+                "confidence_clarification"
+            ):
+                _fc_update(
+                    ctx,
+                    thinking=ctx.get("deep_thinking"),
+                    recovery=(_rec.to_dict() if _rec else None),
+                    message=message,
+                    resolved=(ctx.get("reference_resolution") or None),
+                )
+        except Exception as _fc2_exc:
+            logger.warning("copilot: focus update skipped (%s)", _fc2_exc)
     except Exception as _rec_exc:
         logger.warning("copilot: context recovery skipped (%s)", _rec_exc)
 
@@ -1662,23 +1735,33 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── 0a0. Emotional Presence FIRST (before HPL / LLM) ──────────────────
     # Absolute priority: pride / affection / thanks must never fall through
     # to "Posso ajudar com leituras...".
+    # DeepThinking SoT: calendar/opinion/fixture topics never yield to emotional.
     try:
         if payload is None:
+            from src.conversation.brain_authority import (
+                should_block_analysis_engines as _ba_block_emo,
+            )
             from src.conversation.emotional_presence import (
                 try_emotional_presence as _v47_emo,
             )
 
-            _emo = _v47_emo(message, ctx, _conv_prefs)
-            if _emo:
-                payload = _emo
-                intent = "emotional"
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.98
-                skipped_nl = True
+            if not _ba_block_emo(ctx):
+                _emo = _v47_emo(message, ctx, _conv_prefs)
+                if _emo:
+                    payload = _emo
+                    intent = "emotional"
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.98
+                    skipped_nl = True
+                    logger.warning(
+                        "[AUDIT] EmotionalPresence: kind=%s reply=%r",
+                        entities.get("emotional_kind"),
+                        str(payload.get("executive_summary") or "")[:120],
+                    )
+            else:
                 logger.warning(
-                    "[AUDIT] EmotionalPresence: kind=%s reply=%r",
-                    entities.get("emotional_kind"),
-                    str(payload.get("executive_summary") or "")[:120],
+                    "[AUDIT] EmotionalPresence: SKIPPED — DeepThinking SoT topic=%s",
+                    ((ctx.get("deep_thinking") or {}).get("topic_kind")),
                 )
     except Exception as _emo_exc:
         logger.warning("copilot: emotional presence skipped (%s)", _emo_exc)
@@ -1714,33 +1797,43 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         )
 
         if payload is None and _hpl_is_social(_cue_dict):
-            _hpl_text = _hpl_social(message, _cue_dict, ctx)
-            if _hpl_text:
-                try:
-                    from src.conversation.presence_humanization import (
-                        apply_presence_humanization as _v452_hum,
-                    )
+            from src.conversation.brain_authority import (
+                should_block_analysis_engines as _ba_block_hpl,
+            )
 
-                    _hpl_text = _v452_hum(_hpl_text, _conv_prefs)
-                except Exception:
-                    pass
-                payload = _hpl_payload(_hpl_text, brain)
-                intent = "small_talk"
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.96
-                skipped_nl = True
-                try:
-                    from src.conversation.conversation_state import note_small_talk
-
-                    note_small_talk(ctx)
-                    conversation_manager.save(session_id, ctx)
-                except Exception:
-                    pass
+            if _ba_block_hpl(ctx):
                 logger.warning(
-                    "[AUDIT] HumanPresence: SOCIAL HIT message=%r reply=%r",
-                    message,
-                    _hpl_text[:120],
+                    "[AUDIT] HumanPresence: SKIPPED — DeepThinking SoT topic=%s",
+                    ((ctx.get("deep_thinking") or {}).get("topic_kind")),
                 )
+            else:
+                _hpl_text = _hpl_social(message, _cue_dict, ctx)
+                if _hpl_text:
+                    try:
+                        from src.conversation.presence_humanization import (
+                            apply_presence_humanization as _v452_hum,
+                        )
+
+                        _hpl_text = _v452_hum(_hpl_text, _conv_prefs)
+                    except Exception:
+                        pass
+                    payload = _hpl_payload(_hpl_text, brain)
+                    intent = "small_talk"
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.96
+                    skipped_nl = True
+                    try:
+                        from src.conversation.conversation_state import note_small_talk
+
+                        note_small_talk(ctx)
+                        conversation_manager.save(session_id, ctx)
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] HumanPresence: SOCIAL HIT message=%r reply=%r",
+                        message,
+                        _hpl_text[:120],
+                    )
     except Exception as _hpl_exc:
         logger.warning("copilot: human presence social skipped (%s)", _hpl_exc)
 
@@ -2158,14 +2251,25 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     try:
         # ── 1. Emotional / conversational (only if not already answered) ──
         if payload is None:
+            from src.conversation.brain_authority import (
+                should_block_analysis_engines as _ba_block_em2,
+            )
+
             _has_fixture_ents = bool(entities.get("home")) and bool(entities.get("away"))
-            if not (intent == "analyze_match" and _has_fixture_ents):
+            if not _ba_block_em2(ctx) and not (
+                intent == "analyze_match" and _has_fixture_ents
+            ):
                 em = _conv_detect(message)
                 if em and em[1] >= 0.80:
                     emotional_intent, em_conf = em
                     payload = _conv_respond(emotional_intent, ctx, brain)
                     intent = emotional_intent
                     routing_confidence = em_conf
+            elif _ba_block_em2(ctx):
+                logger.warning(
+                    "[AUDIT] EmotionalDetect: SKIPPED — DeepThinking SoT kind=%s",
+                    ((ctx.get("deep_thinking") or {}).get("topic_kind")),
+                )
 
         # ── 2. Legacy follow-up after NL (compat if QuickGate missed) ─────
         _ctx_last_match  = ctx.get("last_match") or ctx.get("last_fixture")
@@ -2226,6 +2330,50 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             logger.warning("[AUDIT] follow-up gate: SKIPPED — message not recognised as follow-up pattern")
 
         # ── 3. Normal routing ─────────────────────────────────────────────
+        if payload is None:
+            # DeepThinking SoT — never let analyze engines steal calendar/opinion.
+            try:
+                from src.conversation.brain_authority import (
+                    ensure_fallback_for_thinking as _ba_ensure_txt,
+                    should_block_analysis_engines as _ba_block_eng,
+                )
+
+                if _ba_block_eng(ctx) and intent == "analyze_match":
+                    _txt = _ba_ensure_txt(message, ctx)
+                    try:
+                        from src.conversation.message_intelligence import (
+                            build_conversational_payload as _ba_conv,
+                        )
+
+                        _fb = _ba_conv(_txt, {})
+                    except Exception:
+                        _fb = {
+                            "intent": "conversation_assist",
+                            "executive_summary": _txt,
+                            "final_recommendation": _txt,
+                            "entities": {
+                                "dt_sot_block_engines": True,
+                                "has_analysis": False,
+                                "show_header": False,
+                                "skip_llm": True,
+                            },
+                        }
+                    if _fb:
+                        ents = dict(_fb.get("entities") or {})
+                        ents["dt_sot_block_engines"] = True
+                        _fb["entities"] = ents
+                        payload = _fb
+                        intent = str(payload.get("intent") or "conversation_assist")
+                        entities = dict(payload.get("entities") or {})
+                        routing_confidence = 0.88
+                        skipped_nl = True
+                        logger.warning(
+                            "[AUDIT] AnalysisEngines: BLOCKED by DeepThinking SoT kind=%s",
+                            ((ctx.get("deep_thinking") or {}).get("topic_kind")),
+                        )
+            except Exception as _ba_eng_exc:
+                logger.warning("copilot: DT engine gate skipped (%s)", _ba_eng_exc)
+
         if payload is None:
             if intent == "analyze_match":
                 home = entities.get("home", "")

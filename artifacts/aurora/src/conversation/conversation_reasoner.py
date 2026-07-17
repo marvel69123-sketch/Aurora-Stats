@@ -579,7 +579,16 @@ def _reason_impl(message: str, ctx: dict[str, Any] | None) -> ReasoningResult:
             **base_kwargs,
         )
 
-    # 9) Fallback ambiguous
+    # 9) Fallback ambiguous — Brain Authority: do NOT reuse fixture when
+    # DeepThinking says calendar/fixture/kickoff or boundary cleared.
+    try:
+        from src.conversation.brain_authority import crl_may_continue_fixture
+
+        if has_ctx and not crl_may_continue_fixture(ctx):
+            has_ctx = False
+    except Exception:
+        pass
+
     return ReasoningResult(
         user_goal="unclear",
         reasoning_type="AMBIGUOUS",

@@ -52,6 +52,12 @@ from src.conversation.context_recovery import (
     apply_recovery_to_message,
     recover_context,
 )
+from src.conversation.brain_authority import (
+    apply_topic_boundary,
+    crl_may_continue_fixture,
+    is_calendar_authority,
+    should_clear_topic_boundary,
+)
 from src.conversation.intelligence_fallback import (
     ensure_non_empty_payload,
     try_intelligence_fallback,
