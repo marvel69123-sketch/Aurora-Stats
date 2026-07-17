@@ -9,6 +9,12 @@ from src.conversation.conversation_reasoner import (
     attach_reasoning,
     reason,
 )
+from src.conversation.conversation_response_layer import (
+    ResponsePlan,
+    apply_crl_payload,
+    decide_response_mode,
+    plan_response,
+)
 from src.conversation.conversation_state import (
     CONVERSATION_STATE_TTL_SECONDS,
     active_fixture,
@@ -58,9 +64,11 @@ __all__ = [
     "MessageIntelResult",
     "PreResolveResult",
     "ReasoningResult",
+    "ResponsePlan",
     "active_fixture",
     "active_market",
     "apply_after_analysis",
+    "apply_crl_payload",
     "attach_reasoning",
     "build_clarification_payload",
     "build_conversational_payload",
@@ -69,6 +77,7 @@ __all__ = [
     "ci_pending_expired",
     "clear_conversational_fields",
     "clear_fixture_context",
+    "decide_response_mode",
     "detect_human_intent",
     "expand_sports_aliases",
     "expire_ci_pending_if_needed",
@@ -79,6 +88,7 @@ __all__ = [
     "is_cancel_reset",
     "is_topic_switch",
     "note_small_talk",
+    "plan_response",
     "pre_resolve",
     "pre_resolve_message",
     "process_inbound_message",

@@ -1557,13 +1557,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v4.0 Sprint 1):
+    # Pipeline order (v4.1 Sprint 2):
     #   0) Small Talk (priority)
     #   1) Conversation State expire + cancel/topic
-    #   2) Conversation Reasoner (interpret only — fail-open)
-    #   3) Conversation Intelligence + light pre-resolve
-    #   4) Follow-up / fixture guard
-    #   5) NL router / engines (main Resolver untouched)
+    #   2) Conversation Reasoner (interpret only)
+    #   3) Conversation Response Layer (HOW to reply — fail-open)
+    #   4) Conversation Intelligence + light pre-resolve
+    #   5) Follow-up / fixture guard
+    #   6) NL router / engines (main Resolver untouched)
 
     # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
     try:
@@ -1658,7 +1659,43 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _cr_exc:
         logger.warning("copilot: conversation reasoner skipped (%s)", _cr_exc)
 
-    # ── 0a3. Conversation Intelligence (after Reasoner) ───────────────────
+    # ── 0a2c. Conversation Response Layer (v4.1) — HOW to reply ────────────
+    # Consumes last_reasoning. Short-circuits follow-ups to avoid full reports.
+    # Fail-open: on error, pipeline continues unchanged.
+    try:
+        if payload is None:
+            from src.conversation.conversation_response_layer import (
+                apply_crl_payload as _crl_apply,
+                attach_response_plan as _crl_attach,
+                plan_response as _crl_plan,
+            )
+
+            _plan = _crl_plan(message, ctx)
+            _crl_attach(ctx, _plan)
+            if _plan.should_short_circuit:
+                _crl_payload = _crl_apply(_plan, brain)
+                if _crl_payload:
+                    payload = _crl_payload
+                    intent = "conversation_assist"
+                    entities = dict(_crl_payload.get("entities") or {})
+                    routing_confidence = 0.9
+                    skipped_nl = True
+                    logger.warning(
+                        "[AUDIT] ConversationResponseLayer: mode=%s short_circuit=1 show_header=%s msg=%r",
+                        _plan.mode,
+                        _plan.show_header,
+                        message,
+                    )
+            else:
+                logger.warning(
+                    "[AUDIT] ConversationResponseLayer: mode=%s pass_through msg=%r",
+                    _plan.mode,
+                    message,
+                )
+    except Exception as _crl_exc:
+        logger.warning("copilot: conversation response layer skipped (%s)", _crl_exc)
+
+    # ── 0a3. Conversation Intelligence (after CRL) ────────────────────────
     # Normalization → Context → Intent → Confidence. Never invents fixtures.
     try:
         if payload is None:
