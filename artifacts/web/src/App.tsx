@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { AuroraAvatar } from "@/components/chat/AuroraAvatar";
 import { AuroraIdentityCenter } from "@/components/chat/AuroraIdentityCenter";
+import { ExportAuditMenu } from "@/components/chat/ExportAuditMenu";
 import { useChat } from "@/hooks/useChat";
 import { useAuroraAvatar } from "@/hooks/useAuroraAvatar";
 import { useAboutYou } from "@/hooks/useAboutYou";
@@ -83,13 +84,14 @@ export default function App() {
               <MenuIcon size={18} />
             </button>
 
-            {/* Header brand only — Identity Center lives in sidebar footer */}
+            {/* Header brand — Identity Center in sidebar; audit export is observability-only */}
             <div className="flex min-w-0 items-center gap-2.5">
               <AuroraAvatar url={avatarUrl} size="sm" className="md:hidden" />
               <p className="truncate text-[0.875rem] font-medium tracking-[-0.01em] text-[#ECECEC]/90">
                 Aurora
               </p>
             </div>
+            <ExportAuditMenu session={activeSession} />
           </header>
 
           <ChatWindow
