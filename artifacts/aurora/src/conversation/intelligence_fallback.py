@@ -141,13 +141,70 @@ def try_intelligence_fallback(
                 or thinking.get("topic_kind") == "moment"
                 or hie.get("intent") == "team_moment"
             )
-            reply = build_local_team_thinking(str(team), moment=moment)
+            reply = None
             try:
-                from src.conversation.web_intelligence import weave_web_into_draft
-                from src.conversation.human_inference import repair_unintelligent_reply
+                import asyncio
 
-                reply, _ = weave_web_into_draft(reply, ctx, team=str(team))
-                reply = repair_unintelligent_reply(reply, ctx)
+                from src.conversation.response_intelligence import (
+                    compose_intelligent_reply,
+                )
+
+                # Sync context: run compose if loop available; else structured sync path
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    # Cannot await here — use sync template path
+                    reply = None
+                else:
+                    reply = asyncio.run(
+                        compose_intelligent_reply(
+                            message,
+                            ctx,
+                            prefs,
+                            team=str(team),
+                            moment=moment,
+                            force_type="team_moment" if moment else "team_summary",
+                        )
+                    )
+            except Exception:
+                reply = None
+            if not reply:
+                try:
+                    from src.conversation.response_planner import plan_response
+                    from src.conversation.knowledge_synthesizer import (
+                        synthesize_knowledge,
+                    )
+                    from src.conversation.response_templates import render_from_plan
+
+                    if ctx is not None:
+                        h = dict(ctx.get("human_inference") or {})
+                        h.setdefault("team", team)
+                        h.setdefault(
+                            "intent",
+                            "team_moment" if moment else "general_team_talk",
+                        )
+                        ctx["human_inference"] = h
+                    plan = plan_response(message, ctx)
+                    plan.team = str(team)
+                    pack = synthesize_knowledge(team=str(team), ctx=ctx)
+                    reply = render_from_plan(plan, pack)
+                except Exception:
+                    reply = build_local_team_thinking(str(team), moment=moment)
+            try:
+                from src.conversation.human_inference import repair_unintelligent_reply
+                from src.conversation.response_reflection import reflect_response
+                from src.conversation.response_templates import render_forced_useful
+                from src.conversation.response_planner import plan_response
+
+                ref = reflect_response(reply, question=message)
+                if not ref.ok or ref.blocked:
+                    plan = plan_response(message, ctx)
+                    plan.team = str(team)
+                    reply = render_forced_useful(plan)
+                else:
+                    reply = repair_unintelligent_reply(reply, ctx)
             except Exception:
                 pass
             return _payload(reply, kind="local_team_thinking", team=team, prefs=prefs)

@@ -109,6 +109,11 @@ _TEAM_NAMES: dict[str, str] = {
     "barcelona": "Barcelona",
     "psg": "PSG",
     "bayern": "Bayern",
+    "londrina": "Londrina",
+    "fluminense": "Fluminense",
+    "flu": "Fluminense",
+    "xv de piracicaba": "XV de Piracicaba",
+    "juventus da mooca": "Juventus da Mooca",
 }
 
 

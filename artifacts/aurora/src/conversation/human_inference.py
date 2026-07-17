@@ -125,8 +125,8 @@ def _resolve_team(raw: str) -> str | None:
             return _TEAM_NAMES[key]
     except Exception:
         pass
-    # Accept unknown club names (Arsenal, Chelsea…) as titled tokens
-    if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{1,28}$", t):
+    # Accept unknown club names (Arsenal, XV de Piracicaba…) as titled tokens
+    if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ.'\s-]{1,40}$", t) and len(t.split()) <= 5:
         return _title(t)
     return None
 
@@ -151,6 +151,16 @@ def _extract_single_team(message: str, folded: str) -> str | None:
             return teams[0]
     except Exception:
         pass
+    # "e o Londrina?" / "fale sobre o X" — accept unknown club tokens
+    m = re.search(
+        r"\b(?:e\s+(?:o|a|do|da)|fale\s+sobre\s+(?:o|a)|fala\s+sobre\s+(?:o|a)|"
+        r"sobre\s+(?:o|a)|me\s+fala\s+(?:d[oe]|sobre\s+(?:o|a)?))\s+"
+        r"([A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{2,28})\b",
+        message or "",
+        re.I,
+    )
+    if m:
+        return _resolve_team(m.group(1)) or _title(m.group(1))
     # Bare token / short phrase
     cleaned = (message or "").strip(" ?!.,;:")
     if _BARE_TEAM.match(cleaned) and not _PAIR.search(cleaned):
@@ -550,9 +560,15 @@ def repair_unintelligent_reply(
     text: str,
     ctx: dict[str, Any] | None = None,
 ) -> str:
-    """Replace encyclopedia / empty with human team talk."""
+    """Replace encyclopedia / empty with structured useful reply."""
     if thinking_delay_ok(text, ctx):
-        return text
+        try:
+            from src.conversation.response_reflection import reflect_response
+
+            if reflect_response(text).ok:
+                return text
+        except Exception:
+            return text
     thinking = (ctx or {}).get("deep_thinking") or {}
     h = (ctx or {}).get(CTX_KEY) or {}
     team = (
@@ -561,16 +577,22 @@ def repair_unintelligent_reply(
         or (h.get("teams") or [None])[0]
         or "esse time"
     )
-    moment = (h.get("intent") == "team_moment") or (
-        thinking.get("topic_kind") == "moment"
-    )
     try:
-        from src.conversation.brain_authority import opinion_local_reasoning
+        from src.conversation.response_planner import plan_response
+        from src.conversation.response_templates import render_forced_useful
 
-        return opinion_local_reasoning(str(team), moment=bool(moment))
+        plan = plan_response(str(h.get("literal") or team), ctx)
+        plan.team = str(team)
+        return render_forced_useful(plan)
     except Exception:
         return (
-            f"Sobre o {team}: eu olharia momento, ideia de jogo e o próximo "
-            f"adversário — sem cravar um veredito engessado. "
-            f"Quer aprofundar um confronto específico?"
+            f"**{team}** — leitura rápida\n\n"
+            f"📊 **Momento atual**\n"
+            f"Não confirmei um boletim fresco agora.\n\n"
+            f"📰 **O que aconteceu recentemente**\n"
+            f"Sem recorte oficial na mesa.\n\n"
+            f"📅 **Próximos desafios**\n"
+            f"Me passa o próximo adversário que eu afunilo.\n\n"
+            f"🎯 **Perspectiva**\n"
+            f"O que pesa: regularidade e o tamanho do próximo jogo."
         )

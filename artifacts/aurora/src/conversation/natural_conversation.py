@@ -726,34 +726,54 @@ async def try_natural_conversation(
         elif kind == "team_opinion":
             team = str(detected.get("team") or "esse time")
             moment = bool(detected.get("moment"))
-            # Prefer contextual local reasoning over static blurb when no WEB weave
+            # Response Intelligence — Plan → Synthesize → Reflect (not philosophy)
+            reply = ""
             try:
-                from src.conversation.brain_authority import opinion_local_reasoning
-                from src.conversation.web_intelligence import weave_web_into_draft
+                from src.conversation.response_intelligence import (
+                    compose_intelligent_reply,
+                )
 
-                web = (ctx or {}).get("web_thinking") or {}
-                if web.get("summary") and web.get("status") in {
-                    "ready_for_reasoning",
-                    "enriched",
-                }:
+                # Prefer HIE topic_team / moment when present
+                hie = (ctx or {}).get("human_inference") or {}
+                if hie.get("team"):
+                    team = str(hie["team"])
+                if hie.get("intent") == "team_moment" or hie.get("topic_kind") == "moment":
+                    moment = True
+                composed = await compose_intelligent_reply(
+                    message,
+                    ctx,
+                    prefs,
+                    team=team,
+                    moment=moment,
+                    force_type="team_moment" if moment else "team_summary",
+                )
+                if composed:
+                    reply = composed
+                    entities["response_intelligence"] = True
+            except Exception as _ri_exc:
+                logger.warning("natural: response intelligence skipped (%s)", _ri_exc)
+            if not reply:
+                try:
+                    from src.conversation.brain_authority import opinion_local_reasoning
+                    from src.conversation.web_intelligence import weave_web_into_draft
+
+                    web = (ctx or {}).get("web_thinking") or {}
+                    if web.get("summary") and web.get("status") in {
+                        "ready_for_reasoning",
+                        "enriched",
+                    }:
+                        reply = build_team_opinion_reply(team)
+                        reply, _ = weave_web_into_draft(reply, ctx, team=team)
+                    else:
+                        reply = opinion_local_reasoning(team, moment=moment)
+                        if ctx is not None and isinstance(web, dict):
+                            web = dict(web)
+                            web["local_reasoning"] = True
+                            web["changed_reasoning"] = True
+                            web["summary_used"] = False
+                            ctx["web_thinking"] = web
+                except Exception:
                     reply = build_team_opinion_reply(team)
-                    reply, _ = weave_web_into_draft(reply, ctx, team=team)
-                else:
-                    reply = opinion_local_reasoning(team, moment=moment)
-                    # Mark fail-open local reasoning
-                    if ctx is not None and isinstance(web, dict):
-                        web = dict(web)
-                        web["local_reasoning"] = True
-                        web["changed_reasoning"] = True
-                        web["summary_used"] = False
-                        ctx["web_thinking"] = web
-                        logger.warning(
-                            "[AUDIT] WebInfluence: summary_used=False "
-                            "changed_reasoning=True local_reasoning=True team=%r",
-                            team,
-                        )
-            except Exception:
-                reply = build_team_opinion_reply(team)
             intent = "conversation_assist"
             family = "team_opinion"
             entities["team"] = team

@@ -3123,20 +3123,59 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _ne_exc:
         logger.warning("copilot: non-empty guard skipped (%s)", _ne_exc)
 
-    # ── 0z1b5. Thinking Delay — refuse encyclopedia / "?" answers ──────────
+    # ── 0z1b5. Thinking Delay + Response Reflection ───────────────────────
     try:
         from src.conversation.human_inference import (
             repair_unintelligent_reply as _hie_repair,
             thinking_delay_ok as _hie_delay_ok,
         )
+        from src.conversation.response_reflection import (
+            reflect_response as _ri_reflect,
+        )
 
         if isinstance(payload, dict):
             _sum = str(payload.get("executive_summary") or "")
-            if not _hie_delay_ok(_sum, ctx):
-                _fixed = _hie_repair(_sum, ctx)
+            _ref = _ri_reflect(_sum, question=message)
+            if (
+                not _hie_delay_ok(_sum, ctx)
+                or _ref.blocked
+                or (not _ref.ok and (payload.get("entities") or {}).get("opinion_time"))
+            ):
+                _fixed = None
+                try:
+                    from src.conversation.response_planner import (
+                        plan_response as _ri_plan,
+                    )
+                    from src.conversation.response_templates import (
+                        render_forced_useful as _ri_forced,
+                    )
+
+                    _plan = _ri_plan(message, ctx)
+                    if not _plan.team:
+                        _plan.team = (
+                            ((ctx.get("human_inference") or {}).get("team"))
+                            or ((ctx.get("deep_thinking") or {}).get("topic_team"))
+                        )
+                    _fixed = _ri_forced(_plan)
+                except Exception:
+                    _fixed = _hie_repair(_sum, ctx)
+                try:
+                    from src.conversation.confidence_rewriter import (
+                        rewrite_confidence_tone as _ri_conf,
+                    )
+
+                    _fixed = _ri_conf(_fixed)
+                except Exception:
+                    pass
                 payload["executive_summary"] = _fixed
                 payload["final_recommendation"] = _fixed
-                logger.warning("[AUDIT] ThinkingDelay: repaired unintelligent reply")
+                ents = dict(payload.get("entities") or {})
+                ents["response_intelligence_repair"] = True
+                payload["entities"] = ents
+                logger.warning(
+                    "[AUDIT] ThinkingDelay: repaired unintelligent reply reasons=%s",
+                    _ref.reasons,
+                )
     except Exception as _td_exc:
         logger.warning("copilot: thinking delay skipped (%s)", _td_exc)
 
