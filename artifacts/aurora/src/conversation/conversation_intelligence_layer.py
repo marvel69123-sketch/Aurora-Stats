@@ -87,6 +87,10 @@ class ConversationThought:
     response_strategy: str = ""
     context_priority: list[str] = field(default_factory=list)
     reflection_notes: list[str] = field(default_factory=list)
+    # v4.3 — CUE / Human Presence enrichment (additive)
+    understood_intent: str = ""
+    implicit_meaning: str = ""
+    human_response_strategy: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -954,6 +958,23 @@ def run_intelligence(
                     ctx["cil_reply_override"] = override
             thought.reflection_notes = list(thought.reflection_notes) + refl2
 
+        # v4.3 — merge CUE / HPL micro-reasoning into thought (audit)
+        cue = ctx.get("conversation_intent") if isinstance(ctx.get("conversation_intent"), dict) else {}
+        if cue:
+            thought.understood_intent = str(cue.get("understood_intent") or cue.get("explicit_goal") or "")
+            thought.implicit_meaning = str(cue.get("implicit_meaning") or "")
+            try:
+                from src.conversation.human_presence import micro_reason
+
+                mr = micro_reason(cue)
+                thought.human_response_strategy = mr.get("human_response_strategy") or ""
+                if not thought.understood_intent:
+                    thought.understood_intent = mr.get("understood_intent") or ""
+                if not thought.implicit_meaning:
+                    thought.implicit_meaning = mr.get("implicit_meaning") or ""
+            except Exception:
+                thought.human_response_strategy = "cue_available"
+
         ctx[CIL_THOUGHT_KEY] = thought.to_dict()
         return thought
     except Exception as exc:
@@ -979,22 +1000,47 @@ def refine_crl_reply(
     Apply CIL humanized override / de-templatize CRL text.
     Does not modify CRL module — used by router after plan_response.
     """
-    if ctx and ctx.get("cil_reply_override"):
-        return str(ctx["cil_reply_override"])
-    if not reply_text:
+    had_override = bool(ctx and ctx.get("cil_reply_override"))
+    if had_override:
+        base = str(ctx["cil_reply_override"])
+    elif reply_text:
+        # Soft humanize CRL stock openers
+        goal = (ctx or {}).get(CIL_GOAL_KEY) or {}
+        g = str(goal.get("goal_type") or "")
+        family = "neutral"
+        if g.startswith("COMPARE"):
+            family = "comparison"
+        elif g == "ASK_EXPLANATION":
+            family = "explain"
+        elif g in {"ASK_BEST_OPTION", "ASK_SAFER_OPTION", "ASK_RISKIER_OPTION", "REJECT_MARKET"}:
+            family = "alternative"
+        elif g == "CONTINUE_PENDING":
+            family = "clarify"
+        elif g in {"FOLLOWUP_MARKET", "ASK_OPINION"}:
+            family = "opinion"
+        base = humanize_text(reply_text, family=family, ctx=ctx)
+    else:
+        base = None
+    if not base:
         return reply_text
-    # Soft humanize CRL stock openers
-    goal = (ctx or {}).get(CIL_GOAL_KEY) or {}
-    g = str(goal.get("goal_type") or "")
-    family = "neutral"
-    if g.startswith("COMPARE"):
-        family = "comparison"
-    elif g == "ASK_EXPLANATION":
-        family = "explain"
-    elif g in {"ASK_BEST_OPTION", "ASK_SAFER_OPTION", "ASK_RISKIER_OPTION", "REJECT_MARKET"}:
-        family = "alternative"
-    elif g == "CONTINUE_PENDING":
-        family = "clarify"
-    elif g in {"FOLLOWUP_MARKET", "ASK_OPINION"}:
-        family = "opinion"
-    return humanize_text(reply_text, family=family, ctx=ctx)
+    # v4.3 — soft Human Presence pass (fail-open)
+    # Skip clause-openers when CIL already humanized (avoid double templates)
+    if had_override:
+        return base
+    try:
+        from src.conversation.human_presence import apply_presence_to_text
+
+        cue = (ctx or {}).get("conversation_intent") if ctx else None
+        fam = "ack"
+        g = str(((ctx or {}).get(CIL_GOAL_KEY) or {}).get("goal_type") or "")
+        if g in {"ASK_OPINION", "FOLLOWUP_MARKET"}:
+            fam = "opinion"
+        elif g == "ASK_EXPLANATION":
+            fam = "explain"
+        elif g in {"ASK_BEST_OPTION", "REJECT_MARKET", "ASK_SAFER_OPTION", "ASK_RISKIER_OPTION"}:
+            fam = "doubt"
+        return apply_presence_to_text(
+            base, family=fam, ctx=ctx, intent=cue if isinstance(cue, dict) else None
+        )
+    except Exception:
+        return base

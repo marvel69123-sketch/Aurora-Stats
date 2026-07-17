@@ -11,6 +11,15 @@ from src.conversation.conversation_intelligence_layer import (
     resolve_context_priority,
     run_intelligence,
 )
+from src.conversation.conversational_understanding import (
+    ConversationIntent,
+    understand,
+)
+from src.conversation.human_presence import (
+    build_presence_payload,
+    build_social_presence_reply,
+    is_social_presence_turn,
+)
 from src.conversation.conversation_reasoner import (
     ReasoningResult,
     attach_reasoning,
@@ -74,6 +83,7 @@ __all__ = [
     "ResponsePlan",
     "ConversationGoal",
     "ConversationThought",
+    "ConversationIntent",
     "active_fixture",
     "active_market",
     "apply_after_analysis",
@@ -82,6 +92,8 @@ __all__ = [
     "build_clarification_payload",
     "build_conversational_payload",
     "build_human_reply",
+    "build_presence_payload",
+    "build_social_presence_reply",
     "build_state_driven_reply",
     "ci_pending_expired",
     "clear_conversational_fields",
@@ -95,6 +107,7 @@ __all__ = [
     "get_state",
     "hydrate_from_legacy",
     "is_cancel_reset",
+    "is_social_presence_turn",
     "is_topic_switch",
     "note_small_talk",
     "plan_response",
@@ -108,4 +121,5 @@ __all__ = [
     "set_ci_pending",
     "shift_fixture_memory",
     "suggest_alternatives",
+    "understand",
 ]

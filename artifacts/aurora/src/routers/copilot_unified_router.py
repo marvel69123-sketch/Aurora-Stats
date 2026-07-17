@@ -1557,36 +1557,95 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     payload: dict | None = None
     skipped_nl = False
 
-    # Pipeline order (v4.2):
-    #   0) Small Talk (priority)
-    #   1) Conversation State expire + cancel/topic
-    #   2) Conversation Reasoner (interpret only)
-    #   3) Conversation Intelligence Layer (goal / hypotheses — fail-open)
-    #   4) Conversation Response Layer (HOW to reply — fail-open)
-    #   5) CI / pre-resolve
-    #   6) Follow-up / fixture guard
-    #   7) NL router / engines (main Resolver untouched)
+    # Pipeline order (v4.3):
+    #   0) CUE (understanding) + Human Presence social
+    #   1) Legacy Small Talk fallback
+    #   2) Conversation State expire + cancel/topic
+    #   3) Conversation Reasoner
+    #   4) Conversation Intelligence Layer
+    #   5) Conversation Response Layer
+    #   6) CI / pre-resolve
+    #   7) Follow-up / fixture guard
+    #   8) NL router / engines (main Resolver untouched)
 
-    # ── 0a. Small Talk FIRST — never let CI steal greetings ────────────────
+    # ── 0a0. Conversational Understanding Engine (v4.3) ────────────────────
+    _cue_dict: dict = {}
     try:
-        from src.communication import try_small_talk as _try_small_talk
+        from src.conversation.conversational_understanding import understand as _cue_understand
 
-        _social = _try_small_talk(message, brain)
-        if _social:
-            payload = _social
-            intent = "small_talk"
-            entities = {"social": True}
-            routing_confidence = 0.95
-            skipped_nl = True
-            # Sports memory must survive small talk (scenario 6)
-            try:
-                from src.conversation.conversation_state import note_small_talk
+        _cue = _cue_understand(message, ctx)
+        _cue_dict = _cue.to_dict()
+        # Rewrite natural "fale sobre A e B amanhã" → analyze A x B (Resolver untouched)
+        if _cue.rewrite_for_pipeline and float(_cue.confidence or 0) >= 0.8:
+            logger.warning(
+                "[AUDIT] CUE: rewrite %r → %r goal=%s temporal=%s",
+                message,
+                _cue.rewrite_for_pipeline,
+                _cue.explicit_goal,
+                _cue.temporal_context,
+            )
+            message = _cue.rewrite_for_pipeline
+        logger.warning(
+            "[AUDIT] CUE: goal=%s social=%s temporal=%s conf=%.2f",
+            _cue.explicit_goal,
+            _cue.social_intents,
+            _cue.temporal_context,
+            _cue.confidence,
+        )
+    except Exception as _cue_exc:
+        logger.warning("copilot: conversational understanding skipped (%s)", _cue_exc)
 
-                note_small_talk(ctx)
-                conversation_manager.save(session_id, ctx)
-            except Exception:
-                pass
-            logger.warning("[AUDIT] SmallTalkGate: HIT (priority) message=%r", message)
+    # ── 0a. Human Presence social FIRST (then legacy small talk) ───────────
+    try:
+        from src.conversation.human_presence import (
+            build_presence_payload as _hpl_payload,
+            build_social_presence_reply as _hpl_social,
+            is_social_presence_turn as _hpl_is_social,
+        )
+
+        if payload is None and _hpl_is_social(_cue_dict):
+            _hpl_text = _hpl_social(message, _cue_dict, ctx)
+            if _hpl_text:
+                payload = _hpl_payload(_hpl_text, brain)
+                intent = "small_talk"
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.96
+                skipped_nl = True
+                try:
+                    from src.conversation.conversation_state import note_small_talk
+
+                    note_small_talk(ctx)
+                    conversation_manager.save(session_id, ctx)
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] HumanPresence: SOCIAL HIT message=%r reply=%r",
+                    message,
+                    _hpl_text[:120],
+                )
+    except Exception as _hpl_exc:
+        logger.warning("copilot: human presence social skipped (%s)", _hpl_exc)
+
+    # Legacy Small Talk fallback (only if HPL did not handle)
+    try:
+        if payload is None:
+            from src.communication import try_small_talk as _try_small_talk
+
+            _social = _try_small_talk(message, brain)
+            if _social:
+                payload = _social
+                intent = "small_talk"
+                entities = {"social": True}
+                routing_confidence = 0.95
+                skipped_nl = True
+                try:
+                    from src.conversation.conversation_state import note_small_talk
+
+                    note_small_talk(ctx)
+                    conversation_manager.save(session_id, ctx)
+                except Exception:
+                    pass
+                logger.warning("[AUDIT] SmallTalkGate: HIT (legacy fallback) message=%r", message)
     except Exception as _st_exc:
         logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
 
