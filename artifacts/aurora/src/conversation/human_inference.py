@@ -125,8 +125,37 @@ def _resolve_team(raw: str) -> str | None:
             return _TEAM_NAMES[key]
     except Exception:
         pass
-    # Accept unknown club names (Arsenal, XV de Piracicaba…) as titled tokens
-    if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ.'\s-]{1,40}$", t) and len(t.split()) <= 5:
+    # Accept ONLY known/fuzzy clubs — never invent teams from greetings/math/identity
+    # (Unknown single tokens like "Arsenal" still pass via title ONLY if look like a proper noun
+    # and are not stop-words.)
+    stop = {
+        "oi",
+        "ola",
+        "hey",
+        "hi",
+        "tudo",
+        "bem",
+        "qual",
+        "seu",
+        "nome",
+        "quanto",
+        "voce",
+        "aurora",
+        "sobre",
+        "fale",
+        "me",
+        "fala",
+        "como",
+        "esta",
+        "vai",
+    }
+    tokens = [x for x in _fold(t).split() if x]
+    if any(tok in stop for tok in tokens):
+        return None
+    if re.search(r"\d", t) or "+" in t or "?" in (t if len(t) < 3 else ""):
+        return None
+    # Single proper-noun token (international clubs not in BR map)
+    if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{2,28}$", t) and _fold(t) not in stop:
         return _title(t)
     return None
 
@@ -413,9 +442,27 @@ def infer_human_intent(
             topic_kind="opinion",
         )
 
-    # Soft keep from prior focus
+    # Soft keep from prior focus — NEVER on non-sport / blocked pipeline
+    try:
+        from src.conversation.master_intent_router import sport_pipeline_allowed
+
+        if not sport_pipeline_allowed(ctx):
+            base.what_user_meant = "pedido não esportivo"
+            base.human_goal = "conversa geral"
+            base.intent = "general_chat"
+            base.confidence = 0.7
+            return base
+    except Exception:
+        pass
     focus = (ctx or {}).get("conversation_focus") or {}
-    if focus.get("topic_team") and len(folded) < 24:
+    if (
+        focus.get("topic_team")
+        and len(folded) < 24
+        and re.search(
+            r"\b(e\s+(?:o|a|ele|ela)|amanha|hoje|horario|como\s+est)\b",
+            folded,
+        )
+    ):
         t = str(focus["topic_team"])
         base.what_user_meant = f"continuidade sobre {t}"
         base.human_goal = f"continuar sobre {t}"
@@ -439,6 +486,25 @@ def apply_human_inference(
     Persist inference on ctx and align DeepThinking / recovery.
     Returns (possibly rewritten message, inference).
     """
+    try:
+        from src.conversation.master_intent_router import sport_pipeline_allowed
+
+        if not sport_pipeline_allowed(ctx):
+            # Do not rewrite / poison sports state on non-sport turns
+            inf = HumanInference(
+                literal=(message or "").strip(),
+                what_user_said=(message or "").strip(),
+                what_user_meant="conversa não esportiva",
+                human_goal="general",
+                intent="general_chat",
+                confidence=0.9,
+            )
+            if ctx is not None:
+                ctx[CTX_KEY] = inf.to_dict()
+            return message, inf
+    except Exception:
+        pass
+
     inf = infer_human_intent(message, ctx)
     if ctx is None:
         return message, inf

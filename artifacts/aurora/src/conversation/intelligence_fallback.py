@@ -89,6 +89,17 @@ def try_intelligence_fallback(
     become help-menu / empty / '?'.
     """
     try:
+        try:
+            from src.conversation.master_intent_router import sport_pipeline_allowed
+
+            if not sport_pipeline_allowed(ctx):
+                logger.warning(
+                    "[AUDIT] IntelligenceFallback: SKIPPED — sport pipeline blocked"
+                )
+                return None
+        except Exception:
+            pass
+
         year = detect_historical_copa(message)
         if year:
             reply = build_copa_opinion(year)
@@ -229,6 +240,21 @@ def ensure_non_empty_payload(
         summary = str(payload.get("executive_summary") or "")
         if not is_empty_or_useless(summary):
             return payload
+
+        # Non-sport: never invent Copa/team opinion as filler
+        try:
+            from src.conversation.master_intent_router import sport_pipeline_allowed
+
+            if not sport_pipeline_allowed(ctx) or (
+                payload.get("entities") or {}
+            ).get("general_assistant"):
+                soft = "Pode falar comigo normalmente — em que posso ajudar?"
+                payload = dict(payload)
+                payload["executive_summary"] = soft
+                payload["final_recommendation"] = soft
+                return payload
+        except Exception:
+            pass
 
         year = detect_historical_copa(message)
         if year:

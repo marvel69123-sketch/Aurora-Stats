@@ -1603,12 +1603,56 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         pass
 
     # Pipeline order (Human Understanding):
-    #   Recovery → DeepThinking → Focus → HumanInference
+    #   MasterIntent → (non-sport short-circuit)
+    #   → Recovery → DeepThinking → Focus → HumanInference
     #   → WEB(gather) → Emotional/Profile/HPL
     #   → Natural/Fallback → engines… → Review → ThinkingDelay → Final
 
-    # ── 0a-1. Context Recovery (messy users → inferred intent) ────────────
+    # ── 0. Master Intent Router — BEFORE any sport pipeline ───────────────
+    _master = None
+    _sport_ok = True
     try:
+        from src.conversation.general_assistant import try_general_assistant as _ga_try
+        from src.conversation.master_intent_router import (
+            apply_master_intent as _mi_apply,
+            sport_pipeline_allowed as _mi_sport_ok,
+        )
+        from src.conversation.natural_response_filter import (
+            filter_or_regenerate as _nrf_filter,
+        )
+
+        _master = _mi_apply(message, ctx)
+        _sport_ok = _mi_sport_ok(ctx)
+        if _master and not _master.allow_sport_pipeline:
+            _ga = _ga_try(message, _master.intent, ctx)
+            if _ga:
+                _txt = str(_ga.get("executive_summary") or "")
+                _txt = _nrf_filter(
+                    _txt,
+                    master_intent=_master.intent,
+                    ctx=ctx,
+                    regenerate=_txt,
+                )
+                _ga["executive_summary"] = _txt
+                _ga["final_recommendation"] = _txt
+                payload = _ga
+                intent = str(payload.get("intent") or "general_chat")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = float(_master.confidence or 0.95)
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] GeneralAssistant: master=%s kind=%s",
+                    _master.intent,
+                    entities.get("assistant_kind"),
+                )
+    except Exception as _mi_exc:
+        logger.warning("copilot: master intent skipped (%s)", _mi_exc)
+        _sport_ok = True
+
+    # ── 0a-1. Context Recovery (messy users → inferred intent) ────────────
+    # Non-sport: NEVER enter recovery / focus / deep-thinking sport path.
+    if _sport_ok and payload is None:
+      try:
         from src.conversation.context_recovery import (
             apply_recovery_to_message as _v48_recover,
             recover_context as _v48_recover_full,
@@ -1697,13 +1741,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 )
         except Exception as _fc2_exc:
             logger.warning("copilot: focus update skipped (%s)", _fc2_exc)
-    except Exception as _rec_exc:
+      except Exception as _rec_exc:
         logger.warning("copilot: context recovery skipped (%s)", _rec_exc)
 
     # ── 0a-1a. Human Inference Engine — what did a human mean? ─────────────
     # BEFORE WEB / Natural / engines. Strong verbs dominate. Never "?".
     _hie = None
-    try:
+    if _sport_ok and payload is None:
+      try:
         from src.conversation.human_inference import apply_human_inference as _hie_apply
 
         message, _hie = _hie_apply(message, ctx)
@@ -1722,14 +1767,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 _hie.home,
                 _hie.away,
             )
-    except Exception as _hie_exc:
+      except Exception as _hie_exc:
         logger.warning("copilot: human inference skipped (%s)", _hie_exc)
 
     # ── 0a-1b. WEB gather BEFORE draft (thinking control) ─────────────────
     # Skip WEB gather for match_analysis — engines + API own that path.
     try:
         _skip_web = bool(
-            _hie and getattr(_hie, "intent", None) == "match_analysis"
+            (not _sport_ok)
+            or payload is not None
+            or (_hie and getattr(_hie, "intent", None) == "match_analysis")
         )
         if not _skip_web:
             from src.conversation.web_intelligence import (
@@ -1743,6 +1790,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── 0a0. Conversational Understanding Engine (v4.3) ────────────────────
     _cue_dict: dict = {}
     try:
+        if not _sport_ok or payload is not None:
+            raise RuntimeError("skip_cue_non_sport")
         from src.conversation.conversational_understanding import understand as _cue_understand
 
         _cue = _cue_understand(message, ctx)
@@ -1765,7 +1814,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _cue.confidence,
         )
     except Exception as _cue_exc:
-        logger.warning("copilot: conversational understanding skipped (%s)", _cue_exc)
+        if "skip_cue_non_sport" not in str(_cue_exc):
+            logger.warning("copilot: conversational understanding skipped (%s)", _cue_exc)
 
     # ── 0a0. Emotional Presence FIRST (before HPL / LLM) ──────────────────
     # Absolute priority: pride / affection / thanks must never fall through
@@ -2217,10 +2267,50 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         start_new_fixture_context as _start_new_fx,
     )
 
+    # Hard stop: non-sport must never hit follow-up / NL sport routing
+    if not _sport_ok and payload is None:
+        try:
+            from src.conversation.general_assistant import (
+                reply_general as _ga_soft,
+                try_general_assistant as _ga_retry,
+            )
+
+            _mi_n = (
+                (_master.intent if _master else None)
+                or str((ctx.get("master_intent") or {}).get("intent") or "GENERAL_CHAT")
+            )
+            payload = _ga_retry(message, _mi_n, ctx) or {
+                "intent": "general_chat",
+                "entities": {
+                    "general_assistant": True,
+                    "assistant_kind": "general",
+                    "has_analysis": False,
+                    "show_header": False,
+                    "skip_llm": True,
+                },
+                "executive_summary": _ga_soft(message),
+                "final_recommendation": _ga_soft(message),
+                "best_markets": [],
+                "match": None,
+                "is_live": False,
+                "brain": brain,
+            }
+            intent = str(payload.get("intent") or "general_chat")
+            entities = dict(payload.get("entities") or {})
+            routing_confidence = 0.9
+            skipped_nl = True
+            logger.warning(
+                "[AUDIT] MasterIntent: forced general (block NL/follow-up) intent=%s",
+                _mi_n,
+            )
+        except Exception as _ga_force_exc:
+            logger.warning("copilot: forced general failed (%s)", _ga_force_exc)
+            skipped_nl = True
+
     _ctx_last_match = ctx.get("last_match") or ctx.get("last_fixture")
     _fu_decision = _decide_fu_reuse(message, ctx)
 
-    if payload is None and _fu_decision.new_fixture and not _fu_decision.reuse:
+    if payload is None and _sport_ok and _fu_decision.new_fixture and not _fu_decision.reuse:
         # Explicit new A x B — never reuse prior England/etc. context
         intent = "analyze_match"
         entities = {
@@ -2242,7 +2332,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _fu_decision.previous_fixture,
             _fu_decision.new_fixture,
         )
-    elif payload is None and _ctx_last_match and _is_followup(message) and _fu_decision.reuse:
+    elif (
+        payload is None
+        and _sport_ok
+        and _ctx_last_match
+        and _is_followup(message)
+        and _fu_decision.reuse
+    ):
         logger.warning(
             "[AUDIT] QuickFollowUpGate: ENTER (before NL) last_match=%r message=%r",
             _ctx_last_match, message,
@@ -2257,7 +2353,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             logger.warning("[AUDIT] QuickFollowUpGate: HIT → skip nl_router ✅")
         else:
             logger.warning("[AUDIT] QuickFollowUpGate: engine returned None — fall through")
-    elif payload is None and _ctx_last_match and _is_followup(message) and not _fu_decision.reuse:
+    elif (
+        payload is None
+        and _sport_ok
+        and _ctx_last_match
+        and _is_followup(message)
+        and not _fu_decision.reuse
+    ):
         # Follow-up phrasing but different teams named — already handled above;
         # belt-and-suspenders fallthrough to analyze if entities present.
         if _fu_decision.home and _fu_decision.away:
@@ -2276,10 +2378,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 is_live=bool(_fu_decision.is_live),
             )
 
-    # ── NL Routing (skipped on quick follow-up hit) ───────────────────────
-    if not skipped_nl:
+    # ── NL Routing (skipped on quick follow-up hit / non-sport) ───────────
+    if not skipped_nl and _sport_ok:
         _route = _nl_route(message)
         intent, entities, routing_confidence = _route.intent, _route.entities, _route.confidence
+    elif not skipped_nl and not _sport_ok:
+        skipped_nl = True
+        intent = intent if intent and intent != "unknown" else "general_chat"
+        logger.warning("[AUDIT] MasterIntent: NL routing blocked (non-sport)")
 
     logger.info(
         "copilot request_id=%s session=%s intent=%s conf=%.3f entities=%s "
@@ -3134,48 +3240,54 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         )
 
         if isinstance(payload, dict):
-            _sum = str(payload.get("executive_summary") or "")
-            _ref = _ri_reflect(_sum, question=message)
-            if (
-                not _hie_delay_ok(_sum, ctx)
-                or _ref.blocked
-                or (not _ref.ok and (payload.get("entities") or {}).get("opinion_time"))
-            ):
-                _fixed = None
-                try:
-                    from src.conversation.response_planner import (
-                        plan_response as _ri_plan,
-                    )
-                    from src.conversation.response_templates import (
-                        render_forced_useful as _ri_forced,
-                    )
-
-                    _plan = _ri_plan(message, ctx)
-                    if not _plan.team:
-                        _plan.team = (
-                            ((ctx.get("human_inference") or {}).get("team"))
-                            or ((ctx.get("deep_thinking") or {}).get("topic_team"))
-                        )
-                    _fixed = _ri_forced(_plan)
-                except Exception:
-                    _fixed = _hie_repair(_sum, ctx)
-                try:
-                    from src.conversation.confidence_rewriter import (
-                        rewrite_confidence_tone as _ri_conf,
-                    )
-
-                    _fixed = _ri_conf(_fixed)
-                except Exception:
-                    pass
-                payload["executive_summary"] = _fixed
-                payload["final_recommendation"] = _fixed
-                ents = dict(payload.get("entities") or {})
-                ents["response_intelligence_repair"] = True
-                payload["entities"] = ents
+            _ents_td = dict(payload.get("entities") or {})
+            # Never sport-repair general assistant / non-sport master intents
+            if _ents_td.get("general_assistant") or not _sport_ok:
                 logger.warning(
-                    "[AUDIT] ThinkingDelay: repaired unintelligent reply reasons=%s",
-                    _ref.reasons,
+                    "[AUDIT] ThinkingDelay: SKIPPED sport repair (non-sport)"
                 )
+            else:
+                _sum = str(payload.get("executive_summary") or "")
+                _ref = _ri_reflect(_sum, question=message)
+                if (
+                    not _hie_delay_ok(_sum, ctx)
+                    or _ref.blocked
+                    or (not _ref.ok and _ents_td.get("opinion_time"))
+                ):
+                    _fixed = None
+                    try:
+                        from src.conversation.response_planner import (
+                            plan_response as _ri_plan,
+                        )
+                        from src.conversation.response_templates import (
+                            render_forced_useful as _ri_forced,
+                        )
+
+                        _plan = _ri_plan(message, ctx)
+                        if not _plan.team:
+                            _plan.team = (
+                                ((ctx.get("human_inference") or {}).get("team"))
+                                or ((ctx.get("deep_thinking") or {}).get("topic_team"))
+                            )
+                        _fixed = _ri_forced(_plan)
+                    except Exception:
+                        _fixed = _hie_repair(_sum, ctx)
+                    try:
+                        from src.conversation.confidence_rewriter import (
+                            rewrite_confidence_tone as _ri_conf,
+                        )
+
+                        _fixed = _ri_conf(_fixed)
+                    except Exception:
+                        pass
+                    payload["executive_summary"] = _fixed
+                    payload["final_recommendation"] = _fixed
+                    _ents_td["response_intelligence_repair"] = True
+                    payload["entities"] = _ents_td
+                    logger.warning(
+                        "[AUDIT] ThinkingDelay: repaired unintelligent reply reasons=%s",
+                        _ref.reasons,
+                    )
     except Exception as _td_exc:
         logger.warning("copilot: thinking delay skipped (%s)", _td_exc)
 
@@ -3188,6 +3300,51 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         payload = _v47_emo_guard(payload, message=message, ctx=ctx)
     except Exception as _emo_g_exc:
         logger.warning("copilot: emotional hard-guard skipped (%s)", _emo_g_exc)
+
+    # ── 0z1c2. Natural Response Filter + perceived intelligence (non-sport) ─
+    try:
+        if isinstance(payload, dict) and (
+            not _sport_ok
+            or (payload.get("entities") or {}).get("general_assistant")
+        ):
+            from src.conversation.natural_response_filter import (
+                filter_or_regenerate as _nrf_final,
+            )
+
+            _mi_name = (
+                ((_master.intent if _master else None) or "")
+                or str((ctx.get("master_intent") or {}).get("intent") or "GENERAL_CHAT")
+            )
+            _sum_f = str(payload.get("executive_summary") or "")
+            _regen = None
+            try:
+                from src.conversation.general_assistant import (
+                    reply_general as _ga_regen,
+                    reply_math as _ga_math,
+                    reply_small_talk as _ga_st,
+                    reply_system as _ga_sys,
+                )
+
+                if _mi_name == "MATH_QUERY":
+                    _regen = _ga_math(message)
+                elif _mi_name == "SMALL_TALK":
+                    _regen = _ga_st(message)
+                elif _mi_name == "SYSTEM_QUERY":
+                    _regen = _ga_sys(message)
+                else:
+                    _regen = _ga_regen(message)
+            except Exception:
+                _regen = "Pode falar comigo normalmente — em que posso ajudar?"
+            _clean = _nrf_final(
+                _sum_f,
+                master_intent=_mi_name,
+                ctx=ctx,
+                regenerate=_regen,
+            )
+            payload["executive_summary"] = _clean
+            payload["final_recommendation"] = _clean
+    except Exception as _nrf_exc:
+        logger.warning("copilot: natural response filter skipped (%s)", _nrf_exc)
 
     # ── 0z2. Prediction / Experience Memory (v4.5) — PASSIVE store only ────
     try:

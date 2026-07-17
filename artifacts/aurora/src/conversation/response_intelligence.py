@@ -28,6 +28,14 @@ async def compose_intelligent_reply(
     Full pipeline for team talk / moment (and soft match briefing).
     """
     try:
+        from src.conversation.master_intent_router import sport_pipeline_allowed
+
+        if not sport_pipeline_allowed(ctx):
+            logger.warning(
+                "[AUDIT] ResponseIntelligence: BLOCKED — non-sport master intent"
+            )
+            return None
+
         from src.conversation.confidence_rewriter import (
             has_errorish_honesty,
             rewrite_confidence_tone,

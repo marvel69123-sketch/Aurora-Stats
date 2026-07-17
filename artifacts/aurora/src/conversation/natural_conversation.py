@@ -590,6 +590,15 @@ async def try_natural_conversation(
     Brain Authority: respects ctx['deep_thinking'] topic_kind.
     """
     try:
+        # Master Intent — non-sport must never enter natural sport paths
+        try:
+            from src.conversation.master_intent_router import sport_pipeline_allowed
+
+            if not sport_pipeline_allowed(ctx):
+                logger.warning("[AUDIT] Natural: SKIPPED — sport pipeline blocked")
+                return None
+        except Exception:
+            pass
         # Human Inference SoT — never steal match_analysis into calendar
         try:
             from src.conversation.human_inference import is_match_analysis
