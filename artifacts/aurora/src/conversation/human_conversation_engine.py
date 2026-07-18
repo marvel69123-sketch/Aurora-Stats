@@ -222,7 +222,7 @@ def try_human_conversation(
 
         # 3) Short answers against pending expectation
         if is_short_answer(message):
-            resolved = resolve_short_answer(message, state)
+            resolved = resolve_short_answer(message, state, ctx)
             if resolved:
                 exp = resolved.get("expected_action")
                 update_hce_state(
@@ -266,7 +266,7 @@ def try_human_conversation(
                 return _payload(text, kind="short_loose", intent="small_talk")
 
         # 4) Soft sport follow-ups (e agora? / qual mercado?)
-        soft = soft_followup_reply(message, state)
+        soft = soft_followup_reply(message, state, ctx)
         if soft:
             update_hce_state(ctx, last_intent="soft_followup", last_topic="sport")
             logger.warning("[AUDIT] HCE: soft_followup")

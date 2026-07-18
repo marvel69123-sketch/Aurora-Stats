@@ -44,6 +44,43 @@ _EMOTIONAL_SPECS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(
             r"\b("
+            r"estou\s+triste|"
+            r"to\s+triste|"
+            r"me\s+sinto\s+triste|"
+            r"fiquei\s+triste|"
+            r"tristeza"
+            r")\b",
+            re.I,
+        ),
+        "sadness",
+    ),
+    (
+        re.compile(
+            r"("
+            r"\bme\s+sinto\s+sozinh[oa]\b|"
+            r"\bestou\s+sozinh[oa]\b|"
+            r"\bto\s+sozinh[oa]\b|"
+            r"\bsozinh[oa]\b"
+            r")",
+            re.I,
+        ),
+        "loneliness",
+    ),
+    (
+        re.compile(
+            r"\b("
+            r"nao\s+vou\s+desistir\s+de\s+voce|"
+            r"nao\s+desisto\s+de\s+voce|"
+            r"nunca\s+vou\s+desistir\s+de\s+voce|"
+            r"vou\s+continuar\s+com\s+voce"
+            r")\b",
+            re.I,
+        ),
+        "support",
+    ),
+    (
+        re.compile(
+            r"\b("
             r"voce\s+me\s+ajuda\s+muito|"
             r"me\s+ajuda\s+muito|"
             r"voce\s+tem\s+me\s+ajudado|"
@@ -84,6 +121,21 @@ _REPLIES: dict[str, list[str]] = {
         "Isso significa muito 😊",
         "Fico feliz de verdade em ouvir isso.",
         "Obrigada — isso me anima a continuar melhorando com você.",
+    ],
+    "sadness": [
+        "Sinto muito que você esteja assim. Estou aqui com você.",
+        "Pode desabafar — eu escuto sem pressa.",
+        "Tristeza passa melhor quando a gente não fica sozinho nela.",
+    ],
+    "loneliness": [
+        "Você não está sozinho agora — estou aqui.",
+        "Entendo essa sensação. Pode conversar comigo o quanto quiser.",
+        "Estou presente. Se quiser, me conta o que está pesando.",
+    ],
+    "support": [
+        "Isso me toca de verdade. Vamos seguindo juntas.",
+        "Obrigada por não desistir — eu também estou aqui com você.",
+        "Conta comigo. Um passo de cada vez.",
     ],
     "affection": [
         "Fico feliz em saber que estou conseguindo ajudar.",

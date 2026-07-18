@@ -26,8 +26,9 @@ _NEGATE = re.compile(
     re.I,
 )
 _CONTINUE = re.compile(
-    r"^(?:continua|continue|segue|pode\s+continuar|e\s+agora\??|agora\??|"
-    r"e\s+ai\??|proximo|próximo|manda)\s*[!?.]*$",
+    # "e agora?" / "e ai?" → soft_followup (variação própria na expectation)
+    r"^(?:continua|continue|segue|pode\s+continuar|"
+    r"proximo|próximo|manda)\s*[!?.]*$",
     re.I,
 )
 _THAT = re.compile(
@@ -68,9 +69,11 @@ def classify_short(message: str) -> str | None:
 def resolve_short_answer(
     message: str,
     state: dict[str, Any],
+    ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """
     Returns {text, expected_action, kind} or None if cannot resolve safely.
+    Phase 7.5: surface wording varies; meaning stays.
     """
     kind = classify_short(message)
     if not kind:
@@ -125,12 +128,42 @@ def resolve_short_answer(
 
     if expected == "sport_followup" and entity:
         if kind in {"continue", "affirm", "that"}:
-            focus = hints[0] if hints else "o que está acontecendo"
-            return {
-                "text": (
+            focus = hints[0] if hints else "o estado do jogo"
+            try:
+                from src.conversation.phrase_variation import pick_variant
+
+                text = pick_variant(
+                    ctx,
+                    "sport_continue",
+                    [
+                        (
+                            f"Neste momento o **{entity}** segue no mesmo fio — "
+                            f"o que mais importa ainda é {focus}. "
+                            "Quer placar, mercados ou uma leitura rápida?"
+                        ),
+                        (
+                            f"Até aqui o cenário do **{entity}** continua parecido. "
+                            f"Eu manteria o olho em {focus}. "
+                            "Prefere placar, mercados ou um resumo curto?"
+                        ),
+                        (
+                            f"Por enquanto ainda acompanhamos o **{entity}** por {focus}. "
+                            "O quadro não mudou o bastante para outra conclusão. "
+                            "Quer que eu foque no placar ou nos mercados?"
+                        ),
+                        (
+                            f"Seguindo no **{entity}**: o recorte útil continua sendo {focus}. "
+                            "Me diga se quer placar, mercados ou só a leitura do momento."
+                        ),
+                    ],
+                )
+            except Exception:
+                text = (
                     f"Seguindo no {entity}: o mais útil agora é {focus}. "
-                    f"Quer placar, mercados ou uma leitura rápida?"
-                ),
+                    "Quer placar, mercados ou uma leitura rápida?"
+                )
+            return {
+                "text": text,
                 "expected_action": "sport_followup",
                 "kind": "short_sport_continue",
                 "topic": "sport",

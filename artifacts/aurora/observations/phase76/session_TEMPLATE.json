@@ -1,0 +1,30 @@
+{
+  "phase": "7.6",
+  "governance": "production_validation",
+  "created_at": "YYYY-MM-DDTHHMMSSZ",
+  "source": "production",
+  "transcript": "Você: …\nAurora: …\n",
+  "checklist": {
+    "ownership_ok": true,
+    "continuity_ok": true,
+    "social_ok": true,
+    "excessive_repetition": false,
+    "user_corrected_aurora": false,
+    "felt_human": true
+  },
+  "metrics": {
+    "ownership_ok": true,
+    "continuity_ok": true,
+    "user_corrected": false,
+    "excessive_repetition": false,
+    "felt_human": true,
+    "felt_smarter": "yes",
+    "friction_score": 2,
+    "user_rephrases": 0,
+    "had_error_or_rephrase": false,
+    "recovered_after_error": "n/a"
+  },
+  "worst_severity": "none",
+  "incident_notes": "",
+  "notes": ""
+}

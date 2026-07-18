@@ -195,6 +195,21 @@ def reply_general(message: str) -> str:
     )
 
 
+def reply_utility_time(message: str = "") -> str:
+    """Minimal clock reply for UTILITY_QUERY (misroute fix 7.9-E)."""
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        return f"Agora são **{now.strftime('%H:%M')}** (horário de Brasília)."
+    except Exception:
+        from datetime import datetime
+
+        now = datetime.now()
+        return f"Agora são **{now.strftime('%H:%M')}** no relógio local."
+
+
 def try_general_assistant(
     message: str,
     master_intent: str,
@@ -211,6 +226,13 @@ def try_general_assistant(
             return _payload(reply_math(message), intent="general_chat", kind="math")
         if intent == "SYSTEM_QUERY":
             return _payload(reply_system(message), intent="identity", kind="system")
+        if intent == "UTILITY_QUERY":
+            return _payload(
+                reply_utility_time(message), intent="utility", kind="utility_time"
+            )
+        if intent == "EMOTIONAL_QUERY":
+            # Let emotional_presence own the turn (classifier already matched)
+            return None
         if intent == "MEMORY_QUERY":
             # Let profile memory handle if possible; soft general otherwise
             return None

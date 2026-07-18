@@ -3,6 +3,8 @@ Master Intent Router — classify BEFORE any sports pipeline.
 
 Only SPORT_QUERY and LIVE_MATCH may touch entity resolver / markets / sport planner.
 Fail-open to GENERAL_CHAT. Additive.
+
+Phase 7.9-E: misroute fixes (live listing, utility time, emotional).
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ MasterIntent = Literal[
     "MEMORY_QUERY",
     "MATH_QUERY",
     "SYSTEM_QUERY",
+    "UTILITY_QUERY",
+    "EMOTIONAL_QUERY",
 ]
 
 SPORT_INTENTS = frozenset({"SPORT_QUERY", "LIVE_MATCH"})
@@ -45,6 +49,20 @@ def _fold(text: str) -> str:
     raw = unicodedata.normalize("NFKD", text or "")
     raw = "".join(c for c in raw if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", raw.lower()).strip()
+
+
+def _route_log(tag: str, **fields: Any) -> None:
+    try:
+        parts = " ".join(f"{k}={v}" for k, v in fields.items() if v is not None)
+        logger.warning("[%s] %s", tag, parts)
+    except Exception:
+        pass
+    try:
+        from src.conversation.pipeline_trace import trace as _ptrace
+
+        _ptrace(tag, **{k: v for k, v in fields.items() if v is not None})
+    except Exception:
+        pass
 
 
 _MATH = re.compile(
@@ -100,8 +118,34 @@ _MEMORY = re.compile(
     re.I,
 )
 
+# Pure clock / time-of-day — NOT sport schedule
+_UTILITY = re.compile(
+    r"("
+    r"^(?:que\s+horas(?:\s+(?:sao|são))?(?:\s+agora)?|"
+    r"horario\s+atual|"
+    r"hora\s+atual|"
+    r"me\s+diz\s+(?:as\s+)?horas|"
+    r"qual\s+(?:e|eh|é)\s+(?:a\s+)?hora|"
+    r"que\s+horas\s+(?:sao|são))\s*\??$|"
+    r"^(?:horas?\??)$"
+    r")",
+    re.I,
+)
+
 _LIVE = re.compile(
     r"\b(ao\s+vivo|live|placar\s+ao\s+vivo|minuto\s+\d+)\b",
+    re.I,
+)
+
+# "quais jogos/partidas estão ao vivo / acontecendo agora"
+_LIVE_LISTING = re.compile(
+    r"("
+    r"quais?\s+(?:os\s+)?(?:jogos|partidas|confrontos)\b.*\b("
+    r"ao\s+vivo|acontecendo|rolando|agora|em\s+andamento|ao\s+vivo"
+    r")\b|"
+    r"\b(?:jogos|partidas)\s+(?:ao\s+vivo|acontecendo|em\s+andamento)\b|"
+    r"o\s+que\s+(?:esta|está)\s+(?:rolando|acontecendo)\s+(?:agora|ao\s+vivo)"
+    r")",
     re.I,
 )
 
@@ -110,10 +154,10 @@ _SPORT = re.compile(
     r"\b(analisar|analise|analyze|avaliar)\b|"
     r"\b\w+\s+[xX]\s+\w+\b|"
     r"\bvs\.?\b|"
-    r"\b(jogo|partida|confronto|fixture|mercado|odds|"
+    r"\b(jogo|jogos|partida|partidas|confronto|confrontos|fixture|mercado|odds|"
     r"brasileirao|libertadores|champions|premier|"
     r"como\s+esta\s+(?:o|a)\s+\w+|o\s+que\s+acha\s+d[oe]|"
-    r"joga\s+(?:hoje|amanha)|que\s+horas|horario|"
+    r"joga\s+(?:hoje|amanha)|"
     r"tem\s+jogo|proximo\s+jogo|escalacao)\b"
     r")",
     re.I,
@@ -124,7 +168,7 @@ _KNOWN_CLUB = re.compile(
     r"\b(flamengo|botafogo|santos|corinthians|palmeiras|sao\s+paulo|"
     r"fluminense|gremio|internacional|vasco|bahia|mirassol|"
     r"arsenal|chelsea|liverpool|juventus|londrina|"
-    r"sao\s+bernardo|ivai)\b",
+    r"sao\s+bernardo|ivai|cabo\s+verde)\b",
     re.I,
 )
 
@@ -143,11 +187,38 @@ def classify_master_intent(message: str) -> MasterIntentResult:
     if _MEMORY.search(folded):
         return MasterIntentResult("MEMORY_QUERY", 0.9, "memory_or_profile", False)
 
+    # Utility BEFORE sport — "que horas são?" must never become SPORT
+    if _UTILITY.search(folded):
+        return MasterIntentResult("UTILITY_QUERY", 0.94, "utility_time", False)
+
+    # Emotional BEFORE short-general (classifier shared with emotional_presence)
+    try:
+        from src.conversation.emotional_presence import detect_emotional_intent
+
+        emo = detect_emotional_intent(message)
+        if emo:
+            return MasterIntentResult(
+                "EMOTIONAL_QUERY",
+                0.92,
+                f"emotional:{emo}",
+                False,
+            )
+    except Exception:
+        pass
+
+    # Live listing / "ao vivo agora" without requiring club+x
+    if _LIVE_LISTING.search(folded):
+        return MasterIntentResult("LIVE_MATCH", 0.94, "live_listing", True)
+
     # Sport BEFORE small talk — "como está o Botafogo?" is SPORT, not greeting
     if _LIVE.search(folded) and (
         _SPORT.search(folded) or _KNOWN_CLUB.search(folded) or re.search(r"\bx\b", folded)
     ):
         return MasterIntentResult("LIVE_MATCH", 0.93, "live_sport", True)
+
+    # Bare "ao vivo" with jogos/partidas plurals already in _SPORT
+    if _LIVE.search(folded) and re.search(r"\b(?:jogos?|partidas?|placar)\b", folded):
+        return MasterIntentResult("LIVE_MATCH", 0.92, "live_games_signal", True)
 
     if _SPORT.search(folded) or _KNOWN_CLUB.search(folded):
         kind: MasterIntent = "LIVE_MATCH" if _LIVE.search(folded) else "SPORT_QUERY"
@@ -218,6 +289,11 @@ def apply_master_intent(
     message: str,
     ctx: dict[str, Any] | None,
 ) -> MasterIntentResult:
+    prev = None
+    if isinstance(ctx, dict):
+        prev = (ctx.get(CTX_KEY) or {}).get("intent") if isinstance(ctx.get(CTX_KEY), dict) else None
+    _route_log("INTENT_BEFORE", message_prefix=(message or "")[:80], prev_intent=prev or "none")
+
     result = classify_master_intent(message)
     if ctx is not None:
         ctx[CTX_KEY] = result.to_dict()
@@ -228,6 +304,19 @@ def apply_master_intent(
             ctx.pop("sport_pipeline_blocked", None)
             ctx.pop("block_hydrate_legacy", None)
             ctx.pop("master_intent_clear_reason", None)
+
+    _route_log(
+        "INTENT_AFTER",
+        intent=result.intent,
+        confidence=result.confidence,
+        sport_ok=result.allow_sport_pipeline,
+    )
+    _route_log(
+        "ROUTE_REASON",
+        intent=result.intent,
+        reason=result.reason,
+        sport_ok=result.allow_sport_pipeline,
+    )
     logger.warning(
         "[AUDIT] MasterIntent: intent=%s conf=%.2f sport=%s reason=%s",
         result.intent,

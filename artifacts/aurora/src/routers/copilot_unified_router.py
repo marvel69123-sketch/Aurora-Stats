@@ -1623,6 +1623,18 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
         _master = _mi_apply(message, ctx)
         _sport_ok = _mi_sport_ok(ctx)
+        try:
+            from src.conversation.pipeline_trace import trace as _ptrace
+
+            _ptrace(
+                "INTENT",
+                intent=(_master.intent if _master else None),
+                sport_ok=_sport_ok,
+                allow_sport=(_master.allow_sport_pipeline if _master else None),
+                confidence=(_master.confidence if _master else None),
+            )
+        except Exception:
+            pass
         _ga = None
         if _master and not _master.allow_sport_pipeline:
             _ga = _ga_try(message, _master.intent, ctx)
@@ -1636,6 +1648,17 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 )
                 _ga["executive_summary"] = _txt
                 _ga["final_recommendation"] = _txt
+                try:
+                    from src.conversation.pipeline_trace import trace as _ptrace
+
+                    _ptrace(
+                        "ENGINE",
+                        engine="general_assistant",
+                        kind=(_ga.get("entities") or {}).get("assistant_kind"),
+                        fallback=False,
+                    )
+                except Exception:
+                    pass
         # Human Conversation Engine — continuity / short answers / meta / memory
         # May override weak GA; may also soft-handle sport ("quero analisar um jogo").
         try:
@@ -1677,6 +1700,17 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     entities.get("hce_kind"),
                     (_master.intent if _master else None),
                 )
+                try:
+                    from src.conversation.pipeline_trace import trace as _ptrace
+
+                    _ptrace(
+                        "ENGINE",
+                        engine="human_conversation",
+                        kind=entities.get("hce_kind"),
+                        fallback=False,
+                    )
+                except Exception:
+                    pass
             elif _ga:
                 payload = _ga
                 intent = str(payload.get("intent") or "general_chat")
@@ -1724,6 +1758,40 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 entities = dict(payload.get("entities") or {})
         except Exception as _nre_exc:
             logger.warning("copilot: NRE v2 skipped (%s)", _nre_exc)
+
+        # Phase 7.4 — ONE TURN = ONE OWNER (lock resolved early replies)
+        try:
+            from src.conversation.turn_ownership import finalize_early_ownership as _own_fin
+
+            if payload is not None:
+                payload = _own_fin(payload) or payload
+                entities = dict(payload.get("entities") or {})
+                intent = str(payload.get("intent") or intent)
+                try:
+                    from src.conversation.pipeline_trace import (
+                        snapshot_payload as _psnap,
+                        trace as _ptrace,
+                    )
+
+                    _snap = _psnap(payload)
+                    _ptrace(
+                        "ENTITIES",
+                        intent=_snap.get("intent"),
+                        owner=_snap.get("owner"),
+                        locked=_snap.get("locked"),
+                        hce_kind=_snap.get("hce_kind"),
+                    )
+                    _ptrace(
+                        "PLANNER",
+                        sport_ok=_sport_ok,
+                        skipped_nl=skipped_nl,
+                        owner=_snap.get("owner"),
+                        locked=_snap.get("locked"),
+                    )
+                except Exception:
+                    pass
+        except Exception as _own_exc:
+            logger.warning("copilot: ownership finalize skipped (%s)", _own_exc)
     except Exception as _mi_exc:
         logger.warning("copilot: master intent skipped (%s)", _mi_exc)
         _sport_ok = True
@@ -1736,6 +1804,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             apply_recovery_to_message as _v48_recover,
             recover_context as _v48_recover_full,
         )
+        try:
+            from src.conversation.pipeline_trace import trace as _ptrace
+
+            _ptrace("RECOVERY", entered=True, sport_ok=_sport_ok)
+        except Exception:
+            pass
 
         _rec = _v48_recover_full(message, ctx)
         message = _v48_recover(message, ctx, min_confidence=0.7)
@@ -1900,8 +1974,11 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # Absolute priority: pride / affection / thanks must never fall through
     # to "Posso ajudar com leituras...".
     # DeepThinking SoT: calendar/opinion/fixture topics never yield to emotional.
+    # Phase 7.9-C: may claim deferred GA general (not hard-locked yet).
     try:
-        if payload is None:
+        from src.conversation.turn_ownership import can_presence_claim as _own_claim_emo
+
+        if _own_claim_emo(payload if isinstance(payload, dict) else None):
             from src.conversation.brain_authority import (
                 should_block_analysis_engines as _ba_block_emo,
             )
@@ -1934,7 +2011,9 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     # ── 0a0b. About You profile teach / forget / query (SoT) ───────────────
     try:
-        if payload is None:
+        from src.conversation.turn_ownership import can_presence_claim as _own_claim_prof
+
+        if _own_claim_prof(payload if isinstance(payload, dict) else None):
             from src.conversation.user_profile_memory import (
                 try_profile_commands as _v47_profile,
             )
@@ -1955,14 +2034,30 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         logger.warning("copilot: profile memory skipped (%s)", _prof_exc)
 
     # ── 0a. Human Presence social (then legacy small talk) ─────────────────
+    # Phase 7.4: NRE/HCE/META already own social — do not compete.
+    # Phase 7.9-C: may claim deferred GA general.
     try:
         from src.conversation.human_presence import (
             build_presence_payload as _hpl_payload,
             build_social_presence_reply as _hpl_social,
             is_social_presence_turn as _hpl_is_social,
         )
+        from src.conversation.turn_ownership import (
+            can_presence_claim as _own_claim_hpl,
+            should_skip_competing_social as _own_skip,
+        )
 
-        if payload is None and _hpl_is_social(_cue_dict):
+        if payload is not None and _own_skip(payload):
+            logger.warning("[AUDIT] Ownership: HPL skipped — turn already owned")
+            try:
+                from src.conversation.turn_ownership import note_overwrite_blocked as _owb
+
+                _owb(payload, layer="HPL")
+            except Exception:
+                pass
+        elif _own_claim_hpl(payload if isinstance(payload, dict) else None) and _hpl_is_social(
+            _cue_dict
+        ):
             from src.conversation.brain_authority import (
                 should_block_analysis_engines as _ba_block_hpl,
             )
@@ -2027,7 +2122,20 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     # ── 0a1. Natural Conversation (calendar / team opinion / capabilities) ─
     try:
-        if payload is None:
+        from src.conversation.turn_ownership import (
+            can_presence_claim as _own_claim_nat,
+            should_skip_competing_social as _own_skip_nat,
+        )
+
+        if payload is not None and _own_skip_nat(payload):
+            logger.warning("[AUDIT] Ownership: Natural skipped — turn already owned")
+            try:
+                from src.conversation.turn_ownership import note_overwrite_blocked as _owb
+
+                _owb(payload, layer="NaturalConversation")
+            except Exception:
+                pass
+        elif _own_claim_nat(payload if isinstance(payload, dict) else None):
             from src.conversation.natural_conversation import (
                 try_natural_conversation as _v452_natural,
             )
@@ -2049,7 +2157,20 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     # ── 0a1b. Intelligence Fallback (Copa / never empty topics) ────────────
     try:
-        if payload is None:
+        from src.conversation.turn_ownership import (
+            can_presence_claim as _own_claim_intel,
+            should_skip_competing_social as _own_skip_intel,
+        )
+
+        if payload is not None and _own_skip_intel(payload):
+            logger.warning("[AUDIT] Ownership: IntelFallback skipped — owned")
+            try:
+                from src.conversation.turn_ownership import note_overwrite_blocked as _owb
+
+                _owb(payload, layer="IntelFallback")
+            except Exception:
+                pass
+        elif _own_claim_intel(payload if isinstance(payload, dict) else None):
             from src.conversation.intelligence_fallback import (
                 try_intelligence_fallback as _v48_intel,
             )
@@ -2065,12 +2186,37 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     "[AUDIT] IntelligenceFallback: kind=%s",
                     entities.get("fallback_kind"),
                 )
+                try:
+                    from src.conversation.pipeline_trace import trace as _ptrace
+
+                    _ptrace(
+                        "FALLBACK",
+                        source="intelligence_fallback",
+                        kind=entities.get("fallback_kind"),
+                        fallback=True,
+                    )
+                except Exception:
+                    pass
     except Exception as _intel_exc:
         logger.warning("copilot: intelligence fallback skipped (%s)", _intel_exc)
 
     # Legacy Small Talk fallback (only if HPL did not handle)
+    # Phase 7.4 candidate freeze: never steal owned NRE/HCE turns.
     try:
-        if payload is None:
+        from src.conversation.turn_ownership import (
+            can_presence_claim as _own_claim_st,
+            should_skip_competing_social as _own_skip_st,
+        )
+
+        if payload is not None and _own_skip_st(payload):
+            logger.warning("[AUDIT] Ownership: legacy SmallTalk skipped — owned")
+            try:
+                from src.conversation.turn_ownership import note_overwrite_blocked as _owb
+
+                _owb(payload, layer="LegacySmallTalk")
+            except Exception:
+                pass
+        elif _own_claim_st(payload if isinstance(payload, dict) else None):
             from src.communication import try_small_talk as _try_small_talk
 
             _social = _try_small_talk(message, brain)
@@ -2102,6 +2248,19 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 logger.warning("[AUDIT] SmallTalkGate: HIT (legacy fallback) message=%r", message)
     except Exception as _st_exc:
         logger.warning("copilot: small talk gate skipped (%s)", _st_exc)
+
+    # Phase 7.9-C — second ownership pass after presence layers (before late filters)
+    try:
+        from src.conversation.turn_ownership import (
+            finalize_presence_ownership as _own_presence,
+        )
+
+        if isinstance(payload, dict):
+            payload = _own_presence(payload) or payload
+            entities = dict(payload.get("entities") or {})
+            intent = str(payload.get("intent") or intent)
+    except Exception as _own_p_exc:
+        logger.warning("copilot: presence ownership finalize skipped (%s)", _own_p_exc)
 
     # ── 0a2. Conversation State TTL + cancel/reset + topic switch ──────────
     try:
@@ -2171,23 +2330,34 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         logger.warning("copilot: context reinforcement skipped (%s)", _creinf_exc)
 
     # ── 0a2b. Conversation Reasoner (v4.0) — thinks, does NOT reply ────────
+    # Phase 7.4: freeze on owned social/continuity turns (no user-visible value).
     # Fail-open: errors never block Small Talk / CI / FollowUp / engines.
     try:
-        from src.conversation.conversation_reasoner import (
-            attach_reasoning as _cr_attach,
-            reason as _cr_reason,
-        )
+        from src.conversation.turn_ownership import should_skip_competing_social as _own_skip_cr
 
-        _thought = _cr_reason(message, ctx)
-        _cr_attach(ctx, _thought)
-        logger.warning(
-            "[AUDIT] ConversationReasoner: type=%s goal=%r conf=%.2f next=%s thought=%r",
-            _thought.reasoning_type,
-            _thought.user_goal,
-            _thought.confidence,
-            _thought.next_action,
-            (_thought.thought or "")[:180],
-        )
+        _skip_social_reasoners = bool(payload is not None and _own_skip_cr(payload))
+    except Exception:
+        _skip_social_reasoners = False
+
+    try:
+        if _skip_social_reasoners:
+            logger.warning("[AUDIT] Ownership: Reasoner skipped — turn owned")
+        else:
+            from src.conversation.conversation_reasoner import (
+                attach_reasoning as _cr_attach,
+                reason as _cr_reason,
+            )
+
+            _thought = _cr_reason(message, ctx)
+            _cr_attach(ctx, _thought)
+            logger.warning(
+                "[AUDIT] ConversationReasoner: type=%s goal=%r conf=%.2f next=%s thought=%r",
+                _thought.reasoning_type,
+                _thought.user_goal,
+                _thought.confidence,
+                _thought.next_action,
+                (_thought.thought or "")[:180],
+            )
     except Exception as _cr_exc:
         logger.warning("copilot: conversation reasoner skipped (%s)", _cr_exc)
 
@@ -2195,18 +2365,21 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # Hypotheses + context priority + humanizer plan. Rewrites last_reasoning
     # for CRL. Does NOT edit Reasoner/CRL/State modules. Fail-open.
     try:
-        from src.conversation.conversation_intelligence_layer import (
-            run_intelligence as _cil_run,
-        )
+        if _skip_social_reasoners:
+            logger.warning("[AUDIT] Ownership: CIL skipped — turn owned")
+        else:
+            from src.conversation.conversation_intelligence_layer import (
+                run_intelligence as _cil_run,
+            )
 
-        _cil_thought = _cil_run(message, ctx)
-        logger.warning(
-            "[AUDIT] ConversationIntelligenceLayer: goal=%s conf=%.2f strategy=%s selected=%r",
-            _cil_thought.user_intent,
-            _cil_thought.confidence,
-            _cil_thought.response_strategy,
-            _cil_thought.selected_interpretation,
-        )
+            _cil_thought = _cil_run(message, ctx)
+            logger.warning(
+                "[AUDIT] ConversationIntelligenceLayer: goal=%s conf=%.2f strategy=%s selected=%r",
+                _cil_thought.user_intent,
+                _cil_thought.confidence,
+                _cil_thought.response_strategy,
+                _cil_thought.selected_interpretation,
+            )
     except Exception as _cil_exc:
         logger.warning("copilot: conversation intelligence layer skipped (%s)", _cil_exc)
 
@@ -2377,6 +2550,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                         "has_analysis": False,
                         "show_header": False,
                         "skip_llm": True,
+                        "fallback": True,
+                        "fallback_source": "forced_general_incomplete",
                     },
                     "executive_summary": _ga_soft(message),
                     "final_recommendation": _ga_soft(message),
@@ -2393,6 +2568,37 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 "[AUDIT] MasterIntent: forced human/general (block NL/follow-up) intent=%s",
                 _mi_n,
             )
+            # Phase 7.9-D P1-1 — forced path ownership finalize (lock before late filters)
+            try:
+                from src.conversation.turn_ownership import (
+                    finalize_forced_ownership as _own_forced,
+                )
+
+                if isinstance(payload, dict):
+                    payload = _own_forced(payload) or payload
+                    entities = dict(payload.get("entities") or {})
+                    intent = str(payload.get("intent") or intent)
+            except Exception as _own_f_exc:
+                logger.warning("copilot: forced ownership finalize skipped (%s)", _own_f_exc)
+            try:
+                from src.conversation.pipeline_trace import (
+                    snapshot_payload as _psnap,
+                    trace as _ptrace,
+                )
+
+                _snap_f = _psnap(payload if isinstance(payload, dict) else None)
+                _ptrace(
+                    "FALLBACK",
+                    source="forced_nonsport",
+                    master=_mi_n,
+                    has_confidence=_snap_f.get("has_confidence"),
+                    summary_prefix=_snap_f.get("summary_prefix"),
+                    owner=_snap_f.get("owner"),
+                    locked=_snap_f.get("locked"),
+                    fallback=True,
+                )
+            except Exception:
+                pass
         except Exception as _ga_force_exc:
             logger.warning("copilot: forced general failed (%s)", _ga_force_exc)
             skipped_nl = True
@@ -2950,9 +3156,33 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
             else:
                 payload = _run_fallback(message, intent)
+                try:
+                    from src.conversation.pipeline_trace import trace as _ptrace
+
+                    _ptrace(
+                        "FALLBACK",
+                        source="run_fallback",
+                        intent=intent,
+                        fallback=True,
+                    )
+                except Exception:
+                    pass
 
     except Exception as exc:
         logger.error("Copilot unified error [%s]: %s", intent, exc, exc_info=True)
+        try:
+            from src.conversation.pipeline_trace import trace as _ptrace
+
+            _ptrace(
+                "FALLBACK",
+                source="outer_exception",
+                intent=intent,
+                error=type(exc).__name__,
+                detail=exc,
+                fallback=True,
+            )
+        except Exception:
+            pass
         from fastapi import HTTPException as _HTTPExc
         from src.core.inference_context import InferenceContext
 
@@ -3297,25 +3527,36 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     # ── 0z1b3. Response Review (template → enrich) ────────────────────────
     try:
-        from src.conversation.response_review import (
-            review_and_enrich_payload as _v48_review,
-        )
+        from src.conversation.turn_ownership import is_rewrite_locked as _own_locked_rev
 
-        payload = _v48_review(
-            payload, message=message, ctx=ctx, prefs=_conv_prefs
-        )
+        if isinstance(payload, dict) and _own_locked_rev(payload):
+            logger.warning("[AUDIT] Ownership: ResponseReview skipped — locked")
+        else:
+            from src.conversation.response_review import (
+                review_and_enrich_payload as _v48_review,
+            )
+
+            payload = _v48_review(
+                payload, message=message, ctx=ctx, prefs=_conv_prefs
+            )
     except Exception as _rev_exc:
         logger.warning("copilot: response review skipped (%s)", _rev_exc)
 
     # ── 0z1b4. Never-empty guard ──────────────────────────────────────────
     try:
-        from src.conversation.intelligence_fallback import (
-            ensure_non_empty_payload as _v48_nonempty,
-        )
+        from src.conversation.turn_ownership import is_rewrite_locked as _own_locked_ne
 
-        payload = _v48_nonempty(
-            payload, message=message, ctx=ctx, prefs=_conv_prefs
-        )
+        if isinstance(payload, dict) and _own_locked_ne(payload):
+            # Owned replies already have text — do not inject Copa/team filler
+            pass
+        else:
+            from src.conversation.intelligence_fallback import (
+                ensure_non_empty_payload as _v48_nonempty,
+            )
+
+            payload = _v48_nonempty(
+                payload, message=message, ctx=ctx, prefs=_conv_prefs
+            )
     except Exception as _ne_exc:
         logger.warning("copilot: non-empty guard skipped (%s)", _ne_exc)
 
@@ -3331,14 +3572,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
         if isinstance(payload, dict):
             _ents_td = dict(payload.get("entities") or {})
-            # Never sport-repair general assistant / HCE / non-sport master intents
+            # Phase 7.4: never rewrite locked owners (NRE/HCE/META/…)
             if (
-                _ents_td.get("general_assistant")
+                _ents_td.get("rewrite_locked")
+                or _ents_td.get("turn_owner") in {
+                    "NRE",
+                    "HCE",
+                    "META",
+                    "GA",
+                    "PROFILE",
+                    "EMOTIONAL",
+                }
+                or _ents_td.get("general_assistant")
                 or _ents_td.get("human_conversation")
                 or not _sport_ok
             ):
                 logger.warning(
-                    "[AUDIT] ThinkingDelay: SKIPPED sport repair (non-sport/HCE)"
+                    "[AUDIT] ThinkingDelay: SKIPPED — ownership/non-sport"
                 )
             else:
                 _sum = str(payload.get("executive_summary") or "")
@@ -3398,9 +3648,33 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── 0z1c2. Natural Response Filter + perceived intelligence (non-sport) ─
     try:
         _ents_nrf = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
-        # HCE continuity replies are already human — do not rewrite into generic GA
-        if isinstance(payload, dict) and _ents_nrf.get("human_conversation"):
+        try:
+            from src.conversation.pipeline_trace import (
+                trace_owner as _town,
+                trace_payload as _tpay,
+            )
+
+            _tpay("PAYLOAD_BEFORE", "late_nrf", payload if isinstance(payload, dict) else None)
+            _town("before_late_nrf", payload if isinstance(payload, dict) else None)
+        except Exception:
             pass
+        # Phase 7.4: owned/locked replies — no meaning rewrite
+        if isinstance(payload, dict) and (
+            _ents_nrf.get("rewrite_locked")
+            or _ents_nrf.get("human_conversation")
+            or _ents_nrf.get("turn_owner") in {"NRE", "HCE", "META"}
+        ):
+            try:
+                from src.conversation.pipeline_trace import trace as _ptrace
+
+                _ptrace(
+                    "NRF_OUTPUT",
+                    action="skipped_owned",
+                    owner=_ents_nrf.get("turn_owner"),
+                    locked=_ents_nrf.get("rewrite_locked"),
+                )
+            except Exception:
+                pass
         elif isinstance(payload, dict) and (
             not _sport_ok or _ents_nrf.get("general_assistant")
         ):
@@ -3440,17 +3714,39 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             )
             payload["executive_summary"] = _clean
             payload["final_recommendation"] = _clean
+        try:
+            from src.conversation.pipeline_trace import (
+                trace_owner as _town,
+                trace_payload as _tpay,
+            )
+
+            _tpay("PAYLOAD_AFTER", "late_nrf", payload if isinstance(payload, dict) else None)
+            _town("after_late_nrf", payload if isinstance(payload, dict) else None)
+        except Exception:
+            pass
     except Exception as _nrf_exc:
         logger.warning("copilot: natural response filter skipped (%s)", _nrf_exc)
 
     # ── 0z1c3. Perceived Intelligence Engine — fact→interpretation→conclusion
     # Expression of reasoning only; never invents evidence. Skips social/NRE.
+    # Phase 7.4: mark SPORT owner when analysis-shaped and not already locked.
     try:
         from src.conversation.perceived_intelligence_engine import (
             apply_perceived_intelligence as _pie_apply,
         )
+        from src.conversation.turn_ownership import (
+            is_rewrite_locked as _own_locked_pie,
+            mark_sport_owner as _own_sport,
+        )
 
-        if isinstance(payload, dict):
+        if isinstance(payload, dict) and not _own_locked_pie(payload):
+            if (
+                payload.get("best_markets")
+                or (payload.get("entities") or {}).get("has_analysis")
+                or payload.get("positive_factors")
+                or payload.get("is_live")
+            ):
+                payload = _own_sport(payload) or payload
             payload = _pie_apply(message, payload, ctx) or payload
     except Exception as _pie_exc:
         logger.warning("copilot: PIE skipped (%s)", _pie_exc)
@@ -3515,6 +3811,51 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         _identity = _deploy_id()
     except Exception:
         _identity = {"backend_commit": "unknown", "frontend_commit": "unknown"}
+
+    # Phase 7.9-A P0-1 — defensive soft sections (anti-KeyError only)
+    try:
+        from src.conversation.ensure_soft_sections import (
+            ensure_soft_sections as _ensure_soft,
+        )
+
+        if isinstance(payload, dict):
+            payload = _ensure_soft(payload) or payload
+    except Exception as _soft_exc:
+        logger.warning("copilot: ensure_soft_sections skipped (%s)", _soft_exc)
+
+    try:
+        from src.conversation.pipeline_trace import (
+            snapshot_payload as _psnap,
+            trace as _ptrace,
+        )
+
+        _final = _psnap(payload if isinstance(payload, dict) else None)
+        _ptrace(
+            "FINAL_RESPONSE",
+            intent=_final.get("intent") or intent,
+            engine=_final.get("owner") or _final.get("assistant_kind") or _final.get("hce_kind"),
+            fallback=bool(_final.get("fallback")),
+            final_source=(
+                "fallback"
+                if _final.get("fallback")
+                else (_final.get("owner") or "payload")
+            ),
+            has_confidence=_final.get("has_confidence"),
+            locked=_final.get("locked"),
+            summary_prefix=_final.get("summary_prefix"),
+            routing_confidence=routing_confidence,
+        )
+        try:
+            from src.conversation.turn_ownership import log_final_source as _own_final_src
+
+            _own_final_src(
+                payload if isinstance(payload, dict) else None,
+                lock_moment="pre_response",
+            )
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     return CopilotResponse(
         intent             = payload["intent"],

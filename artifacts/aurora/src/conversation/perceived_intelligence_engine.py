@@ -402,28 +402,43 @@ def apply_perceived_intelligence(
     """
     Expression of reasoning over sport/analysis turns.
     Never invents evidence. Fail-open returns original payload.
+    Phase 7.4: respects turn ownership — no rewrite of HCE/NRE/META.
     """
     try:
         if not isinstance(payload, dict):
             return payload
-        if _is_social_skip(payload, message):
-            return payload
-
         ask = "live"
-        if _wants_why(message) or (
-            (payload.get("entities") or {}).get("hce_kind") == "meta_question"
-            and re.search(r"por\s+que|porque|fonte|dados", _fold(message))
-        ):
-            # Meta about data sources stays meta; "why do you think" gets PIE why
-            if re.search(r"por\s+que\s+voce\s+acha|porque\s+voce\s+acha|justifica", _fold(message)):
-                ask = "why"
-            elif (payload.get("entities") or {}).get("hce_kind") == "meta_question":
-                # data provenance — leave unless why
-                if not _wants_why(message):
-                    return payload
-                ask = "why"
+        if _wants_why(message):
+            ask = "why"
+        elif (payload.get("entities") or {}).get("hce_kind") == "meta_question":
+            # Data provenance stays META-owned; do not reclaim
+            if not _wants_why(message):
+                return payload
+            ask = "why"
         if _wants_conservative_market(message):
             ask = "conservative"
+
+        ev = collect_evidence(payload, ctx)
+
+        try:
+            from src.conversation.turn_ownership import pie_allowed
+
+            # Ownership lock — except evidence-backed sport clarification (not thin caution)
+            if not pie_allowed(payload):
+                if not (
+                    ask in {"conservative", "why"}
+                    and ev.richness != "thin"
+                    and (ev.markets or ev.facts)
+                ):
+                    logger.warning("[AUDIT] PIE: skipped — ownership lock")
+                    return payload
+                logger.warning(
+                    "[AUDIT] PIE: ownership exception — rich evidence ask=%s", ask
+                )
+        except Exception:
+            pass
+        if _is_social_skip(payload, message) and ask == "live":
+            return payload
 
         if ask == "live" and not _wants_live_or_sport_read(message, payload):
             # Only upgrade analysis-shaped payloads
@@ -433,8 +448,6 @@ def apply_perceived_intelligence(
                 or payload.get("positive_factors")
             ):
                 return payload
-
-        ev = collect_evidence(payload, ctx)
         if ask == "live" and ev.richness == "thin" and not ev.entity and not ev.is_live:
             return payload
         if ask not in {"why", "conservative"} and not (
@@ -447,13 +460,31 @@ def apply_perceived_intelligence(
         elif ask == "why":
             text = render_reasoned(ev, ask="why")
         elif ev.richness == "thin":
+            # Priority 1 — no PIE thin-caution loop without new evidence
+            if isinstance(ctx, dict):
+                sig = f"thin|{ask}|{ev.entity}|{ev.is_live}"
+                if ctx.get("pie_last_signature") == sig:
+                    logger.warning("[AUDIT] PIE: skipped thin loop signature=%s", sig)
+                    return payload
+                ctx["pie_last_signature"] = sig
             text = render_thin(ev, ask="live")
         else:
             text = render_reasoned(ev, ask="live")
+            if isinstance(ctx, dict):
+                ctx["pie_last_signature"] = f"rich|{ask}|{ev.entity}|{len(ev.facts)}"
 
         # Keep short — perceived intelligence ≠ length
         if len(text) > 520:
             text = text[:517].rsplit(" ", 1)[0] + "…"
+
+        # Don't replace with identical meaning spam
+        prev = str(payload.get("executive_summary") or "").strip()
+        if prev and text.strip() == prev:
+            return payload
+        if prev and "faltam sinais" in prev.lower() and "faltam sinais" in text.lower():
+            if ev.richness == "thin":
+                logger.warning("[AUDIT] PIE: skipped — would repeat caution")
+                return payload
 
         out = dict(payload)
         out["executive_summary"] = text

@@ -1,0 +1,918 @@
+{
+  "phase": "7.8",
+  "created_at": "20260718T024345Z",
+  "mode": "evidence_only",
+  "h2_static": {
+    "forced_keys": [
+      "best_markets",
+      "brain",
+      "entities",
+      "executive_summary",
+      "final_recommendation",
+      "intent",
+      "is_live",
+      "match"
+    ],
+    "forced_has_confidence": false,
+    "ga_full_has_confidence": true,
+    "consumer": "copilot_unified_router CopilotResponse(... ConfidenceSection(**payload['confidence']))"
+  },
+  "hypotheses": {
+    "H1": {
+      "verdict": "CONFIRMADA",
+      "evidence_count": 27,
+      "samples": [
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "não é isso",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "NRF regenerou e saída ainda contém Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "não é isso",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "saída idêntica ao regenerate (reply_general)"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "não é isso",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "similar=True com template Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "não é isso",
+          "line": "turn_repeat",
+          "note": "Entendi em turnos consecutivos"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "quero outra coisa",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "NRF regenerou e saída ainda contém Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "quero outra coisa",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "saída idêntica ao regenerate (reply_general)"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "quero outra coisa",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "similar=True com template Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "quero outra coisa",
+          "line": "turn_repeat",
+          "note": "Entendi em turnos consecutivos"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me escuta",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "NRF regenerou e saída ainda contém Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me escuta",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "saída idêntica ao regenerate (reply_general)"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me escuta",
+          "line": "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+          "note": "similar=True com template Entendi"
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me escuta",
+          "line": "turn_repeat",
+          "note": "Entendi em turnos consecutivos"
+        }
+      ]
+    },
+    "H2": {
+      "verdict": "CONFIRMADA",
+      "static": {
+        "forced_keys": [
+          "best_markets",
+          "brain",
+          "entities",
+          "executive_summary",
+          "final_recommendation",
+          "intent",
+          "is_live",
+          "match"
+        ],
+        "forced_has_confidence": false,
+        "ga_full_has_confidence": true,
+        "consumer": "copilot_unified_router CopilotResponse(... ConfidenceSection(**payload['confidence']))"
+      },
+      "runtime_hits": []
+    },
+    "H3": {
+      "verdict": "PARCIALMENTE REFUTADA no early stack (owner GA/HCE/NRE com lock); gap permanece no forced path sem finalize",
+      "unlocked_late_nrf": [],
+      "owner_none": [],
+      "samples": [
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me ajuda com uma coisa",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "não é isso",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "quero outra coisa",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+          "message": "me escuta",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T2 — vague → frustração",
+          "message": "preciso de ajuda",
+          "owner_final": "META",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+            "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+            "[OWNER] stage=final owner=META locked=True intent=identity"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T2 — vague → frustração",
+          "message": "você não entendeu",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T2 — vague → frustração",
+          "message": "tenta de novo",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T3 — meta + general",
+          "message": "o que voce faz?",
+          "owner_final": "META",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+            "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+            "[OWNER] stage=final owner=META locked=True intent=identity"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T3 — meta + general",
+          "message": "e alem disso?",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T3 — meta + general",
+          "message": "me explica melhor",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T4 — sport depois social genérico",
+          "message": "quais jogos estão ao vivo?",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T4 — sport depois social genérico",
+          "message": "e ai",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=small_talk new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=small_talk owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=small_talk"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T4 — sport depois social genérico",
+          "message": "me fala mais",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T5 — tempo + general loop",
+          "message": "que horas são?",
+          "owner_final": "SPORT",
+          "locked": false,
+          "owner_logs": [
+            "[OWNER] stage=final owner=SPORT locked=False intent=analyze_match"
+          ],
+          "late_nrf_ran": false
+        },
+        {
+          "case": "T5 — tempo + general loop",
+          "message": "ok e agora?",
+          "owner_final": "GA",
+          "locked": true,
+          "owner_logs": [
+            "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+            "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+            "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+          ],
+          "late_nrf_ran": false
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "title": "T1 — GENERAL_CHAT sticky (reconstrução Cenário C)",
+      "turns": [
+        {
+          "message": "me ajuda com uma coisa",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "não é isso",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "quero outra coisa",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "me escuta",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=1",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=2",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=3",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "T2 — vague → frustração",
+      "turns": [
+        {
+          "message": "preciso de ajuda",
+          "master_intent": "SYSTEM_QUERY",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "META",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Posso ajudar com:\n\n• Conversa normal (oi, dúvidas rápidas)\n• Análise de jogos (ex.: *Analisar Time A x Time B*)\n• Momento de um time (ex.: *Como está o time X?*)\n• Agenda/horário quando tiver o confronto\n\nO que você quer fazer agora?",
+          "crash": null,
+          "entendi": false,
+          "log_count": 10
+        },
+        {
+          "message": "você não entendeu",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "tenta de novo",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=SYSTEM_QUERY sport_ok=False allow_sport=False confidence=0.95",
+        "[NRF_INPUT] master_intent=SYSTEM_QUERY text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e regen_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=system",
+        "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+        "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=META locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=META locked=True intent=identity",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=1",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=2",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "T3 — meta + general",
+      "turns": [
+        {
+          "message": "o que voce faz?",
+          "master_intent": "SYSTEM_QUERY",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "META",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Posso ajudar com:\n\n• Conversa normal (oi, dúvidas rápidas)\n• Análise de jogos (ex.: *Analisar Time A x Time B*)\n• Momento de um time (ex.: *Como está o time X?*)\n• Agenda/horário quando tiver o confronto\n\nO que você quer fazer agora?",
+          "crash": null,
+          "entendi": false,
+          "log_count": 10
+        },
+        {
+          "message": "e alem disso?",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "me explica melhor",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=SYSTEM_QUERY sport_ok=False allow_sport=False confidence=0.95",
+        "[NRF_INPUT] master_intent=SYSTEM_QUERY text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e regen_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=system",
+        "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+        "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=META locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=META locked=True intent=identity",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=1",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=2",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "T4 — sport depois social genérico",
+      "turns": [
+        {
+          "message": "quais jogos estão ao vivo?",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "e ai",
+          "master_intent": "SMALL_TALK",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Oi! Eu sou a Aurora. 🙂 Tudo bem por aqui.",
+          "crash": null,
+          "entendi": false,
+          "log_count": 10
+        },
+        {
+          "message": "me fala mais",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=SMALL_TALK sport_ok=False allow_sport=False confidence=0.96",
+        "[NRF_INPUT] master_intent=SMALL_TALK text_prefix=Oi! Eu sou a Aurora. 🙂  Tudo bem por aqui. Pode falar comigo normalmente — seja regen_prefix=Oi! Eu sou a Aurora. 🙂  Tudo bem por aqui. Pode falar comigo normalmente — seja hist_len=1",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Oi! Eu sou a Aurora. 🙂  Tudo bem por aqui. Pode falar comigo normalmente — seja same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=small_talk",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=small_talk new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=small_talk owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=small_talk owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Oi! Eu sou a Aurora. 🙂 Tudo bem por aqui. keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=small_talk owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Oi! Eu sou a Aurora. 🙂 Tudo bem por aqui. keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=small_talk",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=2",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "T5 — tempo + general loop",
+      "turns": [
+        {
+          "message": "que horas são?",
+          "master_intent": "SPORT_QUERY",
+          "sport_ok": true,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "SPORT",
+          "locked": false,
+          "has_confidence": true,
+          "summary": "[stub sport] intent=SPORT_QUERY — sem dados inventados.",
+          "crash": null,
+          "entendi": false,
+          "log_count": 5
+        },
+        {
+          "message": "ok e agora?",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "então me ajuda",
+          "master_intent": "SYSTEM_QUERY",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "META",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Posso ajudar com:\n\n• Conversa normal (oi, dúvidas rápidas)\n• Análise de jogos (ex.: *Analisar Time A x Time B*)\n• Momento de um time (ex.: *Como está o time X?*)\n• Agenda/horário quando tiver o confronto\n\nO que você quer fazer agora?",
+          "crash": null,
+          "entendi": false,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=SPORT_QUERY sport_ok=True allow_sport=True confidence=0.9",
+        "[ENGINE] engine=sport_stub intent=SPORT_QUERY",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=analyze_match owner=SPORT locked=False has_confidence=True has_risk=True has_bankroll=True summary_prefix=[stub sport] intent=SPORT_QUERY — sem dados inventados. keys=bankroll_recommendation,best_markets,confidence,entities,executive_summary,final_recommendation,intent,is_live,risk",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=analyze_match owner=SPORT locked=False has_confidence=True has_risk=True has_bankroll=True summary_prefix=[stub sport] intent=SPORT_QUERY — sem dados inventados. keys=bankroll_recommendation,best_markets,confidence,entities,executive_summary,final_recommendation,intent,is_live,risk",
+        "[OWNER] stage=final owner=SPORT locked=False intent=analyze_match",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=SYSTEM_QUERY sport_ok=False allow_sport=False confidence=0.95",
+        "[NRF_INPUT] master_intent=SYSTEM_QUERY text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e regen_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e hist_len=1",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=system",
+        "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+        "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=META locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=META locked=True intent=identity"
+      ]
+    },
+    {
+      "title": "P1 — estou triste",
+      "turns": [
+        {
+          "message": "estou triste",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "P2 — pare de repetir",
+      "turns": [
+        {
+          "message": "me ajuda",
+          "master_intent": "SYSTEM_QUERY",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "META",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Posso ajudar com:\n\n• Conversa normal (oi, dúvidas rápidas)\n• Análise de jogos (ex.: *Analisar Time A x Time B*)\n• Momento de um time (ex.: *Como está o time X?*)\n• Agenda/horário quando tiver o confronto\n\nO que você quer fazer agora?",
+          "crash": null,
+          "entendi": false,
+          "log_count": 10
+        },
+        {
+          "message": "pare de repetir",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=SYSTEM_QUERY sport_ok=False allow_sport=False confidence=0.95",
+        "[NRF_INPUT] master_intent=SYSTEM_QUERY text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e regen_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) • Análise de jogos (e same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=system",
+        "[OWNER] stage=mark_owner owner=META locked=True intent=identity new_owner=META",
+        "[OWNER] stage=after_early_finalize owner=META locked=True intent=identity owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=META locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=identity owner=META locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Posso ajudar com:  • Conversa normal (oi, dúvidas rápidas) … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=META locked=True intent=identity",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=1",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "P3 — vc está em loop",
+      "turns": [
+        {
+          "message": "preciso de algo",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        },
+        {
+          "message": "vc está em loop",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat",
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=1",
+        "[NRF_OUTPUT] action=regenerate similar=True score=80.0 reasons= text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True same_as_regen=True entendi_in=True entendi_out=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "P4 — quais jogos estão ao vivo?",
+      "turns": [
+        {
+          "message": "quais jogos estão ao vivo?",
+          "master_intent": "GENERAL_CHAT",
+          "sport_ok": false,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "GA",
+          "locked": true,
+          "has_confidence": true,
+          "summary": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+          "crash": null,
+          "entendi": true,
+          "log_count": 10
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=GENERAL_CHAT sport_ok=False allow_sport=False confidence=0.75",
+        "[NRF_INPUT] master_intent=GENERAL_CHAT text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig regen_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig hist_len=0",
+        "[NRF_OUTPUT] action=keep similar=False text_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for sobre futebol, me dig same_as_input=True",
+        "[ENGINE] engine=general_assistant kind=general",
+        "[OWNER] stage=mark_owner owner=GA locked=True intent=general_chat new_owner=GA",
+        "[OWNER] stage=after_early_finalize owner=GA locked=True intent=general_chat owner_before=none",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[NRF_OUTPUT] action=skipped_owned owner=GA locked=True",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=general_chat owner=GA locked=True has_confidence=True has_risk=True has_bankroll=True summary_prefix=Entendi. Posso te ajudar com isso de forma direta.  Se for … keys=aurora_version,bankroll_recommendation,best_markets,brain,confidence,entities,executive_summary,final_recommendation,historical_references,intent,is_live,knowl…",
+        "[OWNER] stage=final owner=GA locked=True intent=general_chat"
+      ]
+    },
+    {
+      "title": "P5 — que horas são?",
+      "turns": [
+        {
+          "message": "que horas são?",
+          "master_intent": "SPORT_QUERY",
+          "sport_ok": true,
+          "forced_incomplete": false,
+          "late_nrf_ran": false,
+          "owner": "SPORT",
+          "locked": false,
+          "has_confidence": true,
+          "summary": "[stub sport] intent=SPORT_QUERY — sem dados inventados.",
+          "crash": null,
+          "entendi": false,
+          "log_count": 5
+        }
+      ],
+      "logs": [
+        "[INTENT] intent=SPORT_QUERY sport_ok=True allow_sport=True confidence=0.9",
+        "[ENGINE] engine=sport_stub intent=SPORT_QUERY",
+        "[PAYLOAD_BEFORE] stage=late_nrf intent=analyze_match owner=SPORT locked=False has_confidence=True has_risk=True has_bankroll=True summary_prefix=[stub sport] intent=SPORT_QUERY — sem dados inventados. keys=bankroll_recommendation,best_markets,confidence,entities,executive_summary,final_recommendation,intent,is_live,risk",
+        "[PAYLOAD_AFTER] stage=late_nrf intent=analyze_match owner=SPORT locked=False has_confidence=True has_risk=True has_bankroll=True summary_prefix=[stub sport] intent=SPORT_QUERY — sem dados inventados. keys=bankroll_recommendation,best_markets,confidence,entities,executive_summary,final_recommendation,intent,is_live,risk",
+        "[OWNER] stage=final owner=SPORT locked=False intent=analyze_match"
+      ]
+    }
+  ]
+}

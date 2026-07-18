@@ -32,6 +32,10 @@ from src.conversation.natural_response_engine import (
     try_natural_social_payload,
 )
 from src.conversation.perceived_intelligence_engine import apply_perceived_intelligence
+from src.conversation.turn_ownership import (
+    finalize_early_ownership,
+    mark_sport_owner,
+)
 
 
 def aurora_reply(message: str, ctx: dict[str, Any]) -> tuple[str, str]:
@@ -68,6 +72,9 @@ def aurora_reply(message: str, ctx: dict[str, Any]) -> tuple[str, str]:
         if nre_tag and after != before:
             src = f"{src}+NRE:{nre_tag}"
 
+    if payload is not None:
+        payload = finalize_early_ownership(payload) or payload
+
     # Sport pipeline stub (validation without inventing live numbers)
     if payload is None and master.allow_sport_pipeline:
         st = get_hce_state(ctx)
@@ -90,14 +97,17 @@ def aurora_reply(message: str, ctx: dict[str, Any]) -> tuple[str, str]:
             "negative_factors": [],
             "confidence": {"label": "insufficient", "score": 0.0},
         }
+        payload = mark_sport_owner(payload) or payload
         src = f"SPORT:{master.intent}"
 
     if payload:
         before = str(payload.get("executive_summary") or "")
+        owner = (payload.get("entities") or {}).get("turn_owner") or "?"
         payload = apply_perceived_intelligence(message, payload, ctx) or payload
         after = str(payload.get("executive_summary") or "")
         if (payload.get("entities") or {}).get("perceived_intelligence") and after != before:
             src = f"{src}+PIE:{(payload.get('entities') or {}).get('pie_ask')}"
+        src = f"{src}|own={owner}"
         note_hce_after_response(ctx, message, payload)
         text = after.strip() or before.strip()
         return text, src
