@@ -276,17 +276,35 @@ def _resolve_fixture_confidence(
     *,
     fixture_located: bool,
     degraded: bool,
+    allow_partial_analysis: bool = False,
+    data_completeness: float = 0.0,
+    rate_limited: bool = False,
 ) -> tuple[float, str]:
     """
-    Confidence must reflect fixture quality (v3.3.1-beta).
+    Confidence must reflect fixture quality (v3.3.1-beta / 8.4-A.7).
 
-    - Fixture not located / degraded → very low (never moderate+)
-    - Fixture located and healthy → moderate or strong (alta)
+    - Fully healthy located fixture → moderate or strong
+    - Allowable PARTIAL (min signals + completeness ≥ 0.20) → weak/adequate
+      preliminary band (never hard refuse at 1.5)
+    - Truly insufficient / invalid → very low (insufficient)
     """
     try:
         raw = float(score)
     except (TypeError, ValueError):
         raw = 0.0
+
+    if allow_partial_analysis:
+        try:
+            from src.core.partial_analysis import resolve_preliminary_confidence
+
+            return resolve_preliminary_confidence(
+                raw,
+                data_completeness=data_completeness,
+                rate_limited=rate_limited,
+            )
+        except Exception:
+            capped = round(min(max(raw, 2.5), 4.5), 1)
+            return capped, "weak" if capped < 4 else "adequate"
 
     if degraded or not fixture_located:
         capped = round(min(max(raw, 0.0), 1.5), 1)
@@ -565,16 +583,55 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         or not fixture_located
         or ictx.data_completeness < 0.35
     )
+    # Phase 8.4-A.7 — partial recovery: valid entities + min signals → preliminary
+    _rate_limited = False
+    _allow_partial = False
+    try:
+        from src.core.partial_analysis import (
+            allow_partial_analysis as _allow_pa,
+            detect_rate_limited as _detect_rl,
+        )
+
+        _rate_limited = _detect_rl(ictx) or _detect_rl(
+            notes=[str(data.get("_partial_reason") or "")]
+        )
+        _fx_quality_guess = (
+            "PARTIAL" if (is_partial or not fixture_located or degraded) else "VALID"
+        )
+        _allow_partial = _allow_pa(
+            entity_invalid=False,
+            fixture_quality=_fx_quality_guess,
+            data_completeness=float(ictx.data_completeness or 0.0),
+            available_signals=list(ictx.available_signals or []),
+            inferred_signals=list(ictx.inferred_signals or []),
+            data=data if isinstance(data, dict) else None,
+            rate_limited=_rate_limited,
+        )
+    except Exception as _pa_exc:
+        logger.warning("partial_analysis gate skipped (%s)", _pa_exc)
+        _allow_partial = False
+        _rate_limited = False
+
     conf_score, conf_label = _resolve_fixture_confidence(
         adj_score,
         fixture_located=fixture_located,
         degraded=degraded,
+        allow_partial_analysis=_allow_partial,
+        data_completeness=float(ictx.data_completeness or 0.0),
+        rate_limited=_rate_limited,
     )
     logger.warning(
-        "[AUDIT] fixture_confidence located=%s degraded=%s score=%.1f label=%s "
-        "(raw=%.1f adj=%.1f completeness=%.2f)",
-        fixture_located, degraded, conf_score, conf_label,
-        raw_score, adj_score, ictx.data_completeness,
+        "[AUDIT] fixture_confidence located=%s degraded=%s allow_partial=%s "
+        "rate_limited=%s score=%.1f label=%s (raw=%.1f adj=%.1f completeness=%.2f)",
+        fixture_located,
+        degraded,
+        _allow_partial,
+        _rate_limited,
+        conf_score,
+        conf_label,
+        raw_score,
+        adj_score,
+        ictx.data_completeness,
     )
 
     final_is_live = bool(report.is_live or api_is_live)
@@ -665,7 +722,13 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         risk_level=report.risk_level if not is_partial else "High",
         best_ev=best_ev,
     )
-    if is_partial or degraded:
+    if _allow_partial:
+        final_rec = (
+            f"Leitura preliminar para **{hn} x {an}** com dados parciais "
+            f"(confiança {conf_label}, {conf_score:.1f}/10). "
+            f"Sem stake até completar sinais. " + final_rec
+        )
+    elif is_partial or degraded:
         final_rec = (
             f"Análise parcial para **{hn} x {an}**: a partida não foi confirmada "
             f"na API. Confiança muito baixa ({conf_score:.1f}/10). "
@@ -673,7 +736,15 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         )
 
     conf_explanation = report.confidence_explanation or ""
-    if degraded or not fixture_located:
+    if _allow_partial:
+        conf_explanation = (
+            f"Análise preliminar com dados parciais "
+            f"(completude {ictx.data_completeness * 100:.0f}%"
+            + ("; rate limit" if _rate_limited else "")
+            + f"; score {raw_score:.1f}→{conf_score:.1f}). "
+            + conf_explanation
+        ).strip()
+    elif degraded or not fixture_located:
         conf_explanation = (
             "Fixture não localizada ou dados degradados — confiança muito baixa. "
             + conf_explanation
@@ -687,7 +758,30 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         ).strip()
 
     executive = report.executive_summary
-    if is_partial or degraded:
+    if _allow_partial:
+        try:
+            from src.core.partial_analysis import (
+                build_preliminary_executive as _prelim_exec,
+                strip_refusal_preamble as _strip_ref,
+            )
+
+            executive = _prelim_exec(
+                hn,
+                an,
+                base_summary=_strip_ref(executive),
+                missing_signals=list(ictx.missing_signals or []),
+                available_signals=list(ictx.available_signals or []),
+                data=data if isinstance(data, dict) else None,
+                rate_limited=_rate_limited,
+                confidence_label=conf_label,
+            )
+        except Exception as _prelim_exc:
+            logger.warning("preliminary executive failed (%s)", _prelim_exc)
+            executive = (
+                f"**{hn} x {an}** — leitura preliminar (dados parciais).\n\n"
+                + (executive or "")
+            )
+    elif is_partial or degraded:
         executive = (
             f"**Dados parciais** para {hn} x {an}. "
             f"A Aurora manteve a conversa com confiança muito baixa "
@@ -731,6 +825,21 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
                 else "VALID"
             ),
             "market_generation_enabled": True,
+            "preliminary_analysis": bool(_allow_partial),
+            "allow_partial_analysis": bool(_allow_partial),
+            "rate_limited": bool(_rate_limited),
+            "entity_invalid": False,
+            **(
+                {
+                    # Protect preliminary executive from PIE / thinking-delay rewrite
+                    "has_analysis": True,
+                    "rewrite_locked": True,
+                    "response_owner": "partial_analysis",
+                    "final_response": True,
+                }
+                if _allow_partial
+                else {}
+            ),
         },
         "match":     report.match or f"{hn} x {an}",
         "status":    final_status,
@@ -1613,14 +1722,33 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _sm_exc:
         logger.warning("copilot: short memory resolve skipped (%s)", _sm_exc)
 
-    # Phase 8.3-B — continuity: sim / leitura rápida / placar / mercados
-    # while window armed after repair/opinion (GA must not steal)
+    # Phase 8.3-B / 8.4-A.8 — continuity: sim / leitura / placar / mercados…
+    # while window armed after repair/opinion/partial/team_summary.
+    # Resolve + claim BEFORE MasterIntent / GA so short FUs are never stolen.
     try:
         from src.conversation.conversation_continuity import (
             apply_continuity_resolve as _cont_resolve,
+            is_active_sport_followup as _cont_active,
+            try_contextual_short_followup as _cont_fu_early,
         )
 
         message = _cont_resolve(message, ctx)
+        if payload is None and _cont_active(ctx, message):
+            from src.brain import get_brain_meta as _gbm_cont_early
+
+            _early_fu = _cont_fu_early(message, ctx, brain=_gbm_cont_early())
+            if isinstance(_early_fu, dict):
+                payload = _early_fu
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.94
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] ContinuityFollowUp: EARLY claim before MasterIntent "
+                    "kind=%s team=%r",
+                    entities.get("continuity_kind"),
+                    entities.get("followup_resolved_team"),
+                )
     except Exception as _cont_exc:
         logger.warning("copilot: continuity resolve skipped (%s)", _cont_exc)
 
@@ -1643,8 +1771,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             filter_or_regenerate as _nrf_filter,
         )
 
-        _master = _mi_apply(message, ctx)
-        _sport_ok = _mi_sport_ok(ctx)
+        # Continuity short FU already claimed → keep sport path / skip GA steal
+        if isinstance(payload, dict) and (
+            (payload.get("entities") or {}).get("continuity_followup")
+            or (payload.get("entities") or {}).get("followup_before_fallback")
+        ):
+            _sport_ok = True
+            try:
+                ctx["sport_pipeline_blocked"] = False
+            except Exception:
+                pass
+            logger.warning(
+                "[AUDIT] ContinuityFollowUp: MasterIntent/GA short-circuit bypassed"
+            )
+            _master = None
+        else:
+            _master = _mi_apply(message, ctx)
+            _sport_ok = _mi_sport_ok(ctx)
         try:
             from src.conversation.pipeline_trace import trace as _ptrace
 
@@ -1658,126 +1801,141 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         except Exception:
             pass
         _ga = None
+        _cont_claimed = bool(
+            isinstance(payload, dict)
+            and (
+                (payload.get("entities") or {}).get("continuity_followup")
+                or (payload.get("entities") or {}).get("followup_before_fallback")
+            )
+        )
         # Phase 8.2-A — conversation repair BEFORE GeneralAssistant (no Entendi trap)
-        try:
-            from src.conversation.conversation_repair import (
-                try_conversation_repair as _repair_try,
-            )
-
-            _repair = _repair_try(message, ctx)
-            if _repair:
-                _ga = _repair
-                _sport_ok = False
-                try:
-                    ctx["sport_pipeline_blocked"] = True
-                except Exception:
-                    pass
-                logger.warning("[AUDIT] ConversationRepair: early short-circuit")
-        except Exception as _repair_exc:
-            logger.warning("copilot: conversation repair skipped (%s)", _repair_exc)
-
-        if _ga is None and _master and not _master.allow_sport_pipeline:
-            _ga = _ga_try(message, _master.intent, ctx)
-            if _ga:
-                _txt = str(_ga.get("executive_summary") or "")
-                _txt = _nrf_filter(
-                    _txt,
-                    master_intent=_master.intent,
-                    ctx=ctx,
-                    regenerate=_txt,
+        # Phase 8.4-A.8 — never let repair/GA/HCE steal continuity short follow-ups
+        if not _cont_claimed:
+            try:
+                from src.conversation.conversation_repair import (
+                    try_conversation_repair as _repair_try,
                 )
-                _ga["executive_summary"] = _txt
-                _ga["final_recommendation"] = _txt
-                try:
-                    from src.conversation.pipeline_trace import trace as _ptrace
 
-                    _ptrace(
-                        "ENGINE",
-                        engine="general_assistant",
-                        kind=(_ga.get("entities") or {}).get("assistant_kind"),
-                        fallback=False,
-                    )
-                except Exception:
-                    pass
-        # Human Conversation Engine — continuity / short answers / meta / memory
-        # May override weak GA; may also soft-handle sport ("quero analisar um jogo").
-        try:
-            from src.conversation.human_conversation_engine import (
-                try_human_conversation as _hce_try,
-            )
-
-            _hce = _hce_try(
-                message,
-                ctx,
-                master_intent=(_master.intent if _master else None),
-                existing_payload=_ga,
-                prefs=_conv_prefs,
-            )
-            if _hce:
-                payload = _hce
-                intent = str(payload.get("intent") or "conversation_assist")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.94
-                skipped_nl = True
-                # Non-sport HCE must keep sport pipeline blocked
-                if entities.get("hce_kind") in {
-                    "await_fixture",
-                    "short_await_fixture",
-                    "meta_question",
-                    "memory_bankroll_saved",
-                    "memory_bankroll_pending",
-                    "memory_stake_guidance",
-                    "short_loose",
-                    "soft_followup",
-                    "conversation_repair",
-                }:
+                _repair = _repair_try(message, ctx)
+                if _repair:
+                    _ga = _repair
                     _sport_ok = False
                     try:
                         ctx["sport_pipeline_blocked"] = True
                     except Exception:
                         pass
-                logger.warning(
-                    "[AUDIT] HCE: kind=%s master=%s",
-                    entities.get("hce_kind"),
-                    (_master.intent if _master else None),
-                )
-                try:
-                    from src.conversation.pipeline_trace import trace as _ptrace
+                    logger.warning("[AUDIT] ConversationRepair: early short-circuit")
+            except Exception as _repair_exc:
+                logger.warning("copilot: conversation repair skipped (%s)", _repair_exc)
 
-                    _ptrace(
-                        "ENGINE",
-                        engine="human_conversation",
-                        kind=entities.get("hce_kind"),
-                        fallback=False,
+            if _ga is None and _master and not _master.allow_sport_pipeline:
+                _ga = _ga_try(message, _master.intent, ctx)
+                if _ga:
+                    _txt = str(_ga.get("executive_summary") or "")
+                    _txt = _nrf_filter(
+                        _txt,
+                        master_intent=_master.intent,
+                        ctx=ctx,
+                        regenerate=_txt,
                     )
-                except Exception:
-                    pass
-            elif _ga:
-                payload = _ga
-                intent = str(payload.get("intent") or "general_chat")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = float(_master.confidence or 0.95)
-                skipped_nl = True
-                if entities.get("conversation_repair"):
+                    _ga["executive_summary"] = _txt
+                    _ga["final_recommendation"] = _txt
+                    try:
+                        from src.conversation.pipeline_trace import trace as _ptrace
+
+                        _ptrace(
+                            "ENGINE",
+                            engine="general_assistant",
+                            kind=(_ga.get("entities") or {}).get("assistant_kind"),
+                            fallback=False,
+                        )
+                    except Exception:
+                        pass
+            # Human Conversation Engine — continuity / short answers / meta / memory
+            # May override weak GA; may also soft-handle sport ("quero analisar um jogo").
+            try:
+                from src.conversation.human_conversation_engine import (
+                    try_human_conversation as _hce_try,
+                )
+
+                _hce = _hce_try(
+                    message,
+                    ctx,
+                    master_intent=(_master.intent if _master else None),
+                    existing_payload=_ga,
+                    prefs=_conv_prefs,
+                )
+                if _hce:
+                    payload = _hce
+                    intent = str(payload.get("intent") or "conversation_assist")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.94
+                    skipped_nl = True
+                    # Non-sport HCE must keep sport pipeline blocked
+                    if entities.get("hce_kind") in {
+                        "await_fixture",
+                        "short_await_fixture",
+                        "meta_question",
+                        "memory_bankroll_saved",
+                        "memory_bankroll_pending",
+                        "memory_stake_guidance",
+                        "short_loose",
+                        "soft_followup",
+                        "conversation_repair",
+                    }:
+                        _sport_ok = False
+                        try:
+                            ctx["sport_pipeline_blocked"] = True
+                        except Exception:
+                            pass
                     logger.warning(
-                        "[AUDIT] ConversationRepair: master=%s kind=%s",
-                        _master.intent if _master else None,
-                        entities.get("assistant_kind"),
+                        "[AUDIT] HCE: kind=%s master=%s",
+                        entities.get("hce_kind"),
+                        (_master.intent if _master else None),
                     )
-                else:
-                    logger.warning(
-                        "[AUDIT] GeneralAssistant: master=%s kind=%s",
-                        _master.intent,
-                        entities.get("assistant_kind"),
+                    try:
+                        from src.conversation.pipeline_trace import trace as _ptrace
+
+                        _ptrace(
+                            "ENGINE",
+                            engine="human_conversation",
+                            kind=entities.get("hce_kind"),
+                            fallback=False,
+                        )
+                    except Exception:
+                        pass
+                elif _ga:
+                    payload = _ga
+                    intent = str(payload.get("intent") or "general_chat")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = float(_master.confidence or 0.95)
+                    skipped_nl = True
+                    if entities.get("conversation_repair"):
+                        logger.warning(
+                            "[AUDIT] ConversationRepair: master=%s kind=%s",
+                            _master.intent if _master else None,
+                            entities.get("assistant_kind"),
+                        )
+                    else:
+                        logger.warning(
+                            "[AUDIT] GeneralAssistant: master=%s kind=%s",
+                            _master.intent,
+                            entities.get("assistant_kind"),
+                        )
+            except Exception as _hce_exc:
+                logger.warning("copilot: HCE skipped (%s)", _hce_exc)
+                if _ga and payload is None:
+                    payload = _ga
+                    intent = str(payload.get("intent") or "general_chat")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = float(
+                        (_master.confidence if _master else 0.9) or 0.9
                     )
-        except Exception as _hce_exc:
-            logger.warning("copilot: HCE skipped (%s)", _hce_exc)
-            if _ga and payload is None:
-                payload = _ga
-                intent = str(payload.get("intent") or "general_chat")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = float((_master.confidence if _master else 0.9) or 0.9)
-                skipped_nl = True
+                    skipped_nl = True
+        else:
+            logger.warning(
+                "[AUDIT] ContinuityFollowUp: skipped repair/GA/HCE — already claimed"
+            )
 
         # Natural Response Engine V2 — expression (ACK / farewell / warmth / variability)
         # Does not change understanding; only how social turns sound.
@@ -2017,6 +2175,34 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _cue_exc:
         if "skip_cue_non_sport" not in str(_cue_exc):
             logger.warning("copilot: conversational understanding skipped (%s)", _cue_exc)
+
+    # ── 0a0-pre. Continuity short follow-up (BEFORE presence / Natural / Intel)
+    # Phase 8.4-A.8 — mercados? / placar? / estatísticas? / favorito? / escalações?
+    # after match_opinion / partial_analysis / team_summary must reuse context
+    # and must not be stolen by calendar_authority or intelligence_fallback.
+    try:
+        if payload is None:
+            from src.brain import get_brain_meta as _gbm_cont
+            from src.conversation.conversation_continuity import (
+                try_contextual_short_followup as _cont_fu_try,
+            )
+
+            _cont_payload = _cont_fu_try(message, ctx, brain=_gbm_cont())
+            if isinstance(_cont_payload, dict):
+                payload = _cont_payload
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.93
+                skipped_nl = True
+                logger.warning(
+                    "[AUDIT] ContinuityFollowUp: claimed before presence "
+                    "kind=%s team=%r fixture=%r",
+                    entities.get("continuity_kind"),
+                    entities.get("followup_resolved_team"),
+                    entities.get("followup_resolved_fixture"),
+                )
+    except Exception as _cont_fu_exc:
+        logger.warning("copilot: continuity follow-up skipped (%s)", _cont_fu_exc)
 
     # ── 0a0. Emotional Presence FIRST (before HPL / LLM) ──────────────────
     # Absolute priority: pride / affection / thanks must never fall through
@@ -3351,54 +3537,149 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     )
                     payload = _apply_404(payload, _post404)
             except Exception:
-                summary = (
-                    f"Não consegui localizar a partida **{home_q} x {away_q}** "
-                    f"com dados completos.\n\n"
-                    f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
-                    f"com confiança reduzida.\n\n"
-                    f"**Sugestão:** use o nome oficial completo dos times."
-                )
-                payload = {
-                    "intent":   intent,
-                    "entities": entities,
-                    "match":   f"{home_q} x {away_q}",
-                    "status": "Partial", "is_live": False, "minute": None,
-                    "executive_summary": summary,
-                    "best_markets":      [],
-                    "confidence": {
-                        "score": _octx.apply_to_score(2.0),
-                        "label": "insufficient",
-                        "explanation": (
-                            f"Inference V2: fixture ausente — "
-                            f"penalidade −{_octx.total_penalty():.1f}"
+                # Phase 8.4-A.7 — valid confrontation → preliminary, not hard refuse
+                try:
+                    from src.core.partial_analysis import (
+                        allow_partial_analysis as _allow_pa_404,
+                        build_preliminary_executive as _prelim_404,
+                        detect_rate_limited as _rl_404,
+                        resolve_preliminary_confidence as _pconf_404,
+                    )
+
+                    _rl = _rl_404(_octx) or _rl_404(
+                        notes=[str(exc.detail if is_404 else exc)]
+                    )
+                    if _allow_pa_404(
+                        entity_invalid=False,
+                        fixture_quality="PARTIAL",
+                        data_completeness=max(
+                            0.22, float(_octx.data_completeness or 0.0)
                         ),
-                        "data_sources": ["Inference Layer V2"],
-                    },
-                    "risk": {
-                        "level": "High",
-                        "flags": list(_octx.missing_signals),
-                        "invalidation_conditions": [
-                            "Confirmar nomes oficiais na API-Football",
+                        available_signals=["teams"]
+                        + (["fixture"] if not is_404 else []),
+                        rate_limited=_rl,
+                    ):
+                        _ps, _pl = _pconf_404(
+                            _octx.apply_to_score(3.5),
+                            data_completeness=0.25,
+                            rate_limited=_rl,
+                        )
+                        summary = _prelim_404(
+                            home_q,
+                            away_q,
+                            base_summary=None,
+                            missing_signals=list(_octx.missing_signals or []),
+                            available_signals=["teams"],
+                            rate_limited=_rl,
+                            confidence_label=_pl,
+                        )
+                        payload = {
+                            "intent": intent,
+                            "entities": {
+                                **dict(entities or {}),
+                                "home": home_q,
+                                "away": away_q,
+                                "fixture_quality": "PARTIAL",
+                                "entity_invalid": False,
+                                "preliminary_analysis": True,
+                                "allow_partial_analysis": True,
+                                "rate_limited": _rl,
+                                "market_generation_enabled": True,
+                            },
+                            "match": f"{home_q} x {away_q}",
+                            "status": "PARTIAL",
+                            "is_live": False,
+                            "minute": None,
+                            "fixture_quality": "PARTIAL",
+                            "fixture_status": "PARTIAL",
+                            "executive_summary": summary,
+                            "best_markets": [],
+                            "confidence": {
+                                "score": _ps,
+                                "label": _pl,
+                                "explanation": (
+                                    "Análise preliminar — dados parciais"
+                                    + ("; rate limit" if _rl else "")
+                                ),
+                                "data_sources": ["Inference Layer V2", "Partial Analysis"],
+                            },
+                            "risk": {
+                                "level": "High",
+                                "flags": list(_octx.missing_signals),
+                                "invalidation_conditions": [
+                                    "Completar estatísticas oficiais quando a API responder",
+                                ],
+                            },
+                            "bankroll_recommendation": {
+                                "recommended_stake_pct": 0.0,
+                                "method": "quarter-Kelly",
+                                "examples": {},
+                                "no_bet": True,
+                                "reasoning": "Dados parciais — sem stake.",
+                            },
+                            "final_recommendation": (
+                                f"Leitura preliminar {home_q} x {away_q} "
+                                f"(confiança {_pl})."
+                            ),
+                            "knowledge_notes": _octx.knowledge_notes_pt(),
+                            "brain": {
+                                **brain,
+                                "inference": _octx.explainability(),
+                            },
+                        }
+                    else:
+                        raise RuntimeError("partial_not_allowed")
+                except Exception:
+                    summary = (
+                        f"Não consegui localizar a partida **{home_q} x {away_q}** "
+                        f"com dados completos.\n\n"
+                        f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                        f"com confiança reduzida.\n\n"
+                        f"**Sugestão:** use o nome oficial completo dos times."
+                    )
+                    payload = {
+                        "intent":   intent,
+                        "entities": entities,
+                        "match":   f"{home_q} x {away_q}",
+                        "status": "Partial", "is_live": False, "minute": None,
+                        "executive_summary": summary,
+                        "best_markets":      [],
+                        "confidence": {
+                            "score": _octx.apply_to_score(2.0),
+                            "label": "insufficient",
+                            "explanation": (
+                                f"Inference V2: fixture ausente — "
+                                f"penalidade −{_octx.total_penalty():.1f}"
+                            ),
+                            "data_sources": ["Inference Layer V2"],
+                        },
+                        "risk": {
+                            "level": "High",
+                            "flags": list(_octx.missing_signals),
+                            "invalidation_conditions": [
+                                "Confirmar nomes oficiais na API-Football",
+                            ],
+                        },
+                        "bankroll_recommendation": {
+                            "recommended_stake_pct": 0.0,
+                            "method": "quarter-Kelly",
+                            "examples": {},
+                            "reasoning": "Sem dados completos para stake.",
+                            "no_bet": True,
+                        },
+                        "positive_factors": [],
+                        "negative_factors": [
+                            "Fixture não resolvida — análise degradada.",
                         ],
-                    },
-                    "bankroll_recommendation": {
-                        "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-                        "examples": {}, "reasoning": "Sem dados completos para stake.",
-                        "no_bet": True,
-                    },
-                    "positive_factors": [],
-                    "negative_factors": [
-                        "Fixture não resolvida — análise degradada.",
-                    ],
-                    "historical_references": [],
-                    "knowledge_notes": _octx.knowledge_notes_pt(),
-                    "final_recommendation": (
-                        "Tente novamente com o nome oficial do time, "
-                        "sem abreviações."
-                    ),
-                    "aurora_version": "Copilot v1.0",
-                    "brain": {**brain, "inference": _octx.explainability()},
-                }
+                        "historical_references": [],
+                        "knowledge_notes": _octx.knowledge_notes_pt(),
+                        "final_recommendation": (
+                            "Tente novamente com o nome oficial do time, "
+                            "sem abreviações."
+                        ),
+                        "aurora_version": "Copilot v1.0",
+                        "brain": {**brain, "inference": _octx.explainability()},
+                    }
         else:
             summary = (
                 "A Aurora encontrou um problema ao processar sua solicitação, "
@@ -3500,10 +3781,20 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # ── Phase 6: Personality & Communication Layer (presentation only) ──
     # Cleanup internals, humanize, size control, tone, hooks.
     # Does NOT alter engines, EntityResolver, follow-up detection, or memory.
+    # Phase 8.4-A.7 — skip polish on preliminary_analysis (sanitizer would
+    # replace with generic "leitura cautelosa" and erase the prelim body).
     try:
-        from src.communication import polish_payload as _polish
+        _ents_polish = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
+        if _ents_polish.get("preliminary_analysis") or _ents_polish.get(
+            "continuity_followup"
+        ):
+            logger.warning(
+                "[AUDIT] Personality: SKIPPED — preliminary/continuity lock"
+            )
+        else:
+            from src.communication import polish_payload as _polish
 
-        payload = _polish(payload, message=message, intent=intent, ctx=ctx)
+            payload = _polish(payload, message=message, intent=intent, ctx=ctx)
     except Exception as _pers_exc:
         logger.warning("copilot: personality layer skipped (%s)", _pers_exc)
 
@@ -3559,58 +3850,71 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
 
     # ── 0z. Deep Reasoning + Credibility (v4.5/v4.4) — final stamp ────────
     # After integrity. Additive. Fail-open. Does not touch engines/CRL/CIL modules.
+    # Phase 8.4-A.8 — never let credibility overwrite continuity short follow-ups
+    # (chosen_answer often collapses to "?" / crumbs).
     try:
-        from src.conversation.deep_reasoning import run_deep_reasoning as _v45_deep_final
-        from src.conversation.reflection_credibility import (
-            apply_credibility_to_payload as _v44_cred,
-            ReflectionResult,
-        )
-
-        _draft = str(payload.get("executive_summary") or "")
-        _refl_final = ctx.get("conversation_reflection")
-        if isinstance(_refl_final, dict) and _refl_final.get("user_real_intent"):
-            try:
-                _rr = ReflectionResult(
-                    user_real_intent=str(_refl_final.get("user_real_intent") or ""),
-                    possible_answers=list(_refl_final.get("possible_answers") or []),
-                    chosen_answer=_refl_final.get("chosen_answer"),
-                    why_this_answer=str(_refl_final.get("why_this_answer") or ""),
-                    confidence=float(_refl_final.get("confidence") or 0),
-                    position=_refl_final.get("position") or "none",
-                    risks=list(_refl_final.get("risks") or []),
-                    display_mode=_refl_final.get("display_mode") or "FOLLOW_UP",
-                    thinking_label=_refl_final.get("thinking_label"),
-                    humanized_reply=_refl_final.get("humanized_reply"),
-                    signals=list(_refl_final.get("signals") or []),
-                )
-            except Exception:
-                _rr = _v45_deep_final(message, ctx, _draft)
-        else:
-            _rr = _v45_deep_final(message, ctx, _draft)
-        payload = _v44_cred(payload, _rr, ctx)
-        # Attach deep reflection structure into metadata (presentation-safe)
-        try:
-            _deep = ctx.get("deep_reflection") or (
-                (_refl_final or {}).get("deep") if isinstance(_refl_final, dict) else None
+        _ents_cred = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
+        if _ents_cred.get("continuity_followup") or (
+            _ents_cred.get("followup_before_fallback")
+            and _ents_cred.get("rewrite_locked")
+        ):
+            logger.warning(
+                "[AUDIT] CredibilityLayer: SKIPPED text upgrade — continuity follow-up"
             )
-            if _deep:
-                _meta = dict(payload.get("response_metadata") or {})
-                _meta["deep_reflection"] = _deep
-                payload["response_metadata"] = _meta
-        except Exception:
-            pass
-        logger.warning(
-            "[AUDIT] CredibilityLayer: mode=%s show_confidence=%s thinking=%r",
-            (payload.get("response_metadata") or {})
-            .get("credibility", {})
-            .get("display_mode"),
-            (payload.get("response_metadata") or {})
-            .get("credibility", {})
-            .get("show_confidence"),
-            (payload.get("response_metadata") or {})
-            .get("credibility", {})
-            .get("thinking_label"),
-        )
+        else:
+            from src.conversation.deep_reasoning import run_deep_reasoning as _v45_deep_final
+            from src.conversation.reflection_credibility import (
+                apply_credibility_to_payload as _v44_cred,
+                ReflectionResult,
+            )
+
+            _draft = str(payload.get("executive_summary") or "")
+            _refl_final = ctx.get("conversation_reflection")
+            if isinstance(_refl_final, dict) and _refl_final.get("user_real_intent"):
+                try:
+                    _rr = ReflectionResult(
+                        user_real_intent=str(_refl_final.get("user_real_intent") or ""),
+                        possible_answers=list(_refl_final.get("possible_answers") or []),
+                        chosen_answer=_refl_final.get("chosen_answer"),
+                        why_this_answer=str(_refl_final.get("why_this_answer") or ""),
+                        confidence=float(_refl_final.get("confidence") or 0),
+                        position=_refl_final.get("position") or "none",
+                        risks=list(_refl_final.get("risks") or []),
+                        display_mode=_refl_final.get("display_mode") or "FOLLOW_UP",
+                        thinking_label=_refl_final.get("thinking_label"),
+                        humanized_reply=_refl_final.get("humanized_reply"),
+                        signals=list(_refl_final.get("signals") or []),
+                    )
+                except Exception:
+                    _rr = _v45_deep_final(message, ctx, _draft)
+            else:
+                _rr = _v45_deep_final(message, ctx, _draft)
+            payload = _v44_cred(payload, _rr, ctx)
+            # Attach deep reflection structure into metadata (presentation-safe)
+            try:
+                _deep = ctx.get("deep_reflection") or (
+                    (_refl_final or {}).get("deep")
+                    if isinstance(_refl_final, dict)
+                    else None
+                )
+                if _deep:
+                    _meta = dict(payload.get("response_metadata") or {})
+                    _meta["deep_reflection"] = _deep
+                    payload["response_metadata"] = _meta
+            except Exception:
+                pass
+            logger.warning(
+                "[AUDIT] CredibilityLayer: mode=%s show_confidence=%s thinking=%r",
+                (payload.get("response_metadata") or {})
+                .get("credibility", {})
+                .get("display_mode"),
+                (payload.get("response_metadata") or {})
+                .get("credibility", {})
+                .get("show_confidence"),
+                (payload.get("response_metadata") or {})
+                .get("credibility", {})
+                .get("thinking_label"),
+            )
     except Exception as _cred_exc:
         logger.warning("copilot: credibility layer skipped (%s)", _cred_exc)
 
@@ -3699,6 +4003,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             # Phase 7.4: never rewrite locked owners (NRE/HCE/META/…)
             if (
                 _ents_td.get("rewrite_locked")
+                or _ents_td.get("preliminary_analysis")
                 or _ents_td.get("turn_owner") in {
                     "NRE",
                     "HCE",
@@ -3713,6 +4018,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             ):
                 logger.warning(
                     "[AUDIT] ThinkingDelay: SKIPPED — ownership/non-sport"
+                    "/preliminary"
                 )
             else:
                 _sum = str(payload.get("executive_summary") or "")
@@ -3863,10 +4169,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             mark_sport_owner as _own_sport,
         )
 
-        if isinstance(payload, dict) and not _own_locked_pie(payload):
+        _ents_pie = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
+        # Phase 8.4-A.7 — never let PIE replace a preliminary_analysis executive
+        if isinstance(payload, dict) and _ents_pie.get("preliminary_analysis"):
+            logger.warning("[AUDIT] PIE: skipped — preliminary_analysis lock")
+        elif isinstance(payload, dict) and not _own_locked_pie(payload):
             if (
                 payload.get("best_markets")
-                or (payload.get("entities") or {}).get("has_analysis")
+                or _ents_pie.get("has_analysis")
                 or payload.get("positive_factors")
                 or payload.get("is_live")
             ):
@@ -4039,6 +4349,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             )
         except Exception:
             pass
+    except Exception:
+        pass
+
+    # Phase 8.4-A.8 — restore continuity draft if late layers wiped it to "?"
+    try:
+        from src.conversation.conversation_continuity import (
+            restore_continuity_draft as _cont_restore,
+        )
+
+        payload = _cont_restore(payload) or payload
     except Exception:
         pass
 

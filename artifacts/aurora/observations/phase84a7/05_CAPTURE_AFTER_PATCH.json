@@ -1,0 +1,47 @@
+{
+  "failures": [],
+  "cases": {
+    "gate_partial_033": true,
+    "gate_020": true,
+    "gate_010_deny": true,
+    "gate_rate_limit": true,
+    "gate_invalid_deny": true,
+    "confidence": {
+      "score": 2.2,
+      "label": "weak"
+    },
+    "prelim_text": "**Argentina x Spain** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nParte dos sinais ficou indisponível por limite de requisições; a leitura continua com confiança reduzida.\nAusentes agora: estatísticas da partida, métricas avançadas de finalização, escalações, placar, árbitro.\nSinais disponíveis: partida, tim",
+    "case1": {
+      "http": 200,
+      "response_type": null,
+      "fixture_quality": "PARTIAL",
+      "preliminary_analysis": true,
+      "has_refusal": false,
+      "summary_prefix": "**Argentina x Spain** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avanç",
+      "conf": "fraca"
+    },
+    "case2": {
+      "http": 200,
+      "response_type": null,
+      "fixture_quality": "PARTIAL",
+      "preliminary_analysis": true,
+      "has_refusal": false,
+      "summary_prefix": "**Argentina x Spain** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avanç",
+      "conf": "fraca"
+    },
+    "case4_invalid": {
+      "summary_prefix": "**Goku x Naruto** — pré-leitura ⚔ **Contexto**\nCom o contexto atual de Goku x Naruto, a leitura nasce do momento de cada lado e do clima da rodada. 📈 **Choque de estilos**\nGoku: cr",
+      "entity_invalid": true,
+      "fixture_quality": "INVALID",
+      "preliminary_analysis": null
+    },
+    "regression_opinion": {
+      "response_type": "match_opinion",
+      "overwrite_by": null
+    },
+    "regression_small_talk": {
+      "intent": "small_talk",
+      "assistant_kind": "small_talk"
+    }
+  }
+}

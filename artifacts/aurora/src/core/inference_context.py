@@ -96,16 +96,28 @@ class InferenceContext:
     def register_failure(self, stage: str, detail: str, *, signal: str | None = None) -> None:
         """Audit a would-be abort: log as penalty and keep going."""
         sig = signal or stage
+        pen = round(_PENALTY_WEIGHTS.get(sig, 0.75), 2)
+        # Phase 8.4-A.7 — rate-limit / 429: extra confidence penalty, never abort
+        try:
+            from src.core.partial_analysis import is_rate_limit_error
+
+            if is_rate_limit_error(detail) or stage in {"rate_limit", "api_rate_limit"}:
+                pen = round(max(pen, 1.0), 2)
+                sig = sig if sig not in {"", None} else "api_rate_limit"
+        except Exception:
+            pass
         self.confidence_penalties.append(
             {
                 "signal": sig,
                 "reason": f"[{stage}] {detail}",
-                "penalty": round(_PENALTY_WEIGHTS.get(sig, 0.75), 2),
+                "penalty": pen,
             }
         )
         self.notes.append(f"Falha registrada ({stage}): {detail}")
         if sig not in self.missing_signals and sig not in self.available_signals:
-            self.missing_signals.append(sig)
+            # Do not treat pure rate_limit as a missing football signal slot
+            if sig not in {"api_rate_limit"} and stage not in {"rate_limit"}:
+                self.missing_signals.append(sig)
 
     def finalize(self) -> "InferenceContext":
         self.data_completeness = calculate_data_completeness(
@@ -309,11 +321,24 @@ def scan_analyze_data(data: dict[str, Any]) -> InferenceContext:
     else:
         ctx.mark_missing("referee", "Árbitro não informado")
 
-    # Carry forward any pre-attached inference markers from soft analyze
+    # Carry forward any pre-attached inference markers from soft analyze.
+    # Phase 8.4-A.7 — inferred soft signals must remain in available_signals
+    # (scan otherwise marks fixture id=0 as missing and drops completeness < 0.20).
     prior = data.get("_inference") or {}
     for sig in prior.get("inferred_signals") or []:
+        if not sig:
+            continue
         if sig not in ctx.inferred_signals:
             ctx.inferred_signals.append(sig)
+        if sig in ctx.missing_signals:
+            ctx.missing_signals.remove(sig)
+        if sig not in ctx.available_signals:
+            ctx.available_signals.append(sig)
+    for sig in prior.get("available_signals") or []:
+        if sig and sig not in ctx.available_signals:
+            if sig in ctx.missing_signals:
+                ctx.missing_signals.remove(sig)
+            ctx.available_signals.append(sig)
     for note in prior.get("notes") or []:
         if note not in ctx.notes:
             ctx.notes.append(note)

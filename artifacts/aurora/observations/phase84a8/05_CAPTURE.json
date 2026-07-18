@@ -1,0 +1,91 @@
+{
+  "failures": [],
+  "cases": {
+    "opinion": {
+      "type": "match_opinion",
+      "owner": "match_opinion_renderer"
+    },
+    "mercados_after_opinion": {
+      "intent": "follow_up",
+      "overwrite_by": null,
+      "fallback_kind": null,
+      "followup_context_found": true,
+      "followup_source": "opinion",
+      "followup_resolved_team": "Fluminense",
+      "followup_resolved_fixture": "contexto do Fluminense",
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "agenda_text": false,
+      "prefix": "Sobre **contexto do Fluminense**: ainda não fechei uma lista numérica de mercados nesta conversa. |  | Posso priorizar gols, ambas marcam ou over asiático se você quiser uma leitura direcionada — sem inve"
+    },
+    "placar_after_opinion": {
+      "intent": "follow_up",
+      "overwrite_by": null,
+      "fallback_kind": null,
+      "followup_context_found": true,
+      "followup_source": "opinion",
+      "followup_resolved_team": "Fluminense",
+      "followup_resolved_fixture": "contexto do Fluminense",
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "agenda_text": false,
+      "prefix": "Sobre **contexto do Fluminense**: o desenlace/placar oficial não está confirmado nesta conversa. |  | Me passa o resultado (ou o adversário) que eu fecho a leitura sem inventar número."
+    },
+    "estats_after_opinion": {
+      "intent": "follow_up",
+      "overwrite_by": null,
+      "fallback_kind": null,
+      "followup_context_found": true,
+      "followup_source": "opinion",
+      "followup_resolved_team": "Fluminense",
+      "followup_resolved_fixture": "contexto do Fluminense",
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "agenda_text": false,
+      "prefix": "Sobre **contexto do Fluminense**: estatísticas fechadas (posse, chutes, etc.) não estão confirmadas neste turno. |  | Posso seguir com leitura qualitativa do Fluminense ou você me passa o que já viu do jo"
+    },
+    "favorito_after_opinion": {
+      "intent": "follow_up",
+      "overwrite_by": null,
+      "fallback_kind": null,
+      "followup_context_found": true,
+      "followup_source": "opinion",
+      "followup_resolved_team": "Fluminense",
+      "followup_resolved_fixture": "contexto do Fluminense",
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "agenda_text": false,
+      "prefix": "Sobre **contexto do Fluminense**: sem cravar favorito sem placar/estatísticas. |  | Pelo perfil do Fluminense, a leitura fica em equilíbrio / leve vantagem situacional — me diga o adversário se quiser afi"
+    },
+    "escalacoes_after_opinion": {
+      "intent": "follow_up",
+      "overwrite_by": null,
+      "fallback_kind": null,
+      "followup_context_found": true,
+      "followup_source": "opinion",
+      "followup_resolved_team": "Fluminense",
+      "followup_resolved_fixture": "contexto do Fluminense",
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "agenda_text": false,
+      "prefix": "Sobre **contexto do Fluminense**: escalações oficiais não estão confirmadas nesta conversa. |  | Se tiver a escalação (ou o adversário), eu encaixo na leitura."
+    },
+    "partial": {
+      "prelim": true,
+      "owner": "partial_analysis"
+    },
+    "mercados_after_partial": {
+      "followup_context_found": true,
+      "followup_source": "partial_analysis",
+      "followup_resolved_team": "Argentina",
+      "followup_resolved_fixture": "Argentina x Spain",
+      "followup_before_fallback": true,
+      "overwrite_by": null,
+      "agenda": false,
+      "prefix": "Estou utilizando o contexto anterior: | **Argentina vs Spain**. |  | Com base naquela análise: |  | **Todos os mercados rankeados:** |  | • **Mais de 8.5 Escanteios** — 72% prob · VE +26.5% · Ri"
+    },
+    "small_talk": {
+      "intent": "small_talk"
+    }
+  }
+}

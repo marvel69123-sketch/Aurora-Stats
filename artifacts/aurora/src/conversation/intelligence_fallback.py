@@ -127,12 +127,36 @@ def try_intelligence_fallback(
             )
         except Exception:
             _recent_opinion = False
+        # Phase 8.4-A.8 — never calendar_authority on continuity short sport follow-ups
+        # (mercados? / placar? / estatísticas? after opinion/partial/team_summary)
+        _skip_cal = False
+        try:
+            from src.conversation.conversation_continuity import (
+                is_active_sport_followup as _cont_fu,
+            )
+
+            _raw_fu = ""
+            if isinstance(ctx, dict):
+                _raw_fu = str(ctx.get("raw_user_message") or "")
+            _skip_cal = bool(
+                _cont_fu(ctx, message)
+                or (_raw_fu and _cont_fu(ctx, _raw_fu))
+            )
+            if _skip_cal:
+                logger.warning(
+                    "[AUDIT] IntelligenceFallback: SKIPPED calendar — "
+                    "continuity sport follow-up"
+                )
+        except Exception:
+            _skip_cal = False
+
         # Brain Authority — never opinion fallback on calendar topics
-        # (unless this turn is clearly a recent-match opinion ask)
+        # (unless this turn is clearly a recent-match opinion ask
+        #  or a continuity short sport follow-up)
         try:
             from src.conversation.brain_authority import is_calendar_authority
 
-            if is_calendar_authority(ctx) and not _recent_opinion:
+            if is_calendar_authority(ctx) and not _recent_opinion and not _skip_cal:
                 from src.conversation.brain_authority import calendar_empty_reply
 
                 teams = list(recovery.get("teams") or thinking.get("topic_teams") or [])

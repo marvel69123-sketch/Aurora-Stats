@@ -116,6 +116,13 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     # All markets
     (r"(?:e\s+)?todos\s+(?:os\s+)?mercados?",        "all_markets"),
     (r"melhores?\s+mercados?\s*$",                   "all_markets"),
+    # Phase 8.4-A.8 — bare short follow-ups (continuity / prior analysis)
+    (r"^(?:e\s+)?(?:os\s+)?mercados?\s*$",           "all_markets"),
+    (r"^(?:e\s+)?(?:o\s+)?placar\s*$",               "result_market"),
+    (r"^(?:e\s+)?(?:o\s+)?resultado\s*$",            "result_market"),
+    (r"^(?:e\s+)?(?:o\s+)?favoritos?\s*$",           "who_is_better"),
+    (r"^(?:e\s+)?(?:as\s+)?estatisticas?\s*$",       "explain_more"),
+    (r"^(?:e\s+)?(?:as\s+)?escalacoes?\s*$",         "explain_more"),
 ]
 
 # Soft confidence haircut when reusing prior analysis (no new pipeline)

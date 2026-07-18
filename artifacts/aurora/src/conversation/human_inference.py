@@ -372,6 +372,54 @@ def infer_human_intent(
                 topic_kind="opinion",
             )
 
+    # Phase 8.4-A.8 — continuity short sport follow-ups must not become calendar
+    # (rewrites like "mercados do Fluminense" / "placar do X" stay on prior context)
+    try:
+        from src.conversation.conversation_continuity import (
+            RESOLVE_KEY as _CONT_RESOLVE,
+            SPORT_FOLLOWUP_KINDS as _CONT_KINDS,
+            is_active_sport_followup as _cont_active_fu,
+        )
+
+        _cres = (ctx or {}).get(_CONT_RESOLVE) if isinstance(ctx, dict) else None
+        _ckind = (_cres or {}).get("kind") if isinstance(_cres, dict) else None
+        _raw_cont = ""
+        if isinstance(ctx, dict):
+            _raw_cont = str(ctx.get("raw_user_message") or "")
+        if (
+            _ckind in _CONT_KINDS
+            or _cont_active_fu(ctx, literal)
+            or (_raw_cont and _cont_active_fu(ctx, _raw_cont))
+        ):
+            t = (
+                (( _cres or {}).get("team") if isinstance(_cres, dict) else None)
+                or team
+                or (pair[0] if pair else None)
+                or _soft_team_from_ctx(ctx)
+            )
+            if t:
+                return HumanInference(
+                    literal=literal,
+                    what_user_said=literal,
+                    what_user_meant=f"follow-up esportivo sobre {t}",
+                    what_user_expects=[
+                        "follow_up",
+                        "prior_context",
+                        "markets_or_score",
+                    ],
+                    human_goal=f"continuar contexto do {t}",
+                    intent="follow_up",
+                    priority="very_high",
+                    team=str(t),
+                    teams=[str(t)],
+                    confidence=0.94,
+                    rewrite=None,
+                    strong_verb="followup",
+                    topic_kind="follow_up",
+                )
+    except Exception:
+        pass
+
     # ── Strong: CALENDAR cues ────────────────────────────────────────────
     if _CALENDAR.search(folded) or (
         pair and _TEMPORAL.search(folded) and not _ANALYZE.search(folded)

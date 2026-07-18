@@ -487,7 +487,23 @@ async def analyze_fixture(
         except Exception as exc:
             logger.warning("analyze soft-fetch failed signal=%s: %s", signal, exc)
             if soft:
-                ictx.register_failure("api_fetch", str(exc), signal=signal)
+                detail = str(exc)
+                ictx.register_failure("api_fetch", detail, signal=signal)
+                # Phase 8.4-A.7 — rate limit is a penalty, never a hard abort
+                try:
+                    from src.core.partial_analysis import is_rate_limit_error
+
+                    if is_rate_limit_error(detail):
+                        ictx.register_failure(
+                            "rate_limit",
+                            detail,
+                            signal="api_rate_limit",
+                        )
+                        ictx.notes.append(
+                            "Rate limit API — mantendo análise preliminar"
+                        )
+                except Exception:
+                    pass
                 return {"response": []}
             raise
 

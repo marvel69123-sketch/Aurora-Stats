@@ -1,0 +1,41 @@
+{
+  "checks": {
+    "calendar": true,
+    "identity": true,
+    "ownership": true,
+    "continuity": true,
+    "small_talk": true,
+    "markets_partial": true
+  },
+  "regs": {
+    "calendar": {
+      "intent": "unknown",
+      "kind": null,
+      "rtype": null
+    },
+    "identity": {
+      "intent": "identity",
+      "kind": "system"
+    },
+    "ownership_opinion": {
+      "type": "match_opinion",
+      "owner": "match_opinion_renderer",
+      "overwrite": null
+    },
+    "continuity_followup": {
+      "intent": "small_talk",
+      "type": "team_summary"
+    },
+    "small_talk": {
+      "intent": "small_talk",
+      "kind": "small_talk"
+    },
+    "markets_partial": {
+      "prelim": true,
+      "markets": 5,
+      "refusal": false,
+      "has_prelim_text": true
+    }
+  },
+  "all_pass": true
+}
