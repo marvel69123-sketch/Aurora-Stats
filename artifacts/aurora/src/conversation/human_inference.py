@@ -34,13 +34,15 @@ _RECENT_MATCH_OPINION = re.compile(
     r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+"
     r"(?:d[oe]\s+)?(?:jogo|partida|atuacao)\b|"
     r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+da\s+atuacao\b|"
-    r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida)\b|"
+    r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida|atuacao)\b|"
+    r"como\s+foi\s+a\s+atuacao\b|"
     r"como\s+(?:voce\s+)?viu\s+(?:o\s+)?(?:ultimo\s+|ultima\s+)?(?:jogo|partida)\b|"
     r"\bjogou\s+bem\b|"
     r"(?:achou|opiniao).{0,48}\b(?:ontem|ultimo|ultima)\b|"
     r"\b(?:ontem|ultimo|ultima).{0,48}\b(?:achou|opiniao|como\s+foi|jogou\s+bem)\b|"
     r"\bachou\s+d[oe]\s+(?:jogo|partida|atuacao)\b|"
-    r"\bachou\s+da\s+atuacao\b"
+    r"\bachou\s+da\s+atuacao\b|"
+    r"\batuacao\s+d[oe]\b"
     r")",
     re.I,
 )

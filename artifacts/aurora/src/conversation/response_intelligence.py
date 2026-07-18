@@ -75,7 +75,35 @@ async def compose_intelligent_reply(
             hie["intent"] = "general_team_talk"
         elif force_type == "match_analysis":
             hie["intent"] = "match_analysis"
+        elif force_type == "match_opinion":
+            hie["intent"] = "general_team_talk"
+            hie["topic_kind"] = "opinion"
         ctx["human_inference"] = hie
+
+        # Phase 8.3-A — never render panorama/agenda for recent-match opinion asks
+        try:
+            from src.conversation.match_opinion_renderer import (
+                render_match_opinion,
+                wants_match_opinion_render,
+            )
+
+            if force_type == "match_opinion" or wants_match_opinion_render(
+                message, ctx=ctx
+            ):
+                text = render_match_opinion(
+                    team=team or hie.get("team") or "o time",
+                    message=message,
+                    ctx=ctx,
+                    variant=variant,
+                )
+                if ctx is not None:
+                    ctx["response_plan"] = {
+                        "answer_type": "match_opinion",
+                        "team": team or hie.get("team"),
+                    }
+                return text
+        except Exception as _mop_exc:
+            logger.warning("ResponseIntelligence: match opinion bypass skipped (%s)", _mop_exc)
 
         expectation = infer_expected_information(message, ctx)
         plan = plan_response(message, ctx)
@@ -86,6 +114,20 @@ async def compose_intelligent_reply(
             plan.answer_type = "team_moment"
         if expectation.answer_bias == "match_analysis":
             plan.answer_type = "match_analysis"
+        if expectation.answer_bias == "match_opinion":
+            plan.answer_type = "match_opinion"
+            from src.conversation.match_opinion_renderer import render_match_opinion
+
+            if variant is None:
+                variant = random.randint(0, 2)
+            if ctx is not None:
+                ctx["response_plan"] = plan.to_dict()
+            return render_match_opinion(
+                team=plan.team or team or "o time",
+                message=message,
+                ctx=ctx,
+                variant=variant,
+            )
 
         api_games = await collect_api_next_games(plan.team)
         if api_games:

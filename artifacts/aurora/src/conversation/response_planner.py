@@ -87,6 +87,23 @@ def plan_response(
             question=(message or "").strip(),
             source_intent=intent or "team_moment",
         )
+    elif (
+        "recent_match" in (hie.get("what_user_expects") or [])
+        or (
+            isinstance(ctx, dict)
+            and (ctx.get("user_expectation") or {}).get("answer_bias") == "match_opinion"
+        )
+    ):
+        # Phase 8.3-A — match opinion plan (not panorama sections)
+        plan = ResponsePlan(
+            answer_type="match_opinion",
+            sections=list(ANSWER_SECTIONS.get("match_opinion") or ["match_reading"]),
+            required_information=["match_reading", "honest_opinion"],
+            depth="medium",
+            team=str(team) if team else None,
+            question=(message or "").strip(),
+            source_intent=intent or "general_team_talk",
+        )
     elif intent in {"general_team_talk", "team_analysis"} or kind == "opinion":
         plan = ResponsePlan(
             answer_type="team_summary",

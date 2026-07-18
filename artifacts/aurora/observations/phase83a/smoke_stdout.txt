@@ -1,0 +1,87 @@
+﻿uv : [INTENT_BEFORE] message_prefix=o que voc├¬ achou do jogo do fluminense ontem? prev_intent=none
+No C:\Users\Caio henrique\AppData\Local\Temp\ps-script-aabdad63-16e0-48bc-bc9c-e485a22d0a35.ps1:108 caractere:79
++ ... ts\aurora"; uv run python scripts/phase83a_opinion_renderer_smoke.py  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([INTENT_BEFORE]...rev_intent=none:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[INTENT_BEFORE] message_prefix=o que voc├¬ achou do jogo do fluminense ontem? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] ContextRecovery: keep_original conf=0.88 notes=['completed:recent_match_opinion']
+[AUDIT] DeepThinking: user_real_want='opini├úo + contexto sobre Fluminense' needs_web=True web_need=optional 
+depth=medium response_mode=normal inference=True surface_risk=0.15 team='Fluminense'
+[AUDIT] HumanInference: intent=general_team_talk priority=very_high goal='opini├úo sobre o jogo do Fluminense' 
+meant='opini├úo sobre partida recente do Fluminense' home=None away=None team='Fluminense' conf=0.93 rewrite=None
+[AUDIT] MatchOpinionRenderer: team='Fluminense' tone=opinion variant=0
+[INTENT_BEFORE] message_prefix=como foi a atua├º├úo do flamengo? prev_intent=none
+[INTENT_BEFORE] message_prefix=como foi a atua├º├úo do flamengo? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] ContextRecovery: keep_original conf=0.88 notes=['completed:recent_match_opinion']
+[AUDIT] DeepThinking: user_real_want='opini├úo + contexto sobre Flamengo' needs_web=True web_need=optional 
+depth=medium response_mode=normal inference=True surface_risk=0.15 team='Flamengo'
+[AUDIT] HumanInference: intent=general_team_talk priority=very_high goal='opini├úo sobre o jogo do Flamengo' 
+meant='opini├úo sobre partida recente do Flamengo' home=None away=None team='Flamengo' conf=0.93 rewrite=None
+[AUDIT] MatchOpinionRenderer: team='Flamengo' tone=performance variant=1
+[INTENT_BEFORE] message_prefix=o flamengo jogou bem? prev_intent=none
+[INTENT_BEFORE] message_prefix=o flamengo jogou bem? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] ContextRecovery: keep_original conf=0.88 notes=['completed:recent_match_opinion']
+[AUDIT] DeepThinking: user_real_want='opini├úo + contexto sobre Flamengo' needs_web=True web_need=optional 
+depth=medium response_mode=normal inference=True surface_risk=0.15 team='Flamengo'
+[AUDIT] HumanInference: intent=general_team_talk priority=very_high goal='opini├úo sobre o jogo do Flamengo' 
+meant='opini├úo sobre partida recente do Flamengo' home=None away=None team='Flamengo' conf=0.93 rewrite=None
+[AUDIT] MatchOpinionRenderer: team='Flamengo' tone=performance variant=2
+[INTENT_BEFORE] message_prefix=quando ├® o pr├│ximo jogo? prev_intent=none
+[INTENT_BEFORE] message_prefix=quando ├® o pr├│ximo jogo? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] ContextRecovery: keep_original conf=0.78 notes=['completed:calendar_generic']
+[AUDIT] DeepThinking: user_real_want='ver jogo/agenda (times)' needs_web=False web_need=none depth=simple 
+response_mode=brief inference=True surface_risk=0.10 team=None
+[AUDIT] HumanInference: intent=unknown priority=normal goal='inferir inten├º├úo' meant='pedido amb├¡guo ÔÇö tentar 
+inferir antes de desistir' home=None away=None team=None conf=0.40 rewrite=None
+[INTENT_BEFORE] message_prefix=tem jogo do fluminense hoje? prev_intent=none
+[INTENT_BEFORE] message_prefix=tem jogo do fluminense hoje? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] ContextRecovery: 'tem jogo do fluminense hoje?' ÔåÆ 'jogo do Fluminense hoje' goal=calendar_or_fixture 
+teams=['Fluminense'] conf=0.85 notes=['completed:team_today', 'message_rewritten']
+[AUDIT] DeepThinking: user_real_want='ver jogo/agenda (Fluminense)' needs_web=False web_need=none depth=simple 
+response_mode=brief inference=True surface_risk=0.10 team='Fluminense'
+[AUDIT] HumanInference: intent=calendar_or_fixture priority=high goal='agenda do Fluminense' meant='ver agenda/jogo do 
+Fluminense' home=None away=None team='Fluminense' conf=0.86 rewrite=None
+natural_conversation fixtures fetch fail-open: 500: API_FOOTBALL_KEY not configured
+natural_conversation fixtures fetch fail-open: 500: API_FOOTBALL_KEY not configured
+=== OPINION RENDER ===
+  [OK] 'o que voc├¬ achou do jogo do fluminense ontem?'
+       type=match_opinion opinion_time=True recent=True
+       text='Sem o placar confirmado aqui, minha leitura ├® que o Fluminense mostrou sinais positivos ou negativos dependendo do conte'
+  [OK] 'como foi a atua├º├úo do flamengo?'
+       type=match_opinion opinion_time=True recent=True
+       text='Atua├º├úo do Flamengo: do jeito que eu leio, ÔÇ£jogou bemÔÇØ depende do contexto ÔÇö dom├¡nio vs efici├¬ncia, e se o plano aparece'
+  [OK] 'o flamengo jogou bem?'
+       type=match_opinion opinion_time=True recent=True
+       text='Eu olharia a atua├º├úo do Flamengo por controle de jogo e resposta sob press├úo, n├úo s├│ pelo resultado.\n\nSem o recorte conf'
+=== AGENDA ===
+  [OK] 'quando ├® o pr├│ximo jogo?' kind=None type=None
+  [OK] 'tem jogo do fluminense hoje?' kind=team_calendar type=None
+
+PASS ÔÇö 8.3-A opinion renderer

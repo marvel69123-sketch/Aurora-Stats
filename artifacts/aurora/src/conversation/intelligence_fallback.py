@@ -183,6 +183,16 @@ def try_intelligence_fallback(
                     # Cannot await here — use sync template path
                     reply = None
                 else:
+                    _ft = "team_moment" if moment else "team_summary"
+                    try:
+                        from src.conversation.match_opinion_renderer import (
+                            wants_match_opinion_render,
+                        )
+
+                        if wants_match_opinion_render(message, ctx=ctx):
+                            _ft = "match_opinion"
+                    except Exception:
+                        pass
                     reply = asyncio.run(
                         compose_intelligent_reply(
                             message,
@@ -190,7 +200,7 @@ def try_intelligence_fallback(
                             prefs,
                             team=str(team),
                             moment=moment,
-                            force_type="team_moment" if moment else "team_summary",
+                            force_type=_ft,
                         )
                     )
             except Exception:

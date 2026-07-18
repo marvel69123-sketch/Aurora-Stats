@@ -35,11 +35,17 @@ TEAM_TALK: Final[list[str]] = [
     "perspective",
 ]
 
+MATCH_OPINION: Final[list[str]] = [
+    "match_reading",
+    "honest_opinion",
+]
+
 ANSWER_SECTIONS: Final[dict[str, list[str]]] = {
     "team_summary": TEAM_SUMMARY,
     "team_moment": TEAM_MOMENT,
     "match_analysis": MATCH_ANALYSIS,
     "team_talk": TEAM_TALK,
+    "match_opinion": MATCH_OPINION,
 }
 
 DEPTH_BY_TYPE: Final[dict[str, str]] = {
@@ -47,4 +53,5 @@ DEPTH_BY_TYPE: Final[dict[str, str]] = {
     "team_moment": "deep",
     "match_analysis": "deep",
     "team_talk": "medium",
+    "match_opinion": "medium",
 }

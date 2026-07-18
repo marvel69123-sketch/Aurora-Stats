@@ -74,6 +74,25 @@ def infer_expected_information(
             answer_bias="team_moment",
             confidence=0.93,
         )
+    elif (
+        "recent_match" in (hie.get("what_user_expects") or [])
+        or re.search(
+            r"("
+            r"achou\s+d[oe]\s+(?:jogo|partida)|como\s+foi\s+(?:a\s+|o\s+)?(?:jogo|partida)|"
+            r"jogou\s+bem|atuacao|ultimo\s+jogo|ontem"
+            r")",
+            folded,
+        )
+    ):
+        # Phase 8.3-A — match opinion, not panorama/agenda bias
+        wants = ["opinião da partida", "leitura do jogo", "contexto do resultado"]
+        exp = UserExpectation(
+            user_probably_wants=wants,
+            expects=wants,
+            completion_targets=["match_reading", "honest_opinion"],
+            answer_bias="match_opinion",
+            confidence=0.94,
+        )
     else:
         # Bare team / general talk — Gemini completes beyond the ask
         wants = [

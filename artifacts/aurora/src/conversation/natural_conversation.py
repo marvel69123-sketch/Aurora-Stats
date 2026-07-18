@@ -166,8 +166,9 @@ def _is_recent_match_opinion(folded: str) -> bool:
             r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+"
             r"(?:d[oe]\s+)?(?:jogo|partida|atuacao)\b|"
             r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+da\s+atuacao\b|"
-            # como foi o/a jogo|partida
-            r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida)\b|"
+            # como foi o/a jogo|partida|atuação
+            r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida|atuacao)\b|"
+            r"como\s+foi\s+a\s+atuacao\b|"
             # jogou bem?
             r"\bjogou\s+bem\b|"
             # último/última jogo|partida (+ opinião opcional)
@@ -177,7 +178,8 @@ def _is_recent_match_opinion(folded: str) -> bool:
             r"\b(?:ontem|ultimo|ultima).{0,48}\b(?:achou|opiniao|como\s+foi)\b|"
             # "achou do jogo/partida …"
             r"\bachou\s+d[oe]\s+(?:jogo|partida|atuacao)\b|"
-            r"\bachou\s+da\s+atuacao\b"
+            r"\bachou\s+da\s+atuacao\b|"
+            r"\batuacao\s+d[oe]\b"
             r")",
             folded,
         )
@@ -791,32 +793,51 @@ async def try_natural_conversation(
         elif kind == "team_opinion":
             team = str(detected.get("team") or "esse time")
             moment = bool(detected.get("moment"))
-            # Response Intelligence — Plan → Synthesize → Reflect (not philosophy)
             reply = ""
+            # Prefer HIE topic_team / moment when present
+            hie = (ctx or {}).get("human_inference") or {}
+            if hie.get("team"):
+                team = str(hie["team"])
+            if hie.get("intent") == "team_moment" or hie.get("topic_kind") == "moment":
+                moment = True
+
+            # Phase 8.3-A — recent-match opinion renderer (never team_summary panorama)
             try:
-                from src.conversation.response_intelligence import (
-                    compose_intelligent_reply,
+                from src.conversation.match_opinion_renderer import (
+                    render_match_opinion as _mop_render,
+                    wants_match_opinion_render as _mop_wants,
                 )
 
-                # Prefer HIE topic_team / moment when present
-                hie = (ctx or {}).get("human_inference") or {}
-                if hie.get("team"):
-                    team = str(hie["team"])
-                if hie.get("intent") == "team_moment" or hie.get("topic_kind") == "moment":
-                    moment = True
-                composed = await compose_intelligent_reply(
-                    message,
-                    ctx,
-                    prefs,
-                    team=team,
-                    moment=moment,
-                    force_type="team_moment" if moment else "team_summary",
-                )
-                if composed:
-                    reply = composed
-                    entities["response_intelligence"] = True
-            except Exception as _ri_exc:
-                logger.warning("natural: response intelligence skipped (%s)", _ri_exc)
+                if _mop_wants(message, detected=detected, ctx=ctx):
+                    reply = _mop_render(team=team, message=message, ctx=ctx)
+                    entities["response_type"] = "match_opinion"
+                    entities["match_opinion_renderer"] = True
+            except Exception as _mop_exc:
+                logger.warning("natural: match opinion renderer skipped (%s)", _mop_exc)
+
+            # Response Intelligence — only when NOT a match-opinion ask
+            if not reply:
+                try:
+                    from src.conversation.response_intelligence import (
+                        compose_intelligent_reply,
+                    )
+
+                    composed = await compose_intelligent_reply(
+                        message,
+                        ctx,
+                        prefs,
+                        team=team,
+                        moment=moment,
+                        force_type="team_moment" if moment else "team_summary",
+                    )
+                    if composed:
+                        reply = composed
+                        entities["response_intelligence"] = True
+                        entities["response_type"] = (
+                            "team_moment" if moment else "team_summary"
+                        )
+                except Exception as _ri_exc:
+                    logger.warning("natural: response intelligence skipped (%s)", _ri_exc)
             if not reply:
                 try:
                     from src.conversation.brain_authority import opinion_local_reasoning
@@ -839,6 +860,8 @@ async def try_natural_conversation(
                             ctx["web_thinking"] = web
                 except Exception:
                     reply = build_team_opinion_reply(team)
+                if not entities.get("response_type"):
+                    entities["response_type"] = "team_opinion"
             intent = "conversation_assist"
             family = "team_opinion"
             entities["team"] = team
