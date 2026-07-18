@@ -129,14 +129,56 @@ def is_deferred_general(payload: dict[str, Any] | None) -> bool:
     return bool(ents.get("general_assistant") and ents.get("assistant_kind") == "general")
 
 
+def is_finalized_opinion_payload(payload: dict[str, Any] | None) -> bool:
+    """
+    Phase 8.4-A.5 — Natural match-opinion (or stamped final opinion) must not
+    be stolen by IntelligenceFallback / competing presence layers.
+    """
+    if not isinstance(payload, dict):
+        return False
+    ents = payload.get("entities") or {}
+    if not isinstance(ents, dict):
+        return False
+    if ents.get("final_response") or ents.get("response_owner"):
+        return True
+    if ents.get("turn_owner") and (
+        ents.get("match_opinion_renderer")
+        or ents.get("response_type") == "match_opinion"
+        or ents.get("renderer_stage") == "match_opinion_renderer"
+    ):
+        return True
+    if ents.get("match_opinion_renderer") or ents.get("response_type") == "match_opinion":
+        return True
+    if ents.get("renderer_stage") == "match_opinion_renderer":
+        return True
+    # Explicit forensic / path flags with a real body already produced
+    if ents.get("team_opinion_path") or ents.get("match_opinion_import_ok"):
+        summary = str(payload.get("executive_summary") or "").strip()
+        if summary and summary not in {"?", "…", "..."}:
+            return True
+    if ents.get("renderer_stage") and str(ents.get("renderer_stage")) not in {
+        "",
+        "entered_team_opinion",
+        "mop_wants_false",
+        "match_opinion_import_fail",
+    }:
+        summary = str(payload.get("executive_summary") or "").strip()
+        if summary:
+            return True
+    return False
+
+
 def can_presence_claim(payload: dict[str, Any] | None) -> bool:
     """
     Phase 7.9-C: emotional / HPL / profile may claim when payload is empty
     or only a deferred GA general soft reply (not hard-locked).
+    Phase 8.4-A.5: never claim over finalized Natural opinion.
     """
     if payload is None:
         return True
     if is_rewrite_locked(payload):
+        return False
+    if is_finalized_opinion_payload(payload):
         return False
     if get_owner(payload) in {"NRE", "HCE", "META", "EMOTIONAL", "PROFILE", "SPORT"}:
         return False
@@ -233,6 +275,22 @@ def finalize_early_ownership(payload: dict[str, Any] | None) -> dict[str, Any] |
     if ents.get("has_analysis") or payload.get("best_markets") or payload.get("is_live"):
         out = mark_owner(payload, "SPORT", rewrite_locked=False)
         _owner_log("OWNER_AFTER", out, action="sport")
+        return out
+
+    # Phase 8.4-A.5 — lock Natural match-opinion before IntelFallback / late polish
+    if (
+        ents.get("match_opinion_renderer")
+        or ents.get("response_type") == "match_opinion"
+        or ents.get("response_owner") == "match_opinion_renderer"
+        or ents.get("final_response")
+    ):
+        out = mark_owner(payload, "SPORT", rewrite_locked=True)
+        ents2 = dict((out or {}).get("entities") or {})
+        ents2.setdefault("response_owner", "match_opinion_renderer")
+        ents2["final_response"] = True
+        if isinstance(out, dict):
+            out["entities"] = ents2
+        _owner_log("OWNER_AFTER", out, action="match_opinion_lock")
         return out
 
     if ents.get("turn_owner"):
@@ -361,6 +419,8 @@ def mark_sport_owner(payload: dict[str, Any] | None) -> dict[str, Any] | None:
 
 def should_skip_competing_social(payload: dict[str, Any] | None) -> bool:
     """HPL / Natural / IntelFallback / legacy small-talk must not steal owned turns."""
+    if is_finalized_opinion_payload(payload):
+        return True
     return is_rewrite_locked(payload) or get_owner(payload) in {
         "NRE",
         "HCE",
@@ -368,6 +428,7 @@ def should_skip_competing_social(payload: dict[str, Any] | None) -> bool:
         "GA",
         "PROFILE",
         "EMOTIONAL",
+        "SPORT",
     }
 
 

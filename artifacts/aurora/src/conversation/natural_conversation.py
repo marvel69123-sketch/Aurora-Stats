@@ -794,6 +794,9 @@ async def try_natural_conversation(
             team = str(detected.get("team") or "esse time")
             moment = bool(detected.get("moment"))
             reply = ""
+            # Phase 8.4-A.4 — temporary runtime forensics (remove after audit)
+            entities["team_opinion_path"] = True
+            entities["renderer_stage"] = "entered_team_opinion"
             # Prefer HIE topic_team / moment when present
             hie = (ctx or {}).get("human_inference") or {}
             if hie.get("team"):
@@ -808,11 +811,21 @@ async def try_natural_conversation(
                     wants_match_opinion_render as _mop_wants,
                 )
 
+                entities["match_opinion_import_ok"] = True
                 if _mop_wants(message, detected=detected, ctx=ctx):
                     reply = _mop_render(team=team, message=message, ctx=ctx)
                     entities["response_type"] = "match_opinion"
                     entities["match_opinion_renderer"] = True
+                    entities["renderer_stage"] = "match_opinion_renderer"
+                    # Phase 8.4-A.5 — mark finalized so IntelFallback cannot steal
+                    entities["response_owner"] = "match_opinion_renderer"
+                    entities["final_response"] = True
+                else:
+                    entities["renderer_stage"] = "mop_wants_false"
             except Exception as _mop_exc:
+                entities["match_opinion_import_ok"] = False
+                entities["match_opinion_import_error"] = str(_mop_exc)
+                entities["renderer_stage"] = "match_opinion_import_fail"
                 logger.warning("natural: match opinion renderer skipped (%s)", _mop_exc)
 
             # Response Intelligence — only when NOT a match-opinion ask
@@ -835,6 +848,10 @@ async def try_natural_conversation(
                         entities["response_intelligence"] = True
                         entities["response_type"] = (
                             "team_moment" if moment else "team_summary"
+                        )
+                        entities["renderer_stage"] = (
+                            "response_intelligence_"
+                            + str(entities.get("response_type") or "unknown")
                         )
                 except Exception as _ri_exc:
                     logger.warning("natural: response intelligence skipped (%s)", _ri_exc)
@@ -862,14 +879,43 @@ async def try_natural_conversation(
                     reply = build_team_opinion_reply(team)
                 if not entities.get("response_type"):
                     entities["response_type"] = "team_opinion"
+                if entities.get("renderer_stage") in {
+                    "entered_team_opinion",
+                    "mop_wants_false",
+                    "match_opinion_import_fail",
+                }:
+                    entities["renderer_stage"] = "local_opinion_fallback"
             intent = "conversation_assist"
             family = "team_opinion"
             entities["team"] = team
             entities["opinion_time"] = True
+            entities["response_type_before_finalize"] = entities.get("response_type")
             if detected.get("recent_match"):
                 entities["recent_match"] = True
             if moment:
                 entities["moment_now"] = True
+            # Persist forensics across later payload replacements (8.4-A.4)
+            if isinstance(ctx, dict):
+                ctx["_forensics_84a4"] = {
+                    k: entities.get(k)
+                    for k in (
+                        "team_opinion_path",
+                        "match_opinion_import_ok",
+                        "match_opinion_import_error",
+                        "match_opinion_renderer",
+                        "response_type",
+                        "response_type_before_finalize",
+                        "renderer_stage",
+                        "recent_match",
+                        "opinion_time",
+                        "natural_kind",
+                    )
+                    if k in entities or entities.get(k) is not None
+                }
+                ctx["_forensics_84a4"]["natural_kind"] = kind
+                ctx["_forensics_84a4"]["summary_prefix_natural"] = str(reply or "")[
+                    :120
+                ]
         elif kind == "historical_copa":
             try:
                 from src.conversation.intelligence_fallback import build_copa_opinion

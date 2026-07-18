@@ -2191,6 +2191,38 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _nat = await _v452_natural(message, ctx, _conv_prefs)
             if _nat:
                 payload = _nat
+                # Phase 8.4-A.5 — lock finalized Natural opinion before IntelFallback
+                try:
+                    from src.conversation.turn_ownership import (
+                        is_finalized_opinion_payload as _opin_final,
+                        mark_owner as _own_mark,
+                    )
+
+                    if _opin_final(payload):
+                        payload = _own_mark(
+                            payload, "SPORT", rewrite_locked=True
+                        ) or payload
+                        _ents_lock = dict(payload.get("entities") or {})
+                        if (
+                            _ents_lock.get("match_opinion_renderer")
+                            or _ents_lock.get("response_type") == "match_opinion"
+                        ):
+                            _ents_lock["response_owner"] = "match_opinion_renderer"
+                        else:
+                            _ents_lock.setdefault(
+                                "response_owner", "natural_conversation"
+                            )
+                        _ents_lock["final_response"] = True
+                        payload["entities"] = _ents_lock
+                        logger.warning(
+                            "[AUDIT] Ownership: Natural opinion LOCKED — "
+                            "IntelFallback must not overwrite owner=%s",
+                            _ents_lock.get("response_owner"),
+                        )
+                except Exception as _lock_exc:
+                    logger.warning(
+                        "copilot: natural opinion lock skipped (%s)", _lock_exc
+                    )
                 intent = str(payload.get("intent") or "conversation_assist")
                 entities = dict(payload.get("entities") or {})
                 routing_confidence = 0.91
@@ -2199,6 +2231,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     "[AUDIT] NaturalConversation: kind=%s intent=%s",
                     entities.get("natural_kind"),
                     intent,
+                )
+                # Phase 8.4-A.4 forensics
+                logger.warning(
+                    "[AUDIT] Forensics84a4 NATURAL: path=%s import_ok=%s stage=%s "
+                    "rtype=%s mop=%s",
+                    entities.get("team_opinion_path"),
+                    entities.get("match_opinion_import_ok"),
+                    entities.get("renderer_stage"),
+                    entities.get("response_type"),
+                    entities.get("match_opinion_renderer"),
                 )
     except Exception as _nat_exc:
         logger.warning("copilot: natural conversation skipped (%s)", _nat_exc)
@@ -2223,16 +2265,44 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 try_intelligence_fallback as _v48_intel,
             )
 
+            _prev_forensics = (
+                dict(ctx.get("_forensics_84a4") or {})
+                if isinstance(ctx, dict)
+                else {}
+            )
+            _prev_rtype = None
+            if isinstance(payload, dict):
+                _prev_rtype = (payload.get("entities") or {}).get("response_type")
             _intel = _v48_intel(message, ctx, _conv_prefs)
             if _intel:
                 payload = _intel
                 intent = str(payload.get("intent") or "conversation_assist")
                 entities = dict(payload.get("entities") or {})
+                # Phase 8.4-A.4 — keep forensic trail across overwrite (no UX change)
+                if _prev_forensics:
+                    for _fk, _fv in _prev_forensics.items():
+                        entities.setdefault(_fk, _fv)
+                    entities["overwrite_by"] = "intelligence_fallback"
+                    entities["response_type_before_overwrite"] = _prev_rtype or (
+                        _prev_forensics.get("response_type")
+                    )
+                    entities["response_type_after_overwrite"] = entities.get(
+                        "response_type"
+                    )
+                    if isinstance(payload, dict):
+                        payload["entities"] = entities
                 routing_confidence = 0.9
                 skipped_nl = True
                 logger.warning(
                     "[AUDIT] IntelligenceFallback: kind=%s",
                     entities.get("fallback_kind"),
+                )
+                logger.warning(
+                    "[AUDIT] Forensics84a4 OVERWRITE: by=intelligence_fallback "
+                    "before=%s after=%s stage=%s",
+                    entities.get("response_type_before_overwrite"),
+                    entities.get("response_type_after_overwrite"),
+                    entities.get("renderer_stage"),
                 )
                 try:
                     from src.conversation.pipeline_trace import trace as _ptrace
@@ -3889,6 +3959,43 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         _identity = _deploy_id()
     except Exception:
         _identity = {"backend_commit": "unknown", "frontend_commit": "unknown"}
+
+    # Phase 8.4-A.4 — stamp finalize forensics onto entities (temp audit only)
+    try:
+        if isinstance(payload, dict):
+            _fe = dict(payload.get("entities") or {})
+            _snap = (
+                dict(ctx.get("_forensics_84a4") or {})
+                if isinstance(ctx, dict)
+                else {}
+            )
+            for _fk, _fv in _snap.items():
+                _fe.setdefault(_fk, _fv)
+            if "response_type_before_finalize" not in _fe and _snap.get(
+                "response_type_before_finalize"
+            ):
+                _fe["response_type_before_finalize"] = _snap.get(
+                    "response_type_before_finalize"
+                )
+            _fe["response_type_after_finalize"] = _fe.get("response_type")
+            _fe["final_summary_prefix"] = str(
+                payload.get("executive_summary") or ""
+            )[:120]
+            payload["entities"] = _fe
+            entities = _fe
+            logger.warning(
+                "[AUDIT] Forensics84a4 FINAL: path=%s import_ok=%s stage=%s "
+                "before=%s after=%s overwrite=%s commit=%s",
+                _fe.get("team_opinion_path"),
+                _fe.get("match_opinion_import_ok"),
+                _fe.get("renderer_stage"),
+                _fe.get("response_type_before_finalize"),
+                _fe.get("response_type_after_finalize"),
+                _fe.get("overwrite_by"),
+                _identity.get("backend_commit"),
+            )
+    except Exception as _fe_exc:
+        logger.warning("copilot: forensics84a4 finalize skipped (%s)", _fe_exc)
 
     # Phase 7.9-A P0-1 — defensive soft sections (anti-KeyError only)
     try:
