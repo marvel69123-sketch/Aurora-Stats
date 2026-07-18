@@ -59,7 +59,8 @@ test -f artifacts/aurora/src/core/nl_router.py || fail "Missing artifacts/aurora
 test -f artifacts/aurora/src/routers/analyze.py || fail "Missing artifacts/aurora/src/routers/analyze.py"
 test -f artifacts/aurora/src/core/fixture_status.py || fail "Missing artifacts/aurora/src/core/fixture_status.py"
 grep -q 'EARLY_OVERRIDE' artifacts/aurora/src/core/nl_router.py || fail "nl_router missing EARLY_OVERRIDE (live routing regression)"
-grep -q 'ohiggins' artifacts/aurora/src/core/copilot_engine.py || fail "copilot_engine missing Chilean aliases"
+# Aliases live in team_aliases.py (EntityResolver SoT); not copilot_engine.py
+grep -q 'ohiggins' artifacts/aurora/src/core/team_aliases.py || fail "team_aliases missing Chilean aliases"
 
 # Deploy wiring (Replit keeps Aurora Python service declared on api-server artifact)
 test -f artifacts/api-server/.replit-artifact/artifact.toml || fail "Missing artifacts/api-server/.replit-artifact/artifact.toml"

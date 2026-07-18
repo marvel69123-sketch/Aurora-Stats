@@ -1,0 +1,19 @@
+INFO:     Started server process [30940]
+INFO:     Waiting for application startup.
+2026-07-18 02:54:38,284 INFO [aurora] Aurora lifespan startup begin cwd=C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora
+2026-07-18 02:54:38,286 INFO [src.brain] AURORA_BRAIN loaded — version=1.0.0 sections=['bankroll', 'betting_rules', 'confidence', 'glossary', 'learning', 'markets', 'methodology', 'mission']
+2026-07-18 02:54:38,287 INFO [aurora] startup ok: brain
+2026-07-18 02:54:38,295 INFO [src.knowledge_db] Aurora knowledge DB initialised at C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\aurora.db (10 tables)
+2026-07-18 02:54:38,295 INFO [aurora] startup ok: knowledge_db
+2026-07-18 02:54:38,296 INFO [src.knowledge_db] Aurora knowledge_items table ready
+2026-07-18 02:54:38,297 INFO [src.knowledge_db] Knowledge items already seeded (40 items), skipping.
+2026-07-18 02:54:38,298 INFO [aurora] startup ok: knowledge_items
+2026-07-18 02:54:38,299 INFO [src.learning_db] Aurora Learning DB initialised at C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\aurora.db
+2026-07-18 02:54:38,299 INFO [aurora] startup ok: learning_db
+2026-07-18 02:54:38,300 INFO [src.memory_db] Aurora Memory Engine initialised — 15 collections available
+2026-07-18 02:54:38,300 INFO [aurora] startup ok: memory_db
+2026-07-18 02:54:38,302 INFO [src.chat_db] Aurora Chat DB ready
+2026-07-18 02:54:38,302 INFO [aurora] startup ok: chat_db
+2026-07-18 02:54:38,302 INFO [aurora] Aurora lifespan startup complete
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:18081 (Press CTRL+C to quit)

@@ -1,0 +1,18 @@
+{
+  "expected_sot_head": "872bd19",
+  "mop_commit": "93a9abc",
+  "mop_on_origin_main": true,
+  "replit_publish_build_id": "b3b68a8f-2c2f-4c22-b037-fcb4dcd3cd8e",
+  "primary_host": "https://aurora-stats.marvel69123-sketch.replit.app",
+  "healthz": {
+    "webfetch": 500,
+    "httpx_local": "SSL UNEXPECTED_EOF",
+    "backend_commit_read": null
+  },
+  "dead_aliases_404_not_live": [
+    "https://aurora-stats-marvel69123-sketch.replit.app",
+    "https://marvel69123-sketch-aurora-stats.replit.app",
+    "https://aurora-stats.replit.app"
+  ],
+  "production_smoke_fluminense": "blocked"
+}
