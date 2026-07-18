@@ -1613,6 +1613,17 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _sm_exc:
         logger.warning("copilot: short memory resolve skipped (%s)", _sm_exc)
 
+    # Phase 8.3-B — continuity: sim / leitura rápida / placar / mercados
+    # while window armed after repair/opinion (GA must not steal)
+    try:
+        from src.conversation.conversation_continuity import (
+            apply_continuity_resolve as _cont_resolve,
+        )
+
+        message = _cont_resolve(message, ctx)
+    except Exception as _cont_exc:
+        logger.warning("copilot: continuity resolve skipped (%s)", _cont_exc)
+
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
     #   → Recovery → DeepThinking → Focus → HumanInference
@@ -3817,6 +3828,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _sm_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _sm_note_exc:
             logger.warning("copilot: short memory note skipped (%s)", _sm_note_exc)
+        try:
+            from src.conversation.conversation_continuity import (
+                note_continuity as _cont_note,
+            )
+
+            _cont_note(ctx, message, payload if isinstance(payload, dict) else None)
+        except Exception as _cont_note_exc:
+            logger.warning("copilot: continuity note skipped (%s)", _cont_note_exc)
         try:
             conversation_manager.save(session_id, ctx)
         except Exception:

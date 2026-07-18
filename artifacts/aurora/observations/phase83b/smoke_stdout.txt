@@ -1,0 +1,49 @@
+﻿python.exe : [AUDIT] ConversationRepair: signal matched team='Fluminense' q='o que voc├¬ achou do jogo do fluminense 
+ontem?'
+No C:\Users\Caio henrique\AppData\Local\Temp\ps-script-790b9fd6-5275-4e85-ad1e-e6eab26f29b3.ps1:108 caractere:1
++ & "C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\a ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([AUDIT] Convers...minense ontem?':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[ENGINE] engine=conversation_repair kind=repair fallback=False
+[AUDIT] Continuity: ARMED mode=repair_confirm team='Fluminense' turns=3
+[AUDIT] Continuity: 'sim' ÔåÆ 'o que voc├¬ achou do jogo do fluminense ontem?' kind=affirm team='Fluminense' 
+turns_left=3
+[CONTINUITY] action=resolve kind=affirm team=Fluminense rewrite=o que voc├¬ achou do jogo do fluminense ontem?
+[INTENT_BEFORE] message_prefix=o que voc├¬ achou do jogo do fluminense ontem? prev_intent=none
+[INTENT_BEFORE] message_prefix=o que voc├¬ achou do jogo do fluminense ontem? prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] Continuity: ARMED mode=opinion team='Fluminense' turns=3
+[AUDIT] Continuity: 'leitura r├ípida' ÔåÆ 'me faz uma leitura r├ípida do ├║ltimo jogo do Fluminense' kind=leitura 
+team='Fluminense' turns_left=3
+[CONTINUITY] action=resolve kind=leitura team=Fluminense rewrite=me faz uma leitura r├ípida do ├║ltimo jogo do 
+Fluminense
+[INTENT_BEFORE] message_prefix=me faz uma leitura r├ípida do ├║ltimo jogo do Fluminense prev_intent=none
+[INTENT_BEFORE] message_prefix=me faz uma leitura r├ípida do ├║ltimo jogo do Fluminense prev_intent=none
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal sport_ok=True
+[AUDIT] MasterIntent: intent=SPORT_QUERY conf=0.90 sport=True reason=sport_signal
+[AUDIT] Continuity: ARMED mode=opinion team='Fluminense' turns=3
+[AUDIT] Continuity: 'placar' ÔåÆ 'qual foi o placar do ├║ltimo jogo do Fluminense?' kind=placar team='Fluminense' 
+turns_left=3
+[CONTINUITY] action=resolve kind=placar team=Fluminense rewrite=qual foi o placar do ├║ltimo jogo do Fluminense?
+[AUDIT] Continuity: 'e mercados?' ÔåÆ 'e os mercados do jogo do Fluminense?' kind=mercados team='Fluminense' 
+turns_left=3
+[CONTINUITY] action=resolve kind=mercados team=Fluminense rewrite=e os mercados do jogo do Fluminense?
+[AUDIT] ConversationRepair: signal matched team='Fluminense' q='o que voc├¬ achou do jogo do fluminense ontem?'
+[ENGINE] engine=conversation_repair kind=repair fallback=False
+[T1] sim ÔåÆ 'o que voc├¬ achou do jogo do fluminense ontem?' master=SPORT_QUERY sport=True
+[T2] leitura r├ípida ÔåÆ 'me faz uma leitura r├ípida do ├║ltimo jogo do Fluminense' sport=True
+[T3] placar ÔåÆ 'qual foi o placar do ├║ltimo jogo do Fluminense?'
+[T4] e mercados? ÔåÆ 'e os mercados do jogo do Fluminense?'
+[T5] cold sim ÔåÆ 'sim'
+[T6] repair ok
+
+PASS ÔÇö 8.3-B conversation continuity
