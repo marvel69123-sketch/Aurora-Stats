@@ -264,4 +264,32 @@ def attach_debug_to_payload(
                 raw["fallback_used"] = False
 
     out["debug"] = build_debug_audit(raw if isinstance(raw, dict) else {})
+    # AEP Phase 3 — developer_audit_mode: expose frustration observability
+    try:
+        from src.conversation.frustration_observability import (
+            frustration_debug_block as _frust_dbg,
+        )
+
+        _frust = _frust_dbg(out.get("entities") if isinstance(out.get("entities"), dict) else None)
+        if _frust:
+            dbg = dict(out.get("debug") or {})
+            dbg["frustration"] = _frust
+            out["debug"] = dbg
+    except Exception:
+        pass
+    # AEP Phase 4 — developer_audit_mode: LLM Judge scores
+    try:
+        from src.conversation.llm_judge_observability import (
+            judge_debug_block as _judge_dbg,
+        )
+
+        _judge = _judge_dbg(
+            out.get("entities") if isinstance(out.get("entities"), dict) else None
+        )
+        if _judge:
+            dbg = dict(out.get("debug") or {})
+            dbg["llm_judge"] = _judge
+            out["debug"] = dbg
+    except Exception:
+        pass
     return out

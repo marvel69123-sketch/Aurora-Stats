@@ -1,0 +1,429 @@
+{
+  "platform": "AEP",
+  "component": "llm_judge",
+  "version": "4.0.0",
+  "requested_conversations": 40,
+  "seed": 42,
+  "total_conversations": 40,
+  "overall": 8.3,
+  "understanding": 8.9,
+  "utility": 8.6,
+  "continuity": 8.3,
+  "credibility": 8.4,
+  "naturalness": 7.9,
+  "clarity": 8.0,
+  "overall_score": 8.3,
+  "understanding_score": 8.9,
+  "utility_score": 8.6,
+  "continuity_score": 8.3,
+  "credibility_score": 8.4,
+  "naturalness_score": 7.9,
+  "clarity_score": 8.0,
+  "band": "Boa",
+  "band_distribution": {
+    "Boa": 40
+  },
+  "by_persona_overall": {
+    "advanced": 8.6,
+    "advanced_football_v2": 8.6,
+    "beginner": 7.7,
+    "chaotic": 7.5,
+    "confused": 8.0,
+    "short_followup": 8.5
+  },
+  "lowest_samples": [
+    {
+      "run_id": "chaotic_29961",
+      "persona_id": "chaotic",
+      "seed": 29961,
+      "scores": {
+        "overall": 7.5,
+        "understanding": 7.4,
+        "continuity": 7.6,
+        "utility": 7.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "chaotic_79826",
+      "persona_id": "chaotic",
+      "seed": 79826,
+      "scores": {
+        "overall": 7.5,
+        "understanding": 7.4,
+        "continuity": 7.6,
+        "utility": 7.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "chaotic_139664",
+      "persona_id": "chaotic",
+      "seed": 139664,
+      "scores": {
+        "overall": 7.5,
+        "understanding": 7.4,
+        "continuity": 7.6,
+        "utility": 7.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "confused_249367",
+      "persona_id": "confused",
+      "seed": 249367,
+      "scores": {
+        "overall": 7.5,
+        "understanding": 8.1,
+        "continuity": 6.7,
+        "utility": 7.3,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "chaotic_59880",
+      "persona_id": "chaotic",
+      "seed": 59880,
+      "scores": {
+        "overall": 7.6,
+        "understanding": 7.4,
+        "continuity": 7.6,
+        "utility": 7.2,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "beginner_149637",
+      "persona_id": "beginner",
+      "seed": 149637,
+      "scores": {
+        "overall": 7.6,
+        "understanding": 8.2,
+        "continuity": 7.0,
+        "utility": 6.7,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "beginner_39934",
+      "persona_id": "beginner",
+      "seed": 39934,
+      "scores": {
+        "overall": 7.8,
+        "understanding": 8.2,
+        "continuity": 7.0,
+        "utility": 7.7,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "beginner_179556",
+      "persona_id": "beginner",
+      "seed": 179556,
+      "scores": {
+        "overall": 7.8,
+        "understanding": 8.2,
+        "continuity": 7.0,
+        "utility": 7.7,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "confused_229421",
+      "persona_id": "confused",
+      "seed": 229421,
+      "scores": {
+        "overall": 8.1,
+        "understanding": 9.4,
+        "continuity": 7.0,
+        "utility": 8.2,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "confused_109745",
+      "persona_id": "confused",
+      "seed": 109745,
+      "scores": {
+        "overall": 8.2,
+        "understanding": 8.6,
+        "continuity": 7.7,
+        "utility": 8.6,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_129691",
+      "persona_id": "short_followup",
+      "seed": 129691,
+      "scores": {
+        "overall": 8.3,
+        "understanding": 8.7,
+        "continuity": 8.0,
+        "utility": 8.9,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "confused_239394",
+      "persona_id": "confused",
+      "seed": 239394,
+      "scores": {
+        "overall": 8.3,
+        "understanding": 8.9,
+        "continuity": 7.8,
+        "utility": 8.6,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_209475",
+      "persona_id": "short_followup",
+      "seed": 209475,
+      "scores": {
+        "overall": 8.4,
+        "understanding": 8.7,
+        "continuity": 8.0,
+        "utility": 8.9,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_119718",
+      "persona_id": "short_followup",
+      "seed": 119718,
+      "scores": {
+        "overall": 8.5,
+        "understanding": 9.0,
+        "continuity": 8.5,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_299232",
+      "persona_id": "short_followup",
+      "seed": 299232,
+      "scores": {
+        "overall": 8.5,
+        "understanding": 9.1,
+        "continuity": 8.2,
+        "utility": 8.9,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_319178",
+      "persona_id": "short_followup",
+      "seed": 319178,
+      "scores": {
+        "overall": 8.5,
+        "understanding": 9.0,
+        "continuity": 8.5,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_329151",
+      "persona_id": "short_followup",
+      "seed": 329151,
+      "scores": {
+        "overall": 8.5,
+        "understanding": 9.0,
+        "continuity": 8.5,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_42",
+      "persona_id": "advanced_football_v2",
+      "seed": 42,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_10015",
+      "persona_id": "short_followup",
+      "seed": 10015,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_19988",
+      "persona_id": "advanced",
+      "seed": 19988,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_49907",
+      "persona_id": "advanced",
+      "seed": 49907,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_69853",
+      "persona_id": "advanced",
+      "seed": 69853,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_89799",
+      "persona_id": "advanced",
+      "seed": 89799,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "short_followup_99772",
+      "persona_id": "short_followup",
+      "seed": 99772,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_159610",
+      "persona_id": "advanced_football_v2",
+      "seed": 159610,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_169583",
+      "persona_id": "advanced_football_v2",
+      "seed": 169583,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_189529",
+      "persona_id": "advanced_football_v2",
+      "seed": 189529,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_199502",
+      "persona_id": "advanced_football_v2",
+      "seed": 199502,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_219448",
+      "persona_id": "advanced",
+      "seed": 219448,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    },
+    {
+      "run_id": "advanced_football_v2_259340",
+      "persona_id": "advanced_football_v2",
+      "seed": 259340,
+      "scores": {
+        "overall": 8.6,
+        "understanding": 9.2,
+        "continuity": 8.7,
+        "utility": 9.0,
+        "band": "Boa",
+        "judge_mode": "rubric"
+      }
+    }
+  ],
+  "generated_at": "2026-07-18T20:05:41.744860+00:00",
+  "elapsed_sec": 26.76,
+  "llm_soft_enabled": false
+}

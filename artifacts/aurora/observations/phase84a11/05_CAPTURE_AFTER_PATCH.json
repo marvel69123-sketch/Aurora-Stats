@@ -1,0 +1,44 @@
+{
+  "cases": {
+    "xg": {
+      "intent": "follow_up",
+      "advanced_term_detected": true,
+      "advanced_term": "xg",
+      "advanced_fixture_reused": true,
+      "advanced_before_fallback": true,
+      "followup_context_found": true,
+      "loop": false,
+      "prefix": "No contexto de **Argentina vs Brazil** (ângulo **xg**): |  | **Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**."
+    },
+    "pressao": {
+      "intent": "follow_up",
+      "advanced_term_detected": true,
+      "advanced_term": "pressao",
+      "advanced_fixture_reused": true,
+      "advanced_before_fallback": true,
+      "followup_context_found": true,
+      "loop": false,
+      "prefix": "No contexto de **Argentina vs Brazil** (ângulo **pressao**): |  | **Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parcia"
+    },
+    "kelly": {
+      "intent": "follow_up",
+      "advanced_term_detected": true,
+      "advanced_term": "kelly",
+      "advanced_fixture_reused": true,
+      "advanced_before_fallback": true,
+      "followup_context_found": true,
+      "loop": false,
+      "prefix": "No contexto de **Argentina vs Brazil** (ângulo **kelly**): |  | Estou utilizando o contexto anterior: | **Argentina vs Brazil**. |  | Com base naquela análise: |  | **Resumo:** |  | **Argentina x Brazil** — leitura pre"
+    },
+    "edge": {
+      "intent": "follow_up",
+      "advanced_term_detected": true,
+      "advanced_term": "edge",
+      "advanced_fixture_reused": true,
+      "advanced_before_fallback": true,
+      "followup_context_found": true,
+      "loop": false,
+      "prefix": "No contexto de **Argentina vs Brazil** (ângulo **edge**): |  | Estou utilizando o contexto anterior: | **Argentina vs Brazil**. |  | Com base naquela análise: |  | **Todos os mercados rankeados:** |  | • **Mais de 8.5 "
+    }
+  }
+}

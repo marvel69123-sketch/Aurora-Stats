@@ -259,6 +259,13 @@ def apply_natural_response(
             return payload
 
         ents = dict(payload.get("entities") or {})
+        # Phase 8.4-A.9 — never rewrite capabilities onboarding into small_talk
+        if (
+            ents.get("assistant_capabilities")
+            or ents.get("assistant_kind") == "capabilities"
+            or payload.get("intent") in {"assistant_capabilities", "capabilities"}
+        ):
+            return payload
         # Never rewrite sport analysis / markets / live numbers
         if ents.get("has_analysis") or payload.get("best_markets") or payload.get("match"):
             if not ents.get("human_conversation") and not ents.get("general_assistant"):

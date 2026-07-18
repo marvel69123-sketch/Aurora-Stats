@@ -1,0 +1,41 @@
+[
+  {
+    "id": "fu_001_mercados_after_match",
+    "category": "followups",
+    "description": "Short market follow-up after match opinion must recover continuity",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "mercados?"}
+    ],
+    "expect": {
+      "followup_found": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "fu_002_e_dele_fixture_reuse",
+    "category": "followups",
+    "description": "Pronoun follow-up must reuse prior fixture context",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "e dele?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "fu_003_placar_after_match",
+    "category": "followups",
+    "description": "Short placar follow-up after match analysis",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "placar?"}
+    ],
+    "expect": {
+      "followup_found": true,
+      "no_loop": true
+    }
+  }
+]

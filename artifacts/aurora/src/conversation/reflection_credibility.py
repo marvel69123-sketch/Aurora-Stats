@@ -679,6 +679,7 @@ def apply_credibility_to_payload(
                 "identity",
                 "help",
                 "capabilities",
+                "assistant_capabilities",
                 "emotional",
             }:
                 payload["intent"] = "small_talk"

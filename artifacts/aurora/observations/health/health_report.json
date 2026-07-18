@@ -1,0 +1,75 @@
+{
+  "platform": "AEP",
+  "component": "aurora_health_center",
+  "version": "5.0.0",
+  "backend_commit": "76c4311",
+  "generated_at": "2026-07-18T20:18:56.717209+00:00",
+  "health_score": 96.5,
+  "status": "Excelente",
+  "loop_rate": 0.0,
+  "frustration_rate": 0.0,
+  "llm_overall": 8.3,
+  "trend": "flat",
+  "metrics": {
+    "overall_health_score": 96.5,
+    "conversation_success": 100.0,
+    "aep_success_rate": 100.0,
+    "loop_rate": 0.0,
+    "context_preservation": 100.0,
+    "frustration_rate": 0.0,
+    "recovery_rate": 100.0,
+    "llm_overall_score": 8.3,
+    "naturalness": 7.9,
+    "credibility": 8.4
+  },
+  "sources": {
+    "aep": true,
+    "simulator": true,
+    "frustration": true,
+    "llm_judge": true
+  },
+  "source_paths": {
+    "aep": "C:\\Users\\Caio henrique\\Documents\\aurora 3\\Aurora-Stats\\artifacts\\aurora\\observations\\aep_v1\\last_run.json",
+    "simulator": "C:\\Users\\Caio henrique\\Documents\\aurora 3\\Aurora-Stats\\artifacts\\aurora\\tests\\simulator\\results\\last_simulation.json",
+    "frustration": "C:\\Users\\Caio henrique\\Documents\\aurora 3\\Aurora-Stats\\artifacts\\aurora\\tests\\frustration\\results\\last_frustration.json",
+    "llm_judge": "C:\\Users\\Caio henrique\\Documents\\aurora 3\\Aurora-Stats\\artifacts\\aurora\\tests\\judge\\results\\last_judge.json"
+  },
+  "trend_by_version": [
+    {
+      "backend_commit": "76c4311",
+      "health_score": 96.5,
+      "status": "Excelente",
+      "generated_at": "2026-07-18T20:18:56.717209+00:00"
+    }
+  ],
+  "components": {
+    "aep": {
+      "success_rate": 100.0,
+      "total": 15
+    },
+    "simulator": {
+      "success_rate": 100.0,
+      "loop_rate": 0.0,
+      "context_preservation": 100.0
+    },
+    "frustration": {
+      "organic_frustration_rate": 0.0,
+      "recovery_rate": 100.0,
+      "suite_frustration_rate": 100.0,
+      "top_causes": [
+        "TOO_GENERIC",
+        "MISUNDERSTANDING",
+        "INVALID_RESPONSE",
+        "WRONG_INTENT",
+        "HALLUCINATION_RISK",
+        "LOST_CONTEXT"
+      ]
+    },
+    "llm_judge": {
+      "overall": 8.3,
+      "naturalness": 7.9,
+      "credibility": 8.4,
+      "band": "Boa"
+    }
+  }
+}

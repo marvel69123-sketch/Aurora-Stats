@@ -1,0 +1,33 @@
+{
+  "cases": {
+    "e_dele": {
+      "intent": "follow_up",
+      "pronoun_detected": true,
+      "pronoun_resolved": true,
+      "pronoun_fixture": "Argentina vs Brazil",
+      "pronoun_before_fallback": true,
+      "followup_context_found": true,
+      "loop": false,
+      "prefix": "**Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ause"
+    },
+    "e_o_outro": {
+      "pronoun_resolved": true,
+      "pronoun_entity": "Real Madrid",
+      "entity_resolved": true,
+      "prefix": "**Explicação detalhada — Barcelona vs Real Madrid** |  | **Barcelona x Real Madrid** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue "
+    },
+    "e_esse_time": {
+      "followup_context_found": true,
+      "pronoun_value": "esse_time",
+      "pronoun_before_fallback": true,
+      "prefix": "**Explicação detalhada — Flamengo vs Palmeiras** |  | **Flamengo x Palmeiras** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma an"
+    },
+    "invalid_pronoun": {
+      "fixture_quality": "INVALID",
+      "entity_invalid": true,
+      "pronoun_resolved": true,
+      "invented": false,
+      "prefix": "Não consigo continuar a partir de **Goku x Naruto** — as entidades não são válidas para análise de futebol. |  | Me diga um time ou um jogo real e eu sigo sem inventar dados."
+    }
+  }
+}

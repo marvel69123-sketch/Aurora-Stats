@@ -1,0 +1,56 @@
+[
+  {
+    "id": "pr_001_e_dele_fixture_reuse",
+    "category": "pronouns",
+    "description": "Pronoun dele reuses prior Argentina x Brasil fixture",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "e dele?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "pr_002_e_o_outro_entity",
+    "category": "pronouns",
+    "description": "Pronoun o outro resolves the other team entity",
+    "steps": [
+      {"message": "Barcelona x Real Madrid"},
+      {"message": "e o outro?"}
+    ],
+    "expect": {
+      "entity_resolved": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "pr_003_e_esse_time_followup",
+    "category": "pronouns",
+    "description": "Pronoun esse time keeps follow-up context",
+    "steps": [
+      {"message": "Flamengo x Palmeiras"},
+      {"message": "e esse time?"}
+    ],
+    "expect": {
+      "followup_found": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "pr_004_invalid_no_invention",
+    "category": "pronouns",
+    "description": "Pronoun after INVALID fiction must not invent analysis",
+    "steps": [
+      {"message": "Goku x Naruto"},
+      {"message": "e dele?"}
+    ],
+    "expect": {
+      "fixture_quality": "INVALID",
+      "entity_invalid": true,
+      "no_invented_analysis": true,
+      "no_loop": true
+    }
+  }
+]

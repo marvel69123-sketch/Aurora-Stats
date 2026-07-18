@@ -1,0 +1,51 @@
+{
+  "failures": [],
+  "cases": {
+    "case1": {
+      "intent": "assistant_capabilities",
+      "assistant_kind": "capabilities",
+      "capability_intent_detected": true,
+      "capability_source_phrase": "o que voce faz",
+      "loop": false,
+      "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estatísticas, pressão e tendências. | 🎯 Identificar oportunidades e mercados. | 🧠 Conversar naturalmente sobre futebol."
+    },
+    "case2": {
+      "intent": "assistant_capabilities",
+      "assistant_kind": "capabilities",
+      "capability_intent_detected": true,
+      "capability_source_phrase": "suas funcionalidades",
+      "loop": false,
+      "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estatísticas, pressão e tendências. | 🎯 Identificar oportunidades e mercados. | 🧠 Conversar naturalmente sobre futebol."
+    },
+    "case3": {
+      "intent": "assistant_capabilities",
+      "assistant_kind": "capabilities",
+      "capability_intent_detected": true,
+      "capability_source_phrase": "aurora funcionalidades",
+      "loop": false,
+      "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estatísticas, pressão e tendências. | 🎯 Identificar oportunidades e mercados. | 🧠 Conversar naturalmente sobre futebol."
+    },
+    "case4": {
+      "intent": "assistant_capabilities",
+      "assistant_kind": "capabilities",
+      "capability_intent_detected": true,
+      "capability_source_phrase": "o que sabe fazer",
+      "loop": false,
+      "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estatísticas, pressão e tendências. | 🎯 Identificar oportunidades e mercados. | 🧠 Conversar naturalmente sobre futebol."
+    },
+    "case5_repair": {
+      "first_intent": "assistant_capabilities",
+      "second_intent": "assistant_capabilities",
+      "repair_reclassified": true,
+      "previous_intent": "assistant_capabilities",
+      "new_intent": "assistant_capabilities",
+      "capability_intent_detected": true,
+      "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estatísticas, pressão e tendências. | 🎯 Identificar oportunidades e mercados. | 🧠 Conversar natural"
+    },
+    "case6": {
+      "oi": "small_talk",
+      "identity": "identity",
+      "capabilities": "assistant_capabilities"
+    }
+  }
+}

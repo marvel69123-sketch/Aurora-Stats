@@ -619,15 +619,17 @@ def build_team_opinion_reply(team: str) -> str:
 
 
 def build_capabilities_reply() -> str:
-    return (
-        "Aqui está o que eu consigo fazer por você:\n\n"
-        "⚽ **Análises de partidas** — diga um confronto (ex.: Bahia x Chapecoense)\n"
-        "🔴 **Jogos ao vivo** — peço oportunidades em andamento\n"
-        "📅 **Agenda** — pergunte jogos de hoje ou de amanhã\n"
-        "💬 **Conversa de futebol** — opinião sobre times, sem forçar tip\n"
-        "📊 **Banca / aprendizado** — quando você quiser revisar histórico\n\n"
-        "Pode falar naturalmente — sem comando engessado."
-    )
+    try:
+        from src.conversation.assistant_capabilities import (
+            build_capabilities_reply as _cap_reply,
+        )
+
+        return _cap_reply()
+    except Exception:
+        return (
+            "Sou a **Aurora**, uma IA especializada em futebol.\n\n"
+            "Posso analisar partidas, mercados, calendário e conversar com contexto."
+        )
 
 
 def build_hobbies_reply() -> str:

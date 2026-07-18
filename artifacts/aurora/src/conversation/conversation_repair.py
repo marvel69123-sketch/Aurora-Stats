@@ -1,8 +1,11 @@
 """
-Phase 8.2-A — Conversation Repair (isolated).
+Phase 8.2-A / 8.4-A.9 — Conversation Repair (isolated).
 
 Detects human correction / frustration signals and answers in repair mode
 instead of falling through to GeneralAssistant.reply_general().
+
+Phase 8.4-A.9: on repair, reclassify the previous user question and allow
+intent switch (e.g. wrong general_chat → assistant_capabilities).
 
 Fail-open. Does not touch ownership / confidence / sports / 7.9 modules.
 """
@@ -27,6 +30,10 @@ _REPAIR = re.compile(
     r"nao\s+(?:voce\s+)?entendeu|"
     r"nao\s+entendeu\s+o\s+que|"
     r"pensa\s+um\s+pouco|"
+    r"preste\s+atencao|"
+    r"presta\s+atencao|"
+    r"\baff+\b|"
+    r"\breleia\b|"
     r"agora\s+entendeu|"
     r"voce\s+esta\s+em\s+loop|"
     r"para+a*\s+de\s+(?:repet|fica)|"
@@ -136,7 +143,7 @@ def note_repair_memory(
     message: str,
     payload: dict[str, Any] | None,
 ) -> None:
-    """Minimal sticky memory for repair only: last Q, last team, last reply."""
+    """Minimal sticky memory for repair only: last Q, last team, last reply, intent."""
     if not isinstance(ctx, dict):
         return
     try:
@@ -160,6 +167,13 @@ def note_repair_memory(
         q = (message or "").strip()
         if q:
             mem["last_user_question"] = q[:240]
+        if isinstance(payload, dict):
+            prev_intent = str(payload.get("intent") or "").strip()
+            if prev_intent:
+                mem["last_intent"] = prev_intent
+            ents = payload.get("entities") or {}
+            if isinstance(ents, dict) and ents.get("assistant_kind"):
+                mem["last_assistant_kind"] = ents.get("assistant_kind")
         team = (
             _extract_team_from_payload(payload)
             or _extract_team_from_text(message)
@@ -172,6 +186,86 @@ def note_repair_memory(
         ctx[CTX_KEY] = mem
     except Exception as exc:
         logger.warning("note_repair_memory fail-open: %s", exc)
+
+
+def _try_reclassify_previous(ctx: dict[str, Any] | None) -> dict[str, Any] | None:
+    """
+    Phase 8.4-A.9 — recover last user question and re-run intent classification.
+    Returns a new payload when a better intent is available (capabilities first).
+    """
+    mem = get_repair_memory(ctx)
+    last_q = str(mem.get("last_user_question") or "").strip()
+    if not last_q:
+        return None
+    previous_intent = str(mem.get("last_intent") or "unknown")
+
+    try:
+        from src.conversation.assistant_capabilities import (
+            build_capabilities_payload,
+            is_capabilities_ask,
+        )
+
+        if is_capabilities_ask(last_q):
+            payload = build_capabilities_payload(
+                last_q,
+                repair_reclassified=True,
+                previous_intent=previous_intent,
+            )
+            ents = dict(payload.get("entities") or {})
+            ents["conversation_repair"] = True
+            ents["repair_mode"] = True
+            payload["entities"] = ents
+            logger.warning(
+                "[AUDIT] ConversationRepair: RECLASSIFIED %r → assistant_capabilities "
+                "prev=%r",
+                last_q[:60],
+                previous_intent,
+            )
+            return payload
+    except Exception as exc:
+        logger.warning("repair capabilities reclass skipped (%s)", exc)
+
+    # Broader reclassify via MasterIntent (identity / help)
+    try:
+        from src.conversation.master_intent_router import classify_master_intent
+
+        mi = classify_master_intent(last_q)
+        if mi.intent == "CAPABILITIES_QUERY":
+            from src.conversation.assistant_capabilities import build_capabilities_payload
+
+            payload = build_capabilities_payload(
+                last_q,
+                repair_reclassified=True,
+                previous_intent=previous_intent,
+            )
+            ents = dict(payload.get("entities") or {})
+            ents["conversation_repair"] = True
+            ents["repair_mode"] = True
+            payload["entities"] = ents
+            return payload
+        if mi.intent == "SYSTEM_QUERY":
+            from src.conversation.general_assistant import try_general_assistant
+
+            ga = try_general_assistant(last_q, "SYSTEM_QUERY", ctx)
+            if isinstance(ga, dict):
+                ents = dict(ga.get("entities") or {})
+                ents["conversation_repair"] = True
+                ents["repair_mode"] = True
+                ents["repair_reclassified"] = True
+                ents["previous_intent"] = previous_intent
+                ents["new_intent"] = ga.get("intent")
+                ga["entities"] = ents
+                logger.warning(
+                    "[AUDIT] ConversationRepair: RECLASSIFIED %r → %s prev=%r",
+                    last_q[:60],
+                    ga.get("intent"),
+                    previous_intent,
+                )
+                return ga
+    except Exception as exc:
+        logger.warning("repair master reclass skipped (%s)", exc)
+
+    return None
 
 
 def _build_repair_reply(message: str, ctx: dict[str, Any] | None) -> str:
@@ -200,7 +294,7 @@ def _build_repair_reply(message: str, ctx: dict[str, Any] | None) -> str:
             "Pode confirmar em uma frase o que você queria saber?"
         )
 
-    if re.search(r"pensa\s+um\s+pouco", folded):
+    if re.search(r"pensa\s+um\s+pouco|preste?\s+atencao|\breleia\b|\baff+\b", folded):
         if team and opinionish:
             return (
                 "Vou pensar de novo no que você pediu.\n\n"
@@ -318,12 +412,29 @@ def try_conversation_repair(
     ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """
-    If the user signals correction/frustration, return a repair payload.
-    Otherwise None (pipeline continues — including GeneralAssistant).
+    If the user signals correction/frustration, reclassify prior question when
+    possible; otherwise return a repair clarification payload.
     """
     try:
         if not is_repair_signal(message):
             return None
+
+        reclass = _try_reclassify_previous(ctx)
+        if isinstance(reclass, dict):
+            try:
+                from src.conversation.pipeline_trace import trace as _ptrace
+
+                _ptrace(
+                    "ENGINE",
+                    engine="conversation_repair",
+                    kind="reclassify",
+                    fallback=False,
+                    new_intent=reclass.get("intent"),
+                )
+            except Exception:
+                pass
+            return reclass
+
         text = _build_repair_reply(message, ctx)
         # Never ship the sticky GA template from this path
         if text.strip().startswith("Entendi. Posso te ajudar"):

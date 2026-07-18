@@ -1,0 +1,36 @@
+{
+  "platform": "AEP",
+  "component": "conversation_simulator",
+  "version": "2.0.0",
+  "requested_runs": 100,
+  "seed": 42,
+  "total_runs": 100,
+  "success_rate": 100.0,
+  "loops": 0,
+  "context_loss": 0,
+  "fallbacks": 0,
+  "top_failures": [],
+  "intent_flips": 0,
+  "invalid_entity": 0,
+  "hallucination_risk": 0,
+  "frustration_detected": 0,
+  "metrics": {
+    "conversation_success_rate": 100.0,
+    "loop_rate": 0.0,
+    "context_preservation": 100.0,
+    "intent_accuracy": null,
+    "average_turns_before_failure": null,
+    "context_checks": 200,
+    "intent_checks": 0
+  },
+  "by_persona": {
+    "advanced": {
+      "runs": 100,
+      "success": 100,
+      "fail": 0
+    }
+  },
+  "failure_details": [],
+  "generated_at": "2026-07-18T19:56:00.099439+00:00",
+  "elapsed_sec": 85.52
+}

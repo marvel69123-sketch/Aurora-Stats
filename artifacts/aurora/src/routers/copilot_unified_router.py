@@ -1274,57 +1274,51 @@ def _run_identity() -> dict:
 
 
 def _run_capabilities() -> dict:
-    from src.brain import get_brain_meta
-    return {
-        "intent":   "capabilities",
-        "entities": {},
-        "match":   None, "status": None, "is_live": False, "minute": None,
-        "executive_summary": (
-            "Aqui está o que posso fazer por você:\n\n"
-            "**Análise de partidas**\n"
-            "→ *\"Analisar Arsenal x Chelsea\"* ou *\"PSG contra Bayern\"*\n"
-            "Entrego: recomendação principal, probabilidades dos mercados, valor esperado (EV), "
-            "risco, fatores positivos/negativos, stake pelo Kelly e condições de invalidação.\n\n"
-            "**Oportunidades ao vivo**\n"
-            "→ *\"Melhores oportunidades ao vivo\"* ou *\"Jogos ao vivo\"*\n"
-            "Vejo todas as partidas em andamento e destaco as melhores apostas em tempo real.\n\n"
-            "**Revisão de banca**\n"
-            "→ *\"Como está minha banca?\"* ou *\"ROI atual\"*\n"
-            "Mostro desempenho histórico, acertos, ROI e ajustes de risco por mercado.\n\n"
-            "**Aprendizado**\n"
-            "→ *\"O que a Aurora aprendeu hoje?\"* ou *\"Mostrar histórico\"*\n"
-            "Resumo de precisão e lições dos resultados recentes.\n\n"
-            "**Base de conhecimento**\n"
-            "→ *\"O que você sabe sobre BTTS?\"* ou *\"Explique escanteios\"*\n"
-            "Consulta às 40 regras metodológicas de apostas da Aurora.\n\n"
-            "**Linguagem natural** — fala comigo normalmente, sem comandos exatos."
-        ),
-        "best_markets": [],
-        "confidence": {"score": 0.0, "label": "insufficient", "explanation": "Lista de capacidades.", "data_sources": []},
-        "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
-        "bankroll_recommendation": {
-            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-            "examples": {}, "no_bet": True,
-            "reasoning": "Nenhuma aposta recomendada em consulta de capacidades.",
-        },
-        "positive_factors":      [],
-        "negative_factors":      [],
-        "historical_references": [],
-        "knowledge_notes": [
-            "Análise → \"Analisar [Casa] x [Fora]\"",
-            "Ao vivo → \"Melhores oportunidades ao vivo\"",
-            "Banca → \"Como está minha banca?\" / \"ROI atual\"",
-            "Aprendizado → \"O que a Aurora aprendeu hoje?\"",
-            "Conhecimento → \"O que você sabe sobre [mercado]?\"",
-            "Identidade → \"Quem é você?\" / \"O que é a Aurora?\"",
-        ],
-        "final_recommendation": (
-            "Escolha qualquer um dos recursos acima. Para começar: "
-            "**\"Analisar [Time da Casa] x [Time Visitante]\"**"
-        ),
-        "aurora_version": "Copilot v1.0",
-        "brain":          get_brain_meta(),
-    }
+    # Phase 8.4-A.9 — shared assistant_capabilities payload
+    try:
+        from src.conversation.assistant_capabilities import build_capabilities_payload
+
+        return build_capabilities_payload("capacidades")
+    except Exception:
+        from src.brain import get_brain_meta
+
+        return {
+            "intent": "assistant_capabilities",
+            "entities": {
+                "assistant_capabilities": True,
+                "assistant_kind": "capabilities",
+            },
+            "match": None,
+            "status": None,
+            "is_live": False,
+            "minute": None,
+            "executive_summary": (
+                "Sou a **Aurora**, uma IA especializada em futebol. "
+                "Posso analisar partidas, mercados, calendário e conversar com contexto."
+            ),
+            "best_markets": [],
+            "confidence": {
+                "score": 0.0,
+                "label": "insufficient",
+                "explanation": "Lista de capacidades.",
+                "data_sources": [],
+            },
+            "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0,
+                "method": "quarter-Kelly",
+                "examples": {},
+                "no_bet": True,
+                "reasoning": "",
+            },
+            "positive_factors": [],
+            "negative_factors": [],
+            "historical_references": [],
+            "knowledge_notes": [],
+            "final_recommendation": "Pode pedir uma análise ou a agenda de um time.",
+            "aurora_version": "Copilot v1.0",
+            "brain": get_brain_meta(),
+        }
 
 
 def _suggest_follow_ups(intent: str, ctx: dict, payload: dict) -> list[str]:
@@ -1752,6 +1746,69 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _cont_exc:
         logger.warning("copilot: continuity resolve skipped (%s)", _cont_exc)
 
+    # Phase 8.4-A.10 — Pronoun Continuity BEFORE GA / fallback
+    # ("e dele?", "e o outro?", "e esse time?" → reuse last fixture/team)
+    try:
+        if payload is None:
+            from src.brain import get_brain_meta as _gbm_pronoun
+            from src.conversation.pronoun_continuity import (
+                try_pronoun_continuity as _pronoun_try,
+            )
+
+            _pronoun_payload = _pronoun_try(
+                message, ctx, brain=_gbm_pronoun()
+            )
+            if isinstance(_pronoun_payload, dict):
+                payload = _pronoun_payload
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.93
+                skipped_nl = True
+                try:
+                    ctx["sport_pipeline_blocked"] = False
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] PronounContinuity: EARLY claim before MasterIntent "
+                    "value=%s entity=%r fixture=%r",
+                    entities.get("pronoun_value"),
+                    entities.get("pronoun_entity"),
+                    entities.get("pronoun_fixture"),
+                )
+    except Exception as _pronoun_exc:
+        logger.warning("copilot: pronoun continuity skipped (%s)", _pronoun_exc)
+
+    # Phase 8.4-A.11 — Advanced Football Continuity BEFORE GA / fallback
+    # (xg? / pressão? / kelly? / edge? after active fixture)
+    try:
+        if payload is None:
+            from src.brain import get_brain_meta as _gbm_adv
+            from src.conversation.advanced_football_continuity import (
+                try_advanced_football_continuity as _adv_try,
+            )
+
+            _adv_payload = _adv_try(message, ctx, brain=_gbm_adv())
+            if isinstance(_adv_payload, dict):
+                payload = _adv_payload
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.92
+                skipped_nl = True
+                try:
+                    ctx["sport_pipeline_blocked"] = False
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] AdvancedFootball: EARLY claim before MasterIntent "
+                    "term=%s fixture=%r reused=%s",
+                    entities.get("advanced_term"),
+                    entities.get("followup_resolved_fixture")
+                    or entities.get("pronoun_fixture"),
+                    entities.get("advanced_fixture_reused"),
+                )
+    except Exception as _adv_exc:
+        logger.warning("copilot: advanced football continuity skipped (%s)", _adv_exc)
+
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
     #   → Recovery → DeepThinking → Focus → HumanInference
@@ -1771,10 +1828,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             filter_or_regenerate as _nrf_filter,
         )
 
-        # Continuity short FU already claimed → keep sport path / skip GA steal
+        # Continuity / pronoun / advanced FU already claimed → keep sport path / skip GA steal
         if isinstance(payload, dict) and (
             (payload.get("entities") or {}).get("continuity_followup")
             or (payload.get("entities") or {}).get("followup_before_fallback")
+            or (payload.get("entities") or {}).get("pronoun_resolved")
+            or (payload.get("entities") or {}).get("pronoun_continuity")
+            or (payload.get("entities") or {}).get("advanced_fixture_reused")
+            or (payload.get("entities") or {}).get("advanced_football_continuity")
         ):
             _sport_ok = True
             try:
@@ -1806,6 +1867,10 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             and (
                 (payload.get("entities") or {}).get("continuity_followup")
                 or (payload.get("entities") or {}).get("followup_before_fallback")
+                or (payload.get("entities") or {}).get("pronoun_resolved")
+                or (payload.get("entities") or {}).get("pronoun_continuity")
+                or (payload.get("entities") or {}).get("advanced_fixture_reused")
+                or (payload.get("entities") or {}).get("advanced_football_continuity")
             )
         )
         # Phase 8.2-A — conversation repair BEFORE GeneralAssistant (no Entendi trap)
@@ -3458,7 +3523,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             elif intent == "identity":
                 payload = _run_identity()
 
-            elif intent == "capabilities":
+            elif intent in {"capabilities", "assistant_capabilities"}:
                 payload = _run_capabilities()
 
             elif intent == "help":
@@ -3785,11 +3850,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # replace with generic "leitura cautelosa" and erase the prelim body).
     try:
         _ents_polish = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
-        if _ents_polish.get("preliminary_analysis") or _ents_polish.get(
-            "continuity_followup"
+        if (
+            _ents_polish.get("preliminary_analysis")
+            or _ents_polish.get("continuity_followup")
+            or _ents_polish.get("assistant_capabilities")
+            or _ents_polish.get("assistant_kind") == "capabilities"
         ):
             logger.warning(
-                "[AUDIT] Personality: SKIPPED — preliminary/continuity lock"
+                "[AUDIT] Personality: SKIPPED — preliminary/continuity/capabilities lock"
             )
         else:
             from src.communication import polish_payload as _polish
@@ -3854,12 +3922,18 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     # (chosen_answer often collapses to "?" / crumbs).
     try:
         _ents_cred = (payload.get("entities") or {}) if isinstance(payload, dict) else {}
-        if _ents_cred.get("continuity_followup") or (
-            _ents_cred.get("followup_before_fallback")
-            and _ents_cred.get("rewrite_locked")
+        if (
+            _ents_cred.get("continuity_followup")
+            or (
+                _ents_cred.get("followup_before_fallback")
+                and _ents_cred.get("rewrite_locked")
+            )
+            or _ents_cred.get("assistant_capabilities")
+            or _ents_cred.get("assistant_kind") == "capabilities"
         ):
             logger.warning(
-                "[AUDIT] CredibilityLayer: SKIPPED text upgrade — continuity follow-up"
+                "[AUDIT] CredibilityLayer: SKIPPED text upgrade — "
+                "continuity/capabilities lock"
             )
         else:
             from src.conversation.deep_reasoning import run_deep_reasoning as _v45_deep_final
@@ -4216,6 +4290,38 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _cont_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _cont_note_exc:
             logger.warning("copilot: continuity note skipped (%s)", _cont_note_exc)
+        try:
+            from src.conversation.pronoun_continuity import (
+                note_pronoun_memory as _pronoun_note,
+            )
+
+            _pronoun_note(ctx, message, payload if isinstance(payload, dict) else None)
+        except Exception as _pronoun_note_exc:
+            logger.warning("copilot: pronoun memory note skipped (%s)", _pronoun_note_exc)
+        try:
+            from src.conversation.frustration_observability import (
+                note_frustration_observability as _frust_note,
+            )
+
+            payload = _frust_note(
+                ctx, message, payload if isinstance(payload, dict) else None
+            )
+        except Exception as _frust_note_exc:
+            logger.warning(
+                "copilot: frustration observability skipped (%s)", _frust_note_exc
+            )
+        try:
+            from src.conversation.llm_judge_observability import (
+                note_llm_judge_observability as _judge_note,
+            )
+
+            payload = _judge_note(
+                ctx, message, payload if isinstance(payload, dict) else None
+            )
+        except Exception as _judge_note_exc:
+            logger.warning(
+                "copilot: llm judge observability skipped (%s)", _judge_note_exc
+            )
         try:
             conversation_manager.save(session_id, ctx)
         except Exception:

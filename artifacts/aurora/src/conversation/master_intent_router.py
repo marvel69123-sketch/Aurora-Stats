@@ -25,6 +25,7 @@ MasterIntent = Literal[
     "MEMORY_QUERY",
     "MATH_QUERY",
     "SYSTEM_QUERY",
+    "CAPABILITIES_QUERY",
     "UTILITY_QUERY",
     "EMOTIONAL_QUERY",
 ]
@@ -89,16 +90,14 @@ _SMALL = re.compile(
     re.I,
 )
 
+# Identity / help only — capabilities live in CAPABILITIES_QUERY (8.4-A.9)
 _SYSTEM = re.compile(
     r"("
     r"qual\s+(?:(?:e|eh|é)\s+)?(?:o\s+)?seu\s+nome|"
     r"como\s+(?:voce\s+)?se\s+chama|"
     r"quem\s+(?:e|eh|é)\s+(?:voce|a\s+aurora)|"
     r"quem\s+(?:te\s+)?criou|"
-    r"o\s+que\s+(?:voce\s+)?(?:faz|e)\b|"
-    r"quais\s+(?:suas\s+)?(?:funcoes|capacidades)|"
-    r"no\s+que\s+(?:voce\s+)?pode\s+ajudar|"
-    r"o\s+que\s+(?:voce\s+)?(?:consegue|pode)\s+fazer|"
+    r"o\s+que\s+(?:e|eh|é)\s+a\s+aurora|"
     r"ajuda(?:\s+me)?$|"
     r"^help$"
     r")",
@@ -181,8 +180,22 @@ def classify_master_intent(message: str) -> MasterIntentResult:
     if _MATH.search(folded) or _MATH.search(message or ""):
         return MasterIntentResult("MATH_QUERY", 0.97, "math_expression", False)
 
+    # Phase 8.4-A.9 — capabilities before identity/system and short-general
+    try:
+        from src.conversation.assistant_capabilities import is_capabilities_ask
+
+        if is_capabilities_ask(message) or is_capabilities_ask(folded):
+            return MasterIntentResult(
+                "CAPABILITIES_QUERY",
+                0.97,
+                "assistant_capabilities",
+                False,
+            )
+    except Exception:
+        pass
+
     if _SYSTEM.search(folded):
-        return MasterIntentResult("SYSTEM_QUERY", 0.95, "identity_or_capabilities", False)
+        return MasterIntentResult("SYSTEM_QUERY", 0.95, "identity_or_help", False)
 
     if _MEMORY.search(folded):
         return MasterIntentResult("MEMORY_QUERY", 0.9, "memory_or_profile", False)

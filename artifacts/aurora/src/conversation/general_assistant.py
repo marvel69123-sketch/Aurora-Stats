@@ -220,6 +220,27 @@ def try_general_assistant(
     """
     try:
         intent = (master_intent or "").upper()
+        # Phase 8.4-A.9 — capabilities before small_talk / general loops
+        try:
+            from src.conversation.assistant_capabilities import (
+                build_capabilities_payload,
+                is_capabilities_ask,
+            )
+
+            if intent == "CAPABILITIES_QUERY" or (
+                intent
+                in {
+                    "SYSTEM_QUERY",
+                    "GENERAL_CHAT",
+                    "SMALL_TALK",
+                    "",
+                }
+                and is_capabilities_ask(message)
+            ):
+                return build_capabilities_payload(message)
+        except Exception as _cap_exc:
+            logger.warning("general_assistant capabilities skipped (%s)", _cap_exc)
+
         if intent == "SMALL_TALK":
             return _payload(reply_small_talk(message), intent="small_talk", kind="small_talk")
         if intent == "MATH_QUERY":

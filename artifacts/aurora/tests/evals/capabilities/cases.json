@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cap_001_o_que_voce_faz",
+    "category": "capabilities",
+    "description": "Capability question must resolve to assistant_capabilities",
+    "steps": [
+      {"message": "o que você faz?"}
+    ],
+    "expect": {
+      "intent": "assistant_capabilities",
+      "no_loop": true
+    }
+  },
+  {
+    "id": "cap_002_suas_funcionalidades",
+    "category": "capabilities",
+    "description": "Alternate capability phrasing",
+    "steps": [
+      {"message": "suas funcionalidades"}
+    ],
+    "expect": {
+      "intent": "assistant_capabilities",
+      "no_loop": true
+    }
+  }
+]

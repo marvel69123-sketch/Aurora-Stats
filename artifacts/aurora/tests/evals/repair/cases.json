@@ -1,0 +1,15 @@
+[
+  {
+    "id": "rp_001_voce_nao_entendeu",
+    "category": "repair",
+    "description": "User frustration phrase must enter repair mode",
+    "steps": [
+      {"message": "o que você faz?"},
+      {"message": "você não entendeu"}
+    ],
+    "expect": {
+      "repair_mode": true,
+      "no_loop": true
+    }
+  }
+]

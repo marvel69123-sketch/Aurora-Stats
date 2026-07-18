@@ -1,0 +1,1219 @@
+{
+  "platform": "AEP",
+  "component": "frustration_analytics",
+  "version": "3.0.0",
+  "requested_sessions": 100,
+  "seed": 42,
+  "total_sessions": 100,
+  "frustration_rate": 100.0,
+  "recovery_rate": 100.0,
+  "repeated_frustration_rate": 51.0,
+  "turns_until_frustration_avg": 2.34,
+  "top_causes": [
+    "TOO_GENERIC",
+    "MISUNDERSTANDING",
+    "INVALID_RESPONSE",
+    "WRONG_INTENT",
+    "HALLUCINATION_RISK",
+    "LOST_CONTEXT"
+  ],
+  "cause_counts": {
+    "TOO_GENERIC": 50,
+    "MISUNDERSTANDING": 37,
+    "INVALID_RESPONSE": 32,
+    "WRONG_INTENT": 24,
+    "HALLUCINATION_RISK": 18,
+    "LOST_CONTEXT": 6
+  },
+  "by_script": {
+    "misunderstanding": {
+      "sessions": 17,
+      "frustrated": 17,
+      "recovered": 17
+    },
+    "wrong_intent": {
+      "sessions": 17,
+      "frustrated": 17,
+      "recovered": 17
+    },
+    "too_generic": {
+      "sessions": 17,
+      "frustrated": 17,
+      "recovered": 17
+    },
+    "lost_context": {
+      "sessions": 17,
+      "frustrated": 17,
+      "recovered": 17
+    },
+    "repeated": {
+      "sessions": 16,
+      "frustrated": 16,
+      "recovered": 16
+    },
+    "no_answer": {
+      "sessions": 16,
+      "frustrated": 16,
+      "recovered": 16
+    }
+  },
+  "session_details": [
+    {
+      "script_id": "misunderstanding",
+      "seed": 42,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Barcelona?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Barcelona vs Real Madrid** |  | **Barcelona x Real Madrid** — leitura preliminar |  | Confronto"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 7961,
+      "types": [
+        "HALLUCINATION_RISK",
+        "HALLUCINATION_RISK"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "isso está errado",
+          "type": "HALLUCINATION_RISK",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": "HALLUCINATION_RISK",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Ok — vamos tentar de novo. O que você quer que eu faça?"
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 15880,
+      "types": [
+        "TOO_GENERIC",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "???",
+          "type": "TOO_GENERIC",
+          "recovered": false,
+          "intent": "small_talk",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "Flamengo x Palmeiras",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "**Flamengo x Palmeiras** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise "
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 23799,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "preste atenção",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “e esse?”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Argentina vs Brazil**. |  | Com base naquela análise: |  | **Todos os mercados"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 31718,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | O fio era o Flamengo. Pode confirmar o que você queria saber?"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 39637,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Argentina vs Brazil** (ângulo **xg**): |  | **Explicação detalhada — Argentina vs Brazil** |  | **Argen"
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 47556,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "você não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Argentina?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconheci"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 55475,
+      "types": [
+        "HALLUCINATION_RISK",
+        "HALLUCINATION_RISK"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "isso está errado",
+          "type": "HALLUCINATION_RISK",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": "HALLUCINATION_RISK",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Ok — vamos tentar de novo. O que você quer que eu faça?"
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 63394,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “oi”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "Flamengo x Palmeiras",
+          "type": null,
+          "recovered": null,
+          "intent": "small_talk",
+          "prefix": "**Flamengo x Palmeiras** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise "
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 71313,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Flamengo vs Palmeiras**. |  | Com base naquela análise: |  | **Todos os mercad"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 79232,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | O fio era o Flamengo. Pode confirmar o que você queria saber?"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 87151,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Barcelona vs Real Madrid** (ângulo **xg**): |  | **Explicação detalhada — Barcelona vs Real Madrid** | "
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 95070,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Argentina?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconheci"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 102989,
+      "types": [
+        "WRONG_INTENT"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estat"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": null,
+          "recovered": null,
+          "intent": "assistant_capabilities",
+          "prefix": "Me conta de outro jeito o que você precisa agora."
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 110908,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “oi”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "Argentina x Brasil",
+          "type": null,
+          "recovered": null,
+          "intent": "small_talk",
+          "prefix": "**Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise pr"
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 118827,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "releia",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | O fio era o Flamengo. Pode confirmar o que você queria saber?"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Flamengo vs Palmeiras**. |  | Com base naquela análise: |  | **Todos os mercad"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 126746,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Argentina x Brazil” pode reformular o que v"
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Argentina x Brazil” pode reformular o que v"
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “Argentina x Brazil”. Pode confirmar o que exatamente queria"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 134665,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Barcelona vs Real Madrid** (ângulo **xg**): |  | **Explicação detalhada — Barcelona vs Real Madrid** | "
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 142584,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "você não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Barcelona?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Barcelona vs Real Madrid** |  | **Barcelona x Real Madrid** — leitura preliminar |  | Confronto"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 150503,
+      "types": [
+        "HALLUCINATION_RISK",
+        "HALLUCINATION_RISK"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "isso está errado",
+          "type": "HALLUCINATION_RISK",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": "HALLUCINATION_RISK",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Ok — vamos tentar de novo. O que você quer que eu faça?"
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 158422,
+      "types": [
+        "LOST_CONTEXT"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "pensa um pouco",
+          "type": "LOST_CONTEXT",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “oi”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "Argentina x Brasil",
+          "type": null,
+          "recovered": null,
+          "intent": "small_talk",
+          "prefix": "**Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise pr"
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 166341,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "preste atenção",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “e esse?”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Barcelona vs Real Madrid**. |  | Com base naquela análise: |  | **Todos os mer"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 174260,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Barcelona x Real Madrid” pode reformular o "
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Barcelona x Real Madrid” pode reformular o "
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “Barcelona x Real Madrid”. Pode confirmar o que exatamente q"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 182179,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Barcelona vs Real Madrid** (ângulo **xg**): |  | **Explicação detalhada — Barcelona vs Real Madrid** | "
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 190098,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "você não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Barcelona?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Barcelona vs Real Madrid** |  | **Barcelona x Real Madrid** — leitura preliminar |  | Confronto"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 198017,
+      "types": [
+        "WRONG_INTENT"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Sou a **Aurora**, uma IA especializada em futebol. |  | Posso: |  | ⚽ Analisar partidas e confrontos. | 📊 Explicar estat"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": null,
+          "recovered": null,
+          "intent": "assistant_capabilities",
+          "prefix": "Me conta de outro jeito o que você precisa agora."
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 205936,
+      "types": [
+        "TOO_GENERIC",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "???",
+          "type": "TOO_GENERIC",
+          "recovered": false,
+          "intent": "small_talk",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "Flamengo x Palmeiras",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "**Flamengo x Palmeiras** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise "
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 213855,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "releia",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “e esse?”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Argentina vs Brazil**. |  | Com base naquela análise: |  | **Todos os mercados"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 221774,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | O fio era o Flamengo. Pode confirmar o que você queria saber?"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 229693,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Flamengo vs Palmeiras** (ângulo **xg**): |  | **Explicação detalhada — Flamengo vs Palmeiras** |  | **F"
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 237612,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Flamengo vs Palmeiras** |  | **Flamengo x Palmeiras** — leitura preliminar |  | Confronto recon"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 245531,
+      "types": [
+        "HALLUCINATION_RISK",
+        "HALLUCINATION_RISK"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "isso está errado",
+          "type": "HALLUCINATION_RISK",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": "HALLUCINATION_RISK",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Ok — vamos tentar de novo. O que você quer que eu faça?"
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 253450,
+      "types": [
+        "TOO_GENERIC",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "???",
+          "type": "TOO_GENERIC",
+          "recovered": false,
+          "intent": "small_talk",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "Argentina x Brasil",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "**Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise pr"
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 261369,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Acho que interpretei sua pergunta de forma errada. |  | Você queria falar sobre o Flamengo pode confirmar o que exatamen"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Flamengo vs Palmeiras**. |  | Com base naquela análise: |  | **Todos os mercad"
+        }
+      ]
+    },
+    {
+      "script_id": "repeated",
+      "seed": 269288,
+      "types": [
+        "MISUNDERSTANDING",
+        "WRONG_INTENT",
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Barcelona x Real Madrid” pode reformular o "
+        },
+        {
+          "message": "não foi isso",
+          "type": "WRONG_INTENT",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “Barcelona x Real Madrid” pode reformular o "
+        },
+        {
+          "message": "aff",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “Barcelona x Real Madrid”. Pode confirmar o que exatamente q"
+        }
+      ]
+    },
+    {
+      "script_id": "no_answer",
+      "seed": 277207,
+      "types": [
+        "INVALID_RESPONSE",
+        "INVALID_RESPONSE"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "não respondeu",
+          "type": "INVALID_RESPONSE",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "xg?",
+          "type": "INVALID_RESPONSE",
+          "recovered": true,
+          "intent": "follow_up",
+          "prefix": "No contexto de **Argentina vs Brazil** (ângulo **xg**): |  | **Explicação detalhada — Argentina vs Brazil** |  | **Argen"
+        }
+      ]
+    },
+    {
+      "script_id": "misunderstanding",
+      "seed": 285126,
+      "types": [
+        "MISUNDERSTANDING"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "você não entendeu",
+          "type": "MISUNDERSTANDING",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Entendi que minha resposta anterior não foi o que você esperava. |  | Sobre “e os mercados do Argentina?” pode reformula"
+        },
+        {
+          "message": "e dele?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "**Explicação detalhada — Argentina vs Brazil** |  | **Argentina x Brazil** — leitura preliminar |  | Confronto reconheci"
+        }
+      ]
+    },
+    {
+      "script_id": "wrong_intent",
+      "seed": 293045,
+      "types": [
+        "HALLUCINATION_RISK",
+        "HALLUCINATION_RISK"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": true,
+      "sample_turns": [
+        {
+          "message": "isso está errado",
+          "type": "HALLUCINATION_RISK",
+          "recovered": false,
+          "intent": "general_chat",
+          "prefix": "Entendi. Posso te ajudar com isso de forma direta. |  | Se for sobre futebol, me diga o time ou o confronto. Se for outr"
+        },
+        {
+          "message": "suas funcionalidades",
+          "type": "HALLUCINATION_RISK",
+          "recovered": true,
+          "intent": "assistant_capabilities",
+          "prefix": "Ok — vamos tentar de novo. O que você quer que eu faça?"
+        }
+      ]
+    },
+    {
+      "script_id": "too_generic",
+      "seed": 300964,
+      "types": [
+        "LOST_CONTEXT"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 2,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "pensa um pouco",
+          "type": "LOST_CONTEXT",
+          "recovered": true,
+          "intent": "small_talk",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “oi”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "Argentina x Brasil",
+          "type": null,
+          "recovered": null,
+          "intent": "small_talk",
+          "prefix": "**Argentina x Brazil** — leitura preliminar |  | Confronto reconhecido, mas com **dados parciais**. Segue uma análise pr"
+        }
+      ]
+    },
+    {
+      "script_id": "lost_context",
+      "seed": 308883,
+      "types": [
+        "TOO_GENERIC"
+      ],
+      "recovered": true,
+      "recovery_turns": 1,
+      "turns_until_frustration": 3,
+      "repeated": false,
+      "sample_turns": [
+        {
+          "message": "preste atenção",
+          "type": "TOO_GENERIC",
+          "recovered": true,
+          "intent": "conversation_repair",
+          "prefix": "Vou pensar de novo no que você pediu. |  | Você tinha dito: “e esse?”. Pode confirmar o que exatamente queria?"
+        },
+        {
+          "message": "mercados?",
+          "type": null,
+          "recovered": null,
+          "intent": "follow_up",
+          "prefix": "Estou utilizando o contexto anterior: | **Barcelona vs Real Madrid**. |  | Com base naquela análise: |  | **Todos os mer"
+        }
+      ]
+    }
+  ],
+  "log_fields": [
+    "frustration_detected",
+    "frustration_type",
+    "frustration_score",
+    "recovered_after_frustration",
+    "recovery_turns"
+  ],
+  "generated_at": "2026-07-18T20:01:09.908068+00:00",
+  "elapsed_sec": 48.71
+}

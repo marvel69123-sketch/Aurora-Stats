@@ -1,0 +1,54 @@
+[
+  {
+    "id": "adv_001_xg_after_fixture",
+    "category": "advanced",
+    "description": "xG follow-up reuses active fixture",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "xg?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "adv_002_pressao_after_fixture",
+    "category": "advanced",
+    "description": "pressão follow-up reuses active fixture",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "pressão?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "adv_003_kelly_after_fixture",
+    "category": "advanced",
+    "description": "kelly follow-up reuses active fixture",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "kelly?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  },
+  {
+    "id": "adv_004_edge_after_fixture",
+    "category": "advanced",
+    "description": "qual o edge? reuses active fixture",
+    "steps": [
+      {"message": "Argentina x Brasil"},
+      {"message": "qual o edge?"}
+    ],
+    "expect": {
+      "fixture_reused": true,
+      "no_loop": true
+    }
+  }
+]

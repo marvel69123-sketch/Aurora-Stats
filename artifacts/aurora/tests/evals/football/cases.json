@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fb_001_goku_naruto_invalid",
+    "category": "football",
+    "description": "Fiction match must be INVALID without invented analysis",
+    "steps": [
+      {"message": "Goku x Naruto"}
+    ],
+    "expect": {
+      "fixture_quality": "INVALID",
+      "entity_invalid": true,
+      "no_invented_analysis": true,
+      "no_loop": true
+    }
+  }
+]
