@@ -1602,6 +1602,17 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception:
         pass
 
+    # Phase 8.2-C — short memory pronoun resolve BEFORE MasterIntent
+    # ("o que achou dele?" → last_team / last_fixture; avoids GA trap)
+    try:
+        from src.conversation.short_conversation_memory import (
+            apply_short_memory_resolve as _sm_resolve,
+        )
+
+        message = _sm_resolve(message, ctx)
+    except Exception as _sm_exc:
+        logger.warning("copilot: short memory resolve skipped (%s)", _sm_exc)
+
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
     #   → Recovery → DeepThinking → Focus → HumanInference
@@ -3798,6 +3809,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _repair_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _repair_note_exc:
             logger.warning("copilot: repair memory note skipped (%s)", _repair_note_exc)
+        try:
+            from src.conversation.short_conversation_memory import (
+                note_short_memory as _sm_note,
+            )
+
+            _sm_note(ctx, message, payload if isinstance(payload, dict) else None)
+        except Exception as _sm_note_exc:
+            logger.warning("copilot: short memory note skipped (%s)", _sm_note_exc)
         try:
             conversation_manager.save(session_id, ctx)
         except Exception:

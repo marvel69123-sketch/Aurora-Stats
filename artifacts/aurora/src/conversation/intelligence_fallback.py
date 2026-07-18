@@ -114,11 +114,25 @@ def try_intelligence_fallback(
         # Recovered team opinion that natural layer might still miss
         recovery = (ctx or {}).get("context_recovery") or {}
         thinking = (ctx or {}).get("deep_thinking") or {}
+        # Phase 8.2-E — never calendar_authority on recent-match opinion asks
+        _recent_opinion = False
+        try:
+            from src.conversation.human_inference import is_recent_match_opinion_ask
+
+            _raw = ""
+            if isinstance(ctx, dict):
+                _raw = str(ctx.get("raw_user_message") or "")
+            _recent_opinion = is_recent_match_opinion_ask(message) or (
+                bool(_raw) and is_recent_match_opinion_ask(_raw)
+            )
+        except Exception:
+            _recent_opinion = False
         # Brain Authority — never opinion fallback on calendar topics
+        # (unless this turn is clearly a recent-match opinion ask)
         try:
             from src.conversation.brain_authority import is_calendar_authority
 
-            if is_calendar_authority(ctx):
+            if is_calendar_authority(ctx) and not _recent_opinion:
                 from src.conversation.brain_authority import calendar_empty_reply
 
                 teams = list(recovery.get("teams") or thinking.get("topic_teams") or [])

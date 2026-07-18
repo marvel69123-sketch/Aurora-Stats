@@ -280,11 +280,58 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
             if teams:
                 recovered = f"{teams[0]} joga que horas?"
                 notes.append("completed:kickoff")
+        # Phase 8.2-E — recent-match / opinion BEFORE calendar ("jogo do" must not steal)
+        elif re.search(
+            r"("
+            r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+"
+            r"(?:d[oe]\s+)?(?:jogo|partida|atuacao)|"
+            r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+da\s+atuacao|"
+            r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida)|"
+            r"como\s+(?:voce\s+)?viu\s+(?:o\s+)?(?:ultimo\s+|ultima\s+)?(?:jogo|partida)|"
+            r"\bjogou\s+bem\b|"
+            r"(?:achou|opiniao).{0,48}\b(?:ontem|ultimo|ultima)\b|"
+            r"\b(?:ontem|ultimo|ultima).{0,48}\b(?:achou|opiniao|como\s+foi|jogou\s+bem)\b|"
+            r"\bachou\s+d[oe]\s+(?:jogo|partida|atuacao)\b|"
+            r"\bachou\s+da\s+atuacao\b"
+            r")",
+            folded_r,
+        ) or (
+            re.search(
+                r"\b(o\s*que\s+(?:voce\s+)?acha|oq\s+acha|achou)\b",
+                folded_r,
+            )
+            and re.search(
+                r"\b(jogo|partida|atuacao|ontem|ultimo|ultima)\b",
+                folded_r,
+            )
+        ):
+            goal = "team_opinion"
+            conf = 0.88
+            topic_kind_hint = "opinion"
+            # Keep original phrasing so Natural sees ontem/jogo/atuação
+            recovered = original
+            notes.append("completed:recent_match_opinion")
+        # opinion / moment (general — still before bare calendar)
+        elif re.search(
+            r"\b(o\s+que\s+(?:voce\s+)?acha|oq\s+acha|achou|momento|"
+            r"como\s+esta|como\s+vai)\b",
+            folded_r,
+        ):
+            goal = "team_opinion"
+            conf = 0.8
+            topic_kind_hint = "moment" if temporal == "now" else "opinion"
+            if teams and temporal == "now":
+                recovered = f"o que acha do {teams[0]} agora"
+                notes.append("completed:opinion_now")
+            elif teams:
+                recovered = f"o que acha do {teams[0]}"
+                notes.append("completed:opinion")
         # Calendar / fixture (preserve A x B — never collapse to one team)
         elif re.search(
             r"\b(quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
             r"quero\s+ver|ver\s+o\s+jogo|tem\s+jogo|jogo\s+d[oe]|"
-            r"partidas?\s+d[oe]|proximo\s+jogo)\b",
+            r"partidas?\s+d[oe]|proximo\s+jogo|"
+            r"quando\s+(?:e|eh|é)\s+o\s+proximo\s+jogo)\b",
             folded_r,
         ) or (vs_m and temporal):
             goal = "calendar_or_fixture"
@@ -306,21 +353,9 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                 topic_kind_hint = "calendar"
                 recovered = f"jogo do {teams[0]}" + (f" {when}" if when else "")
                 notes.append("completed:team_calendar")
-        # opinion / moment
-        elif re.search(
-            r"\b(o\s+que\s+(?:voce\s+)?acha|oq\s+acha|achou|momento|"
-            r"como\s+esta|como\s+vai)\b",
-            folded_r,
-        ):
-            goal = "team_opinion"
-            conf = 0.8
-            topic_kind_hint = "moment" if temporal == "now" else "opinion"
-            if teams and temporal == "now":
-                recovered = f"o que acha do {teams[0]} agora"
-                notes.append("completed:opinion_now")
-            elif teams:
-                recovered = f"o que acha do {teams[0]}"
-                notes.append("completed:opinion")
+            elif re.search(r"\b(tem\s+jogo|proximo\s+jogo|quando\s+(?:e|eh|é)\s+o\s+proximo)\b", folded_r):
+                topic_kind_hint = "calendar"
+                notes.append("completed:calendar_generic")
         # win today?
         elif re.search(r"\b(ganha|vence|empata)\b", folded_r) and teams:
             goal = "match_outlook"

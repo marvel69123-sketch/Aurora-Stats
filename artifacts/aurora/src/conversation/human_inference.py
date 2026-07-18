@@ -28,6 +28,22 @@ _OPINION = re.compile(
     r"fale\s+sobre|fala\s+sobre|me\s+fala|conta\s+(?:sobre|d[oe]))\b",
     re.I,
 )
+# Phase 8.2-E — retrospectiva de partida (prioridade sobre agenda / "jogo do")
+_RECENT_MATCH_OPINION = re.compile(
+    r"("
+    r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+"
+    r"(?:d[oe]\s+)?(?:jogo|partida|atuacao)\b|"
+    r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+da\s+atuacao\b|"
+    r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida)\b|"
+    r"como\s+(?:voce\s+)?viu\s+(?:o\s+)?(?:ultimo\s+|ultima\s+)?(?:jogo|partida)\b|"
+    r"\bjogou\s+bem\b|"
+    r"(?:achou|opiniao).{0,48}\b(?:ontem|ultimo|ultima)\b|"
+    r"\b(?:ontem|ultimo|ultima).{0,48}\b(?:achou|opiniao|como\s+foi|jogou\s+bem)\b|"
+    r"\bachou\s+d[oe]\s+(?:jogo|partida|atuacao)\b|"
+    r"\bachou\s+da\s+atuacao\b"
+    r")",
+    re.I,
+)
 _MOMENT = re.compile(
     r"\b(como\s+(?:esta|vai)|momento(?:\s+atual)?|atualmente|agora|agr)\b",
     re.I,
@@ -38,7 +54,8 @@ _KICKOFF = re.compile(
 )
 _CALENDAR = re.compile(
     r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+(?:de\s+)?(?:hoje|amanha)|"
-    r"proximo\s+jogo|agenda|quando\s+joga|joga\s+hoje|joga\s+amanha)\b",
+    r"proximo\s+jogo|agenda|quando\s+joga|joga\s+hoje|joga\s+amanha|"
+    r"quando\s+(?:e|eh|é)\s+o\s+proximo\s+jogo)\b",
     re.I,
 )
 _TEMPORAL = re.compile(r"\b(hoje|amanha|agora|agr|atualmente)\b", re.I)
@@ -89,6 +106,28 @@ def _fold(text: str) -> str:
     raw = unicodedata.normalize("NFKD", text or "")
     raw = "".join(c for c in raw if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", raw.lower()).strip()
+
+
+def is_recent_match_opinion_ask(message: str) -> bool:
+    """True when the user wants opinion/retrospectiva on a recent match."""
+    return bool(_RECENT_MATCH_OPINION.search(_fold(message or "")))
+
+
+def _soft_team_from_ctx(ctx: dict[str, Any] | None) -> str | None:
+    if not isinstance(ctx, dict):
+        return None
+    sm = ctx.get("short_conversation_memory")
+    if isinstance(sm, dict) and isinstance(sm.get("last_team"), str) and sm["last_team"].strip():
+        return sm["last_team"].strip()
+    th = ctx.get("deep_thinking")
+    if isinstance(th, dict) and isinstance(th.get("topic_team"), str) and th["topic_team"].strip():
+        return th["topic_team"].strip()
+    rec = ctx.get("context_recovery")
+    if isinstance(rec, dict):
+        teams = rec.get("teams")
+        if isinstance(teams, (list, tuple)) and teams and isinstance(teams[0], str):
+            return teams[0].strip()
+    return None
 
 
 def _title(raw: str) -> str:
@@ -218,6 +257,10 @@ def infer_human_intent(
             or (_ANALYZE.search(raw_f) and not _ANALYZE.search(msg_f))
             or (_OPINION.search(raw_f) and not _OPINION.search(msg_f))
             or (_KICKOFF.search(raw_f) and not _KICKOFF.search(msg_f))
+            or (
+                _RECENT_MATCH_OPINION.search(raw_f)
+                and not _RECENT_MATCH_OPINION.search(msg_f)
+            )
         ):
             literal = raw
     folded = _fold(literal)
@@ -298,6 +341,34 @@ def infer_human_intent(
             strong_verb="horário",
             topic_kind="kickoff",
         )
+
+    # ── Phase 8.2-E: RECENT-MATCH OPINION before CALENDAR ("jogo do") ───
+    if is_recent_match_opinion_ask(literal) or (
+        _OPINION.search(folded)
+        and re.search(r"\b(jogo|partida|atuacao|ontem|ultimo|ultima)\b", folded)
+    ):
+        t = team or (pair[0] if pair else None) or _soft_team_from_ctx(ctx)
+        if t:
+            return HumanInference(
+                literal=literal,
+                what_user_said=literal,
+                what_user_meant=f"opinião sobre partida recente do {t}",
+                what_user_expects=[
+                    "team_opinion",
+                    "recent_match",
+                    "perspective",
+                    "last_match_context",
+                ],
+                human_goal=f"opinião sobre o jogo do {t}",
+                intent="general_team_talk",
+                priority="very_high",
+                team=t,
+                teams=[t],
+                confidence=0.93,
+                rewrite=None,  # keep original cues for Natural (ontem / jogo / atuação)
+                strong_verb="opinião",
+                topic_kind="opinion",
+            )
 
     # ── Strong: CALENDAR cues ────────────────────────────────────────────
     if _CALENDAR.search(folded) or (

@@ -366,6 +366,16 @@ def crl_may_continue_fixture(ctx: dict[str, Any] | None) -> bool:
 def natural_may_emit_opinion(ctx: dict[str, Any] | None) -> bool:
     """Block opinion blurbs when DT says calendar/fixture."""
     if is_calendar_authority(ctx):
+        # Phase 8.2-E — current turn recent-match opinion must not be blocked
+        # by a sticky calendar topic_kind from Recovery/HIE mistakes.
+        try:
+            from src.conversation.human_inference import is_recent_match_opinion_ask
+
+            raw = str((ctx or {}).get("raw_user_message") or "")
+            if raw and is_recent_match_opinion_ask(raw):
+                return True
+        except Exception:
+            pass
         return False
     return True
 
