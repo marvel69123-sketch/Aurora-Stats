@@ -152,6 +152,38 @@ def _soft_payload(reply: str, *, intent: str, entities: dict[str, Any] | None = 
     return payload
 
 
+def _is_recent_match_opinion(folded: str) -> bool:
+    """
+    Opinion / retrospectiva sobre partida recente.
+    Tem prioridade sobre agenda/calendário (ex.: "achou do jogo do X ontem").
+    """
+    if not folded:
+        return False
+    return bool(
+        re.search(
+            r"("
+            # o que (você) achou/acha do jogo|partida|atuação
+            r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+"
+            r"(?:d[oe]\s+)?(?:jogo|partida|atuacao)\b|"
+            r"o\s*que\s+(?:voce\s+)?(?:achou|acha)\s+da\s+atuacao\b|"
+            # como foi o/a jogo|partida
+            r"como\s+foi\s+(?:o\s+|a\s+)?(?:jogo|partida)\b|"
+            # jogou bem?
+            r"\bjogou\s+bem\b|"
+            # último/última jogo|partida (+ opinião opcional)
+            r"\b(?:ultimo|ultima)\s+(?:jogo|partida)\b|"
+            # achou … ontem / ontem … achou (com jogo|partida no meio ou perto)
+            r"(?:achou|opiniao).{0,48}\b(?:ontem|ultimo|ultima)\b|"
+            r"\b(?:ontem|ultimo|ultima).{0,48}\b(?:achou|opiniao|como\s+foi)\b|"
+            # "achou do jogo/partida …"
+            r"\bachou\s+d[oe]\s+(?:jogo|partida|atuacao)\b|"
+            r"\bachou\s+da\s+atuacao\b"
+            r")",
+            folded,
+        )
+    )
+
+
 def detect_natural_intent(message: str) -> dict[str, Any] | None:
     """
     Return {kind, ...} or None.
@@ -262,15 +294,39 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
     ):
         return None
 
-    # Single/pair team calendar — only with explicit agenda cues
-    if re.search(
-        r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+d[oe]|proximo\s+jogo|"
-        r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
-        r"agenda|(?:joga|jogam)\s+(?:hoje|amanha))\b",
-        folded,
-    ) or (
-        re.search(r"\b\w+\s+[xX]\s+\w+\b", message or "")
-        and re.search(r"\b(hoje|amanha|horario|que\s+horas)\b", folded)
+    # Recent-match opinion — BEFORE team_calendar / agenda ("jogo do" must not steal)
+    if _is_recent_match_opinion(folded) and not re.search(
+        r"\b\w+\s+[xX]\s+\w+\b", message or ""
+    ):
+        team = _extract_one_team(folded)
+        if not team:
+            m_op = re.search(
+                r"(?:jogo|partida|atuacao)\s+d[oe]\s+([a-z0-9][a-z0-9\s-]{2,30})",
+                folded,
+            )
+            if m_op:
+                team = _extract_one_team(m_op.group(1)) or _title_team(m_op.group(1))
+        if team:
+            return {
+                "kind": "team_opinion",
+                "team": team,
+                "moment": False,
+                "recent_match": True,
+                "opinion_time": True,
+            }
+
+    # Single/pair team calendar — only with explicit agenda cues (never opinion asks)
+    if not _is_recent_match_opinion(folded) and (
+        re.search(
+            r"\b(tem\s+jogo|jogo\s+d[oe]|jogos?\s+d[oe]|proximo\s+jogo|"
+            r"quero\s+(?:saber\s+)?(?:sobre\s+)?(?:o\s+)?jogo|"
+            r"agenda|(?:joga|jogam)\s+(?:hoje|amanha))\b",
+            folded,
+        )
+        or (
+            re.search(r"\b\w+\s+[xX]\s+\w+\b", message or "")
+            and re.search(r"\b(hoje|amanha|horario|que\s+horas)\b", folded)
+        )
     ):
         # Prefer pair
         m_pair = re.search(
@@ -787,6 +843,8 @@ async def try_natural_conversation(
             family = "team_opinion"
             entities["team"] = team
             entities["opinion_time"] = True
+            if detected.get("recent_match"):
+                entities["recent_match"] = True
             if moment:
                 entities["moment_now"] = True
         elif kind == "historical_copa":

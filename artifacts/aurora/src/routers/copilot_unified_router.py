@@ -1636,7 +1636,25 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         except Exception:
             pass
         _ga = None
-        if _master and not _master.allow_sport_pipeline:
+        # Phase 8.2-A — conversation repair BEFORE GeneralAssistant (no Entendi trap)
+        try:
+            from src.conversation.conversation_repair import (
+                try_conversation_repair as _repair_try,
+            )
+
+            _repair = _repair_try(message, ctx)
+            if _repair:
+                _ga = _repair
+                _sport_ok = False
+                try:
+                    ctx["sport_pipeline_blocked"] = True
+                except Exception:
+                    pass
+                logger.warning("[AUDIT] ConversationRepair: early short-circuit")
+        except Exception as _repair_exc:
+            logger.warning("copilot: conversation repair skipped (%s)", _repair_exc)
+
+        if _ga is None and _master and not _master.allow_sport_pipeline:
             _ga = _ga_try(message, _master.intent, ctx)
             if _ga:
                 _txt = str(_ga.get("executive_summary") or "")
@@ -1689,6 +1707,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     "memory_stake_guidance",
                     "short_loose",
                     "soft_followup",
+                    "conversation_repair",
                 }:
                     _sport_ok = False
                     try:
@@ -1717,11 +1736,18 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 entities = dict(payload.get("entities") or {})
                 routing_confidence = float(_master.confidence or 0.95)
                 skipped_nl = True
-                logger.warning(
-                    "[AUDIT] GeneralAssistant: master=%s kind=%s",
-                    _master.intent,
-                    entities.get("assistant_kind"),
-                )
+                if entities.get("conversation_repair"):
+                    logger.warning(
+                        "[AUDIT] ConversationRepair: master=%s kind=%s",
+                        _master.intent if _master else None,
+                        entities.get("assistant_kind"),
+                    )
+                else:
+                    logger.warning(
+                        "[AUDIT] GeneralAssistant: master=%s kind=%s",
+                        _master.intent,
+                        entities.get("assistant_kind"),
+                    )
         except Exception as _hce_exc:
             logger.warning("copilot: HCE skipped (%s)", _hce_exc)
             if _ga and payload is None:
@@ -2529,18 +2555,24 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             from src.conversation.human_conversation_engine import (
                 try_human_conversation as _hce_force,
             )
+            from src.conversation.conversation_repair import (
+                try_conversation_repair as _repair_force,
+            )
 
             _mi_n = (
                 (_master.intent if _master else None)
                 or str((ctx.get("master_intent") or {}).get("intent") or "GENERAL_CHAT")
             )
-            payload = _hce_force(
-                message,
-                ctx,
-                master_intent=_mi_n,
-                existing_payload=None,
-                prefs=_conv_prefs,
-            )
+            # Phase 8.2-A — repair before forced GA Entendi
+            payload = _repair_force(message, ctx)
+            if payload is None:
+                payload = _hce_force(
+                    message,
+                    ctx,
+                    master_intent=_mi_n,
+                    existing_payload=None,
+                    prefs=_conv_prefs,
+                )
             if payload is None:
                 payload = _ga_retry(message, _mi_n, ctx) or {
                     "intent": "general_chat",
@@ -3758,6 +3790,14 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         )
 
         _hce_note(ctx, message, payload if isinstance(payload, dict) else None)
+        try:
+            from src.conversation.conversation_repair import (
+                note_repair_memory as _repair_note,
+            )
+
+            _repair_note(ctx, message, payload if isinstance(payload, dict) else None)
+        except Exception as _repair_note_exc:
+            logger.warning("copilot: repair memory note skipped (%s)", _repair_note_exc)
         try:
             conversation_manager.save(session_id, ctx)
         except Exception:

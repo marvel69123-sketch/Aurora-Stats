@@ -75,7 +75,7 @@ def _remember(ctx: dict[str, Any] | None, text: str) -> None:
 
 _ACK = re.compile(
     r"^(?:ok|okay|blz|beleza|show|perfeito|certo|combinado|fechou|entendi|"
-    r"uhum|ahm|isso|pode|pode\s+ser|boa|top|massa|suave|tranquilo|"
+    r"uhum|ahm|isso|pode|pode\s+ser|boa|que\s+bom|top|massa|suave|tranquilo|"
     r"kk+|haha+|rsrs+)\s*[!?.]*$",
     re.I,
 )
@@ -278,6 +278,7 @@ def apply_natural_response(
             "memory_stake_guidance",
             "meta_question",
             "soft_followup",
+            "conversation_repair",
         }:
             cleaned = scrub_artificial(text)
             if cleaned != text:
