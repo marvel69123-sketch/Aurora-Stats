@@ -83,6 +83,13 @@ class CopilotRequest(BaseModel):
             "Stored on ctx['about_you']. Never alters markets/engines."
         ),
     )
+    force_refresh: bool = Field(
+        False,
+        description=(
+            "Emergency Cost Protection: premium path — force provider refresh. "
+            "When false, prefer cache/stale and suppress duplicate fetches."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +434,13 @@ def _empty_bankroll(reasoning: str) -> BankrollSection:
 # ---------------------------------------------------------------------------
 
 
-async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
+async def _run_analyze(
+    home: str,
+    away: str,
+    prefer_live: bool = False,
+    *,
+    force_refresh: bool = False,
+) -> dict:
     """Full intelligence pipeline for a match → structured copilot payload."""
     from src.brain import get_brain_meta, get_config, get_methodology_config
     from src.core import (
@@ -447,8 +460,12 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
     from src.routers.analyze import analyze_fixture
 
     # Inference Layer V2 — never abort on partial fixture data
-    data   = await analyze_fixture(
-        home=home, away=away, prefer_live=prefer_live, soft=True,
+    data = await analyze_fixture(
+        home=home,
+        away=away,
+        prefer_live=prefer_live,
+        soft=True,
+        force_refresh=bool(force_refresh),
     )
     ictx = scan_analyze_data(data)
     is_partial = bool(data.get("_partial")) or (data.get("fixture") or {}).get("id") == 0
@@ -813,6 +830,36 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
         used_baseline_markets=used_baseline_markets,
     )
 
+    # P2b Wave 1 — stamp DRS / degradation onto entities (no engine retune)
+    _drs_ent = data.get("_drs") if isinstance(data, dict) else None
+    _deg_ent = data.get("_degradation") if isinstance(data, dict) else None
+    _nmb_ent = data.get("_nmb") if isinstance(data, dict) else None
+    if not isinstance(_drs_ent, dict):
+        try:
+            from src.data.degradation import apply_degradation_plan as _deg_plan
+            from src.data.drs import compute_drs as _compute_drs
+            from src.data.nmb import build_nmb_from_analyze_payload as _build_nmb
+
+            _nmb_obj = _build_nmb(
+                data if isinstance(data, dict) else None,
+                binding_quality=(
+                    "PARTIAL" if (is_partial or not fixture_located) else "FULL"
+                ),
+                rate_limited=_rate_limited,
+                user_wants_live=bool(prefer_live),
+            )
+            _drs_ent = _compute_drs(_nmb_obj)
+            _deg_ent = _deg_plan(
+                _drs_ent,
+                rate_limited=_rate_limited,
+                user_wants_live=bool(prefer_live),
+            )
+            _nmb_ent = _nmb_obj.to_dict()
+        except Exception as _drs_exc:
+            logger.warning("copilot: DRS stamp skipped (%s)", _drs_exc)
+            _drs_ent = None
+            _deg_ent = None
+
     result = {
         "intent":    "analyze_match",
         "entities": {
@@ -829,6 +876,21 @@ async def _run_analyze(home: str, away: str, prefer_live: bool = False) -> dict:
             "allow_partial_analysis": bool(_allow_partial),
             "rate_limited": bool(_rate_limited),
             "entity_invalid": False,
+            **(
+                {"data_richness": _drs_ent}
+                if isinstance(_drs_ent, dict)
+                else {}
+            ),
+            **(
+                {"degradation": _deg_ent}
+                if isinstance(_deg_ent, dict)
+                else {}
+            ),
+            **(
+                {"nmb_completion_rate": (_nmb_ent or {}).get("completion_rate")}
+                if isinstance(_nmb_ent, dict)
+                else {}
+            ),
             **(
                 {
                     # Protect preliminary executive from PIE / thinking-delay rewrite
@@ -1656,6 +1718,42 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     )
     from src.core.nl_router import route as _nl_route
 
+    session_id = body.session_id or secrets.token_hex(8)
+    _force_refresh = bool(getattr(body, "force_refresh", False))
+    from src.ops import cost_protection as _ecpm
+
+    _ecpm_tokens = _ecpm.begin_request(session_id, force_refresh=_force_refresh)
+    try:
+        return await _copilot_inner(body, session_id=session_id, force_refresh=_force_refresh)
+    finally:
+        _ecpm.end_request(_ecpm_tokens)
+
+
+async def _copilot_inner(
+    body: CopilotRequest,
+    *,
+    session_id: str,
+    force_refresh: bool = False,
+) -> CopilotResponse:
+    """Copilot body (runs inside Emergency Cost Protection request scope)."""
+    from src.brain import get_brain_meta
+    from src.chat_db import (
+        create_session      as _db_create,
+        save_message        as _db_save_msg,
+        update_session_context    as _db_upd_session,
+    )
+    from src.conversation import conversation_manager
+    from src.core.conversation_engine import (
+        detect                  as _conv_detect,
+        extract_user_profile_info as _extract_profile,
+        respond                 as _conv_respond,
+    )
+    from src.core.follow_up_engine import (
+        is_followup  as _is_followup,
+        resolve      as _fu_resolve,
+    )
+    from src.core.nl_router import route as _nl_route
+
     message = body.message.strip()
     _conv_prefs: dict = {}
     try:
@@ -1675,7 +1773,7 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     debug_mode = _debug_mode_enabled(getattr(body, "debug", False), message=message)
 
     # ── Session management ────────────────────────────────────────────────
-    session_id = body.session_id or secrets.token_hex(8)
+    # session_id comes from ECPM wrapper (stable daily-budget key)
     _db_create(session_id)
     # Phase 5B: memory cache first, SQLite fallback
     ctx   = conversation_manager.get(session_id) or {}
@@ -1705,6 +1803,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception:
         pass
 
+    # Per-turn flags (must not leak across turns in the same session)
+    try:
+        ctx.pop("ownership_stability_block_ga", None)
+        ctx.pop("sport_continuity_block_ga", None)
+        ctx.pop("sport_continuity_block_nc", None)
+        ctx.pop("ambiguous_context_block_ga", None)
+        ctx.pop("fiction_context_hard_reset", None)
+    except Exception:
+        pass
+
     # Phase 8.2-C — short memory pronoun resolve BEFORE MasterIntent
     # ("o que achou dele?" → last_team / last_fixture; avoids GA trap)
     try:
@@ -1715,6 +1823,175 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         message = _sm_resolve(message, ctx)
     except Exception as _sm_exc:
         logger.warning("copilot: short memory resolve skipped (%s)", _sm_exc)
+
+    # Phase 8.4-A.22 — Fiction & Hard Context Jump Guard (reset only, no claim)
+    try:
+        from src.conversation.fiction_context_jump_guard import (
+            process_turn_start as _fcj_start,
+        )
+
+        _fcj_start(message, ctx)
+    except Exception as _fcj_exc:
+        logger.warning("copilot: fiction/context-jump guard skipped (%s)", _fcj_exc)
+
+    # P1-B — Fiction early claim only (before sport pipeline analyzes fictional pairs).
+    # Do NOT early-claim CLARIFICATION/UNKNOWN — that steals sport continuity.
+    try:
+        if payload is None:
+            from src.conversation.dialog_mode import (
+                is_fiction_message as _dm_fic,
+                try_dialog_mode_claim as _dm_early,
+            )
+
+            if _dm_fic(message):
+                _dmp = _dm_early(message, ctx)
+                if isinstance(_dmp, dict) and str(
+                    (_dmp.get("entities") or {}).get("dialog_mode") or ""
+                ).upper() == "FICTION":
+                    payload = _dmp
+                    intent = str(payload.get("intent") or "clarification")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.97
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = True
+                        ctx["ambiguous_context_block_ga"] = True
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] DialogMode: EARLY FICTION claim owner=%s",
+                        entities.get("response_owner"),
+                    )
+    except Exception as _dm_early_exc:
+        logger.warning("copilot: dialog_mode early claim skipped (%s)", _dm_early_exc)
+
+    # P1-B — after fiction wipe, dialog_mode owns short FU / underspec recovery
+    # (A.20 remains frozen; we only claim when post_fiction_release is active).
+    try:
+        if payload is None:
+            from src.conversation.dialog_mode import (
+                CTX_KEY as _dm_ctx_key,
+                try_dialog_mode_claim as _dm_post,
+            )
+
+            _dm_blob = ctx.get(_dm_ctx_key) if isinstance(ctx, dict) else None
+            if isinstance(_dm_blob, dict) and _dm_blob.get("post_fiction_release"):
+                _dmp = _dm_post(message, ctx)
+                if isinstance(_dmp, dict) and str(
+                    (_dmp.get("entities") or {}).get("dialog_mode") or ""
+                ).upper() in {
+                    "CLARIFICATION",
+                    "UNKNOWN",
+                    "REPAIR",
+                    "FICTION",
+                    "IDENTITY",
+                    "SMALL_TALK",
+                }:
+                    payload = _dmp
+                    intent = str(payload.get("intent") or "clarification")
+                    entities = dict(payload.get("entities") or {})
+                    entities["post_fiction_clarify"] = True
+                    entities["context_expected_waived"] = True
+                    payload["entities"] = entities
+                    routing_confidence = 0.97
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = True
+                        ctx["ambiguous_context_block_ga"] = True
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] DialogMode: POST-FICTION claim mode=%s",
+                        entities.get("dialog_mode"),
+                    )
+    except Exception as _dm_post_exc:
+        logger.warning("copilot: dialog_mode post-fiction claim skipped (%s)", _dm_post_exc)
+
+    # Phase 8.4-A.20 — Ambiguous Context Priming Guard
+    # (detect jump → drop continuity; ambiguous opener → clarify; block bootstrap)
+    try:
+        if payload is None:
+            from src.conversation.ambiguous_context_guard import (
+                try_ambiguous_clarification_claim as _acg_try,
+            )
+
+            _acg = _acg_try(message, ctx)
+            if isinstance(_acg, dict):
+                payload = _acg
+                intent = str(payload.get("intent") or "clarification")
+                entities = dict(payload.get("entities") or {})
+                # P1-B — if fiction release still sticky, align eval stamps (no A.20 edit)
+                try:
+                    from src.conversation.dialog_mode import CTX_KEY as _dm_k
+
+                    _b = ctx.get(_dm_k) if isinstance(ctx, dict) else None
+                    if isinstance(_b, dict) and _b.get("post_fiction_release"):
+                        entities["post_fiction_clarify"] = True
+                        entities["context_expected_waived"] = True
+                        entities["p1_dialog_mode"] = True
+                except Exception:
+                    pass
+                payload["entities"] = entities
+                routing_confidence = 0.96
+                skipped_nl = True
+                try:
+                    ctx["ambiguous_context_block_ga"] = True
+                    ctx["sport_pipeline_blocked"] = True
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] AmbiguousContext: EARLY clarify before continuity/GA"
+                )
+    except Exception as _acg_exc:
+        logger.warning("copilot: ambiguous context guard skipped (%s)", _acg_exc)
+
+    # P2.5 — Entity Resolver v2 (SRF + ambiguity + pronoun). CLARIFY only;
+    # ASSUME updates SRF and never steals the sport pipeline.
+    # Must run BEFORE continuity / A.18 so side-pronoun clarify wins.
+    try:
+        from src.core.entity_resolver_v2 import (
+            build_clarify_payload as _ev2_clarify_payload,
+            resolve_referent as _ev2_resolve,
+        )
+
+        _ev2_bind = _ev2_resolve(message, ctx)
+        if isinstance(ctx, dict):
+            ctx["entity_v2_last_bind"] = _ev2_bind.to_entities()
+        # Early-claim only for high-value clarifies (never steal short pronoun FUs)
+        _ev2_claim_reasons = {
+            "ambiguous_team",
+            "ambiguous_club_on_switch",
+            "side_pronoun_two_plausible",
+            "opponent_deixis_team_only",
+            "jogo_needs_fixture",
+            "post_fiction_needs_new_anchor",
+            "pronoun_no_frame",
+            "plural_no_frame",
+            # short_fu_no_frame / markets_need_fixture: stamp only — do not
+            # early-claim (avoids stealing team research / A.18 happy paths)
+        }
+        if (
+            payload is None
+            and _ev2_bind.action == "CLARIFY"
+            and (_ev2_bind.clarify_reason or "") in _ev2_claim_reasons
+        ):
+            payload = _ev2_clarify_payload(_ev2_bind, message)
+            intent = str(payload.get("intent") or "clarification")
+            entities = dict(payload.get("entities") or {})
+            routing_confidence = 0.97
+            skipped_nl = True
+            try:
+                ctx["sport_pipeline_blocked"] = True
+                ctx["ambiguous_context_block_ga"] = True
+            except Exception:
+                pass
+            logger.warning(
+                "[AUDIT] EntityV2: CLARIFY reason=%s amb=%.2f",
+                _ev2_bind.clarify_reason,
+                float(_ev2_bind.ambiguity_score or 0.0),
+            )
+    except Exception as _ev2_exc:
+        logger.warning("copilot: entity_resolver_v2 skipped (%s)", _ev2_exc)
 
     # Phase 8.3-B / 8.4-A.8 — continuity: sim / leitura / placar / mercados…
     # while window armed after repair/opinion/partial/team_summary.
@@ -1809,6 +2086,61 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     except Exception as _adv_exc:
         logger.warning("copilot: advanced football continuity skipped (%s)", _adv_exc)
 
+    # Phase 8.4-A.18 — Sport Continuity Guard (anchor + short FU → SPORT, no sticky OS)
+    try:
+        if payload is None:
+            from src.brain import get_brain_meta as _gbm_scg
+            from src.conversation.sport_continuity_guard import (
+                try_sport_continuity_claim as _scg_try,
+            )
+
+            _scg = _scg_try(message, ctx, brain=_gbm_scg())
+            if isinstance(_scg, dict):
+                payload = _scg
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.935
+                skipped_nl = True
+                try:
+                    ctx["sport_pipeline_blocked"] = False
+                    ctx["sport_continuity_block_ga"] = True
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] SportContinuityGuard: EARLY claim owner=%s fixture=%r",
+                    entities.get("response_owner"),
+                    entities.get("followup_resolved_fixture")
+                    or entities.get("sport_anchor_fixture"),
+                )
+    except Exception as _scg_exc:
+        logger.warning("copilot: sport continuity guard skipped (%s)", _scg_exc)
+
+    # Phase 8.4-A.15 — Ownership Stability: lock SPORT + short FU guard BEFORE GA
+    try:
+        if payload is None:
+            from src.brain import get_brain_meta as _gbm_own
+            from src.conversation.ownership_stability import (
+                try_ownership_stability_claim as _own_stab,
+            )
+
+            _stab = _own_stab(message, ctx, brain=_gbm_own())
+            if isinstance(_stab, dict):
+                payload = _stab
+                intent = str(payload.get("intent") or "follow_up")
+                entities = dict(payload.get("entities") or {})
+                routing_confidence = 0.91
+                skipped_nl = True
+                try:
+                    ctx["sport_pipeline_blocked"] = False
+                except Exception:
+                    pass
+                logger.warning(
+                    "[AUDIT] OwnershipStability: EARLY claim guard=%s",
+                    entities.get("ownership_stability_guard"),
+                )
+    except Exception as _own_stab_exc:
+        logger.warning("copilot: ownership stability skipped (%s)", _own_stab_exc)
+
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
     #   → Recovery → DeepThinking → Focus → HumanInference
@@ -1828,15 +2160,26 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             filter_or_regenerate as _nrf_filter,
         )
 
-        # Continuity / pronoun / advanced FU already claimed → keep sport path / skip GA steal
-        if isinstance(payload, dict) and (
-            (payload.get("entities") or {}).get("continuity_followup")
-            or (payload.get("entities") or {}).get("followup_before_fallback")
-            or (payload.get("entities") or {}).get("pronoun_resolved")
-            or (payload.get("entities") or {}).get("pronoun_continuity")
-            or (payload.get("entities") or {}).get("advanced_fixture_reused")
-            or (payload.get("entities") or {}).get("advanced_football_continuity")
-        ):
+        def _continuity_or_owner_claimed(p: dict | None) -> bool:
+            if not isinstance(p, dict):
+                return False
+            e = p.get("entities") or {}
+            return bool(
+                e.get("continuity_followup")
+                or e.get("followup_before_fallback")
+                or e.get("pronoun_resolved")
+                or e.get("pronoun_continuity")
+                or e.get("advanced_fixture_reused")
+                or e.get("advanced_football_continuity")
+                or e.get("ownership_stability")
+                or e.get("owner_lock")
+                or e.get("sport_continuity_guard")
+                or e.get("ambiguous_context_guard")
+                or e.get("clarification_mode")
+            )
+
+        # Continuity / pronoun / advanced / owner-lock claimed → skip GA steal
+        if _continuity_or_owner_claimed(payload):
             _sport_ok = True
             try:
                 ctx["sport_pipeline_blocked"] = False
@@ -1849,6 +2192,84 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         else:
             _master = _mi_apply(message, ctx)
             _sport_ok = _mi_sport_ok(ctx)
+            # 8.4-A.18 / 8.4-A.15 — block GA steal on sport continuity / owner lock
+            try:
+                from src.conversation.ownership_stability import should_block_ga as _block_ga
+                from src.conversation.sport_continuity_guard import (
+                    should_block_ga_sport as _block_ga_sport,
+                    try_sport_continuity_claim as _scg_force,
+                )
+
+                _ga_sport_block = _block_ga_sport(ctx, message)
+                if _ga_sport_block or _block_ga(
+                    ctx,
+                    message,
+                    master_confidence=float(
+                        getattr(_master, "confidence", 0) or 0
+                    )
+                    if _master
+                    else None,
+                ):
+                    # Prefer sport continuity claim (8.4-A.18); fall back to OS force.
+                    try:
+                        from src.brain import get_brain_meta as _gbm_hold
+                        from src.conversation.ownership_stability import (
+                            force_owner_claim_after_ga_block as _force_claim,
+                            bump as _own_bump,
+                        )
+
+                        _forced = None
+                        if _ga_sport_block:
+                            _forced = _scg_force(
+                                message, ctx, brain=_gbm_hold()
+                            )
+                        if not isinstance(_forced, dict):
+                            _forced = _force_claim(
+                                message,
+                                ctx,
+                                brain=_gbm_hold(),
+                                existing_payload=payload
+                                if isinstance(payload, dict)
+                                else None,
+                            )
+                        if isinstance(_forced, dict):
+                            payload = _forced
+                            intent = str(payload.get("intent") or "follow_up")
+                            entities = dict(payload.get("entities") or {})
+                            routing_confidence = 0.9
+                            skipped_nl = True
+                            _sport_ok = True
+                            _master = None
+                            try:
+                                ctx["sport_pipeline_blocked"] = False
+                                if entities.get("sport_continuity_guard"):
+                                    ctx["sport_continuity_block_ga"] = True
+                                else:
+                                    ctx["ownership_stability_block_ga"] = True
+                            except Exception:
+                                pass
+                            logger.warning(
+                                "[AUDIT] Sport/OS: GA blocked claim owner=%s "
+                                "sport_guard=%s",
+                                entities.get("response_owner"),
+                                bool(entities.get("sport_continuity_guard")),
+                            )
+                        else:
+                            _own_bump(ctx, "ga_block_without_claim")
+                            try:
+                                ctx.pop("ownership_stability_block_ga", None)
+                            except Exception:
+                                pass
+                            logger.warning(
+                                "[AUDIT] OwnershipStability: block skipped after "
+                                "release (no sticky hold)"
+                            )
+                    except Exception as _force_exc:
+                        logger.warning(
+                            "copilot: forced owner claim failed (%s)", _force_exc
+                        )
+            except Exception as _block_exc:
+                logger.warning("copilot: owner steal block skipped (%s)", _block_exc)
         try:
             from src.conversation.pipeline_trace import trace as _ptrace
 
@@ -1862,19 +2283,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
         except Exception:
             pass
         _ga = None
-        _cont_claimed = bool(
-            isinstance(payload, dict)
-            and (
-                (payload.get("entities") or {}).get("continuity_followup")
-                or (payload.get("entities") or {}).get("followup_before_fallback")
-                or (payload.get("entities") or {}).get("pronoun_resolved")
-                or (payload.get("entities") or {}).get("pronoun_continuity")
-                or (payload.get("entities") or {}).get("advanced_fixture_reused")
-                or (payload.get("entities") or {}).get("advanced_football_continuity")
-            )
+        _cont_claimed = _continuity_or_owner_claimed(payload) or bool(
+            ctx.get("ownership_stability_block_ga")
+            or ctx.get("sport_continuity_block_ga")
+            or ctx.get("ambiguous_context_block_ga")
         )
         # Phase 8.2-A — conversation repair BEFORE GeneralAssistant (no Entendi trap)
-        # Phase 8.4-A.8 — never let repair/GA/HCE steal continuity short follow-ups
+        # Phase 8.4-A.8 / 8.4-A.15 — never let repair/GA/HCE steal continuity / owner-lock
         if not _cont_claimed:
             try:
                 from src.conversation.conversation_repair import (
@@ -2435,11 +2850,29 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             except Exception:
                 pass
         elif _own_claim_nat(payload if isinstance(payload, dict) else None):
-            from src.conversation.natural_conversation import (
-                try_natural_conversation as _v452_natural,
-            )
+            # 8.4-A.18 — NC must not steal short sport FUs with active anchor
+            try:
+                from src.conversation.sport_continuity_guard import (
+                    should_block_nc as _scg_block_nc,
+                )
 
-            _nat = await _v452_natural(message, ctx, _conv_prefs)
+                if _scg_block_nc(ctx, message):
+                    logger.warning(
+                        "[AUDIT] SportContinuityGuard: NaturalConversation blocked"
+                    )
+                    _nat = None
+                else:
+                    from src.conversation.natural_conversation import (
+                        try_natural_conversation as _v452_natural,
+                    )
+
+                    _nat = await _v452_natural(message, ctx, _conv_prefs)
+            except Exception:
+                from src.conversation.natural_conversation import (
+                    try_natural_conversation as _v452_natural,
+                )
+
+                _nat = await _v452_natural(message, ctx, _conv_prefs)
             if _nat:
                 payload = _nat
                 # Phase 8.4-A.5 — lock finalized Natural opinion before IntelFallback
@@ -2892,7 +3325,6 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
     if not _sport_ok and payload is None:
         try:
             from src.conversation.general_assistant import (
-                reply_general as _ga_soft,
                 try_general_assistant as _ga_retry,
             )
             from src.conversation.human_conversation_engine import (
@@ -2901,12 +3333,16 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             from src.conversation.conversation_repair import (
                 try_conversation_repair as _repair_force,
             )
+            from src.conversation.dialog_mode import (
+                progress_act_text as _dm_progress,
+                try_dialog_mode_claim as _dm_claim,
+            )
 
             _mi_n = (
                 (_master.intent if _master else None)
                 or str((ctx.get("master_intent") or {}).get("intent") or "GENERAL_CHAT")
             )
-            # Phase 8.2-A — repair before forced GA Entendi
+            # Phase 8.2-A — repair before forced path; P1-B never uses sticky Entendi
             payload = _repair_force(message, ctx)
             if payload is None:
                 payload = _hce_force(
@@ -2917,19 +3353,26 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     prefs=_conv_prefs,
                 )
             if payload is None:
-                payload = _ga_retry(message, _mi_n, ctx) or {
-                    "intent": "general_chat",
+                payload = _ga_retry(message, _mi_n, ctx)
+            if payload is None:
+                payload = _dm_claim(message, ctx, master_intent=_mi_n)
+            if payload is None:
+                _prog = _dm_progress(message)
+                payload = {
+                    "intent": "clarification",
                     "entities": {
-                        "general_assistant": True,
-                        "assistant_kind": "general",
+                        "dialog_mode": "UNKNOWN",
+                        "response_owner": "unknown_policy",
                         "has_analysis": False,
                         "show_header": False,
                         "skip_llm": True,
                         "fallback": True,
-                        "fallback_source": "forced_general_incomplete",
+                        "fallback_source": "forced_dialog_progress",
+                        "p1_dialog_mode": True,
+                        "rewrite_locked": True,
                     },
-                    "executive_summary": _ga_soft(message),
-                    "final_recommendation": _ga_soft(message),
+                    "executive_summary": _prog,
+                    "final_recommendation": _prog,
                     "best_markets": [],
                     "match": None,
                     "is_live": False,
@@ -3274,7 +3717,9 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                             ctx.get("last_match"), ctx.get("last_intent"),
                         )
                         prefer_live = bool(entities.get("is_live")) or _integrity.is_blocked
-                        payload = await _run_analyze(home, away, prefer_live=prefer_live)
+                        payload = await _run_analyze(
+                            home, away, prefer_live=prefer_live, force_refresh=force_refresh
+                        )
                         _still_invalid = (
                             payload.get("fixture_quality") == "INVALID"
                             or (payload.get("entities") or {}).get("entity_invalid") is True
@@ -3391,7 +3836,9 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                     if _lt_pre.is_blocked:
                         payload = _blocked_lt(_lt_pre, brain=brain)
                     else:
-                        payload = await _run_analyze(_lt_home, _lt_away, prefer_live=True)
+                        payload = await _run_analyze(
+                            _lt_home, _lt_away, prefer_live=True, force_refresh=force_refresh
+                        )
                         _lt_post = _assess_lt(
                             _lt_home,
                             _lt_away,
@@ -3588,7 +4035,9 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 if _pre404.is_blocked:
                     payload = _blocked_404(_pre404, brain=brain)
                 else:
-                    payload = await _run_analyze(home_q, away_q, prefer_live=False)
+                    payload = await _run_analyze(
+                        home_q, away_q, prefer_live=False, force_refresh=force_refresh
+                    )
                     _post404 = _assess_404(
                         home_q,
                         away_q,
@@ -4193,8 +4642,8 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _sum_f = str(payload.get("executive_summary") or "")
             _regen = None
             try:
+                from src.conversation.dialog_mode import progress_act_text as _dm_prog
                 from src.conversation.general_assistant import (
-                    reply_general as _ga_regen,
                     reply_math as _ga_math,
                     reply_small_talk as _ga_st,
                     reply_system as _ga_sys,
@@ -4207,9 +4656,13 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 elif _mi_name == "SYSTEM_QUERY":
                     _regen = _ga_sys(message)
                 else:
-                    _regen = _ga_regen(message)
+                    # P1-B — never regenerate with sticky Entendi
+                    _regen = _dm_prog(message)
             except Exception:
-                _regen = "Pode falar comigo normalmente — em que posso ajudar?"
+                _regen = (
+                    "Ainda não peguei o objetivo. "
+                    "Quer analisar um jogo, tirar uma dúvida, ou só conversar?"
+                )
             _clean = _nrf_final(
                 _sum_f,
                 master_intent=_mi_name,
@@ -4274,12 +4727,23 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             _repair_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _repair_note_exc:
             logger.warning("copilot: repair memory note skipped (%s)", _repair_note_exc)
+        # 8.4-A.22 — after hard fiction/jump reset, do not re-bootstrap sport notes
+        _skip_sport_bootstrap = False
+        try:
+            from src.conversation.fiction_context_jump_guard import (
+                should_skip_sport_bootstrap as _fcj_skip,
+            )
+
+            _skip_sport_bootstrap = bool(_fcj_skip(ctx))
+        except Exception:
+            _skip_sport_bootstrap = bool(ctx.get("fiction_context_hard_reset"))
         try:
             from src.conversation.short_conversation_memory import (
                 note_short_memory as _sm_note,
             )
 
-            _sm_note(ctx, message, payload if isinstance(payload, dict) else None)
+            if not _skip_sport_bootstrap:
+                _sm_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _sm_note_exc:
             logger.warning("copilot: short memory note skipped (%s)", _sm_note_exc)
         try:
@@ -4287,7 +4751,12 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 note_continuity as _cont_note,
             )
 
-            _cont_note(ctx, message, payload if isinstance(payload, dict) else None)
+            if not _skip_sport_bootstrap:
+                _cont_note(ctx, message, payload if isinstance(payload, dict) else None)
+            else:
+                logger.warning(
+                    "[AUDIT] Continuity: SKIP note — fiction/hard-jump reset"
+                )
         except Exception as _cont_note_exc:
             logger.warning("copilot: continuity note skipped (%s)", _cont_note_exc)
         try:
@@ -4295,9 +4764,64 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
                 note_pronoun_memory as _pronoun_note,
             )
 
-            _pronoun_note(ctx, message, payload if isinstance(payload, dict) else None)
+            if not _skip_sport_bootstrap:
+                _pronoun_note(ctx, message, payload if isinstance(payload, dict) else None)
         except Exception as _pronoun_note_exc:
             logger.warning("copilot: pronoun memory note skipped (%s)", _pronoun_note_exc)
+        try:
+            from src.conversation.ownership_stability import (
+                note_owner_after_response as _own_note,
+                stamp_payload_observability as _own_stamp,
+            )
+
+            if not _skip_sport_bootstrap:
+                _own_note(ctx, payload if isinstance(payload, dict) else None)
+            payload = _own_stamp(
+                payload if isinstance(payload, dict) else None, ctx
+            )
+        except Exception as _own_note_exc:
+            logger.warning("copilot: ownership stability note skipped (%s)", _own_note_exc)
+        try:
+            from src.conversation.sport_continuity_guard import (
+                note_sport_anchor_after_response as _scg_note,
+            )
+
+            if not _skip_sport_bootstrap:
+                payload = _scg_note(
+                    ctx,
+                    message,
+                    payload if isinstance(payload, dict) else None,
+                )
+            else:
+                logger.warning(
+                    "[AUDIT] SportAnchor: SKIP note — fiction/hard-jump reset"
+                )
+        except Exception as _scg_note_exc:
+            logger.warning("copilot: sport continuity note skipped (%s)", _scg_note_exc)
+        try:
+            from src.conversation.ambiguous_context_guard import (
+                note_after_clarification as _acg_note,
+                stamp_payload_observability as _acg_stamp,
+            )
+
+            _acg_note(ctx, message, payload if isinstance(payload, dict) else None)
+            payload = _acg_stamp(
+                payload if isinstance(payload, dict) else None, ctx
+            )
+        except Exception as _acg_note_exc:
+            logger.warning("copilot: ambiguous context note skipped (%s)", _acg_note_exc)
+        try:
+            from src.conversation.fiction_context_jump_guard import (
+                note_after_response as _fcj_note,
+            )
+
+            payload = _fcj_note(
+                ctx,
+                message,
+                payload if isinstance(payload, dict) else None,
+            )
+        except Exception as _fcj_note_exc:
+            logger.warning("copilot: fiction/jump note skipped (%s)", _fcj_note_exc)
         try:
             from src.conversation.frustration_observability import (
                 note_frustration_observability as _frust_note,
@@ -4412,6 +4936,24 @@ async def copilot(body: CopilotRequest) -> CopilotResponse:
             )
     except Exception as _fe_exc:
         logger.warning("copilot: forensics84a4 finalize skipped (%s)", _fe_exc)
+
+    # P2.5 — stamp SRF / honesty / confidence explainability (presentation only)
+    try:
+        if isinstance(payload, dict):
+            from src.core.entity_resolver_v2 import stamp_bind_on_payload as _ev2_stamp
+            from src.conversation.partial_inference_honesty import (
+                apply_honesty_to_payload as _p25_honesty,
+            )
+            from src.conversation.confidence_explainability import (
+                apply_confidence_explanation as _p25_explain,
+            )
+
+            payload = _ev2_stamp(payload, ctx, message) or payload
+            payload = _p25_honesty(payload, ctx, user_message=message) or payload
+            payload = _p25_explain(payload, ctx) or payload
+            entities = dict(payload.get("entities") or entities or {})
+    except Exception as _p25_exc:
+        logger.warning("copilot: P2.5 enrich skipped (%s)", _p25_exc)
 
     # Phase 7.9-A P0-1 — defensive soft sections (anti-KeyError only)
     try:

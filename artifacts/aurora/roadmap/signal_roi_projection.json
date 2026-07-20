@@ -1,0 +1,119 @@
+{
+  "generated_at": "2026-07-20T14:36:46",
+  "baseline": {
+    "n": 106,
+    "resolve_rate": 0.9623,
+    "premium_rate": 0.2453,
+    "gap_resolved_non_premium": 76,
+    "mean_drs_gap": 40.79,
+    "mean_points_short_of_60": 19.21
+  },
+  "missing_among_gap": {
+    "events": 76,
+    "lineups": 76,
+    "live_momentum": 76,
+    "score": 76,
+    "statistics": 76,
+    "referee": 75,
+    "injuries": 57,
+    "xg": 43,
+    "standings": 26,
+    "odds": 22
+  },
+  "single_fill_if_100pct_coverage_on_gap": {
+    "statistics": {
+      "premium_rate": 0.5377,
+      "delta_pp": 29.25,
+      "newly_premium": 31,
+      "unlocks_50": true,
+      "roi_rank_key": 29.25
+    },
+    "lineups": {
+      "premium_rate": 0.4245,
+      "delta_pp": 17.92,
+      "newly_premium": 19,
+      "unlocks_50": false,
+      "roi_rank_key": 17.92
+    },
+    "events": {
+      "premium_rate": 0.2453,
+      "delta_pp": 0.0,
+      "newly_premium": 0,
+      "unlocks_50": false,
+      "roi_rank_key": 0.0
+    },
+    "live_momentum": {
+      "premium_rate": 0.2453,
+      "delta_pp": 0.0,
+      "newly_premium": 0,
+      "unlocks_50": false,
+      "roi_rank_key": 0.0
+    },
+    "odds": {
+      "premium_rate": 0.2453,
+      "delta_pp": 0.0,
+      "newly_premium": 0,
+      "unlocks_50": false,
+      "roi_rank_key": 0.0
+    },
+    "xg": {
+      "premium_rate": 0.2453,
+      "delta_pp": 0.0,
+      "newly_premium": 0,
+      "unlocks_50": false,
+      "roi_rank_key": 0.0
+    },
+    "score": {
+      "premium_rate": 0.2453,
+      "delta_pp": 0.0,
+      "newly_premium": 0,
+      "unlocks_50": false,
+      "roi_rank_key": 0.0
+    }
+  },
+  "roi_ranking": [
+    {
+      "signal": "statistics",
+      "delta_pp": 29.25,
+      "premium_rate": 0.5377,
+      "newly_premium": 31
+    },
+    {
+      "signal": "lineups",
+      "delta_pp": 17.92,
+      "premium_rate": 0.4245,
+      "newly_premium": 19
+    },
+    {
+      "signal": "events",
+      "delta_pp": 0.0,
+      "premium_rate": 0.2453,
+      "newly_premium": 0
+    },
+    {
+      "signal": "live_momentum",
+      "delta_pp": 0.0,
+      "premium_rate": 0.2453,
+      "newly_premium": 0
+    },
+    {
+      "signal": "odds",
+      "delta_pp": 0.0,
+      "premium_rate": 0.2453,
+      "newly_premium": 0
+    },
+    {
+      "signal": "xg",
+      "delta_pp": 0.0,
+      "premium_rate": 0.2453,
+      "newly_premium": 0
+    },
+    {
+      "signal": "score",
+      "delta_pp": 0.0,
+      "premium_rate": 0.2453,
+      "newly_premium": 0
+    }
+  ],
+  "model_note": "Uplift is a diagnosis simulation using DRS point tables from drs.py; component caps / real API availability may reduce realized gains. Does not modify DRS."
+}

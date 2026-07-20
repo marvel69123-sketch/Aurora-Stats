@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-07-20T14:30:00",
+  "question": "Can Alias Pack B achieve resolve>=85% without regressions?",
+  "verdict": "NOT_REQUIRED_FOR_RESOLVE_GATE",
+  "evidence": {
+    "post_ac_diagnosis": {
+      "n": 107,
+      "resolve_rate": 0.9626,
+      "unresolved": 4,
+      "aliases": 0,
+      "seeds_no_fixture": 3,
+      "fiction_control": 1,
+      "fixture_id_bind_miss": 0
+    },
+    "p3a6_full_cert": {
+      "n": 109,
+      "resolve_rate": 0.7407,
+      "note": "Lower than diagnosis; likely bind fallback under provider pressure (rate_limit_hits=2) + name-path alias failures. Not a stable residual for designing B."
+    },
+    "p3a4_pre_ac": {
+      "aliases_share_of_unresolved": 0.8049,
+      "ucl_uel_alias_failures": 23
+    }
+  },
+  "residual_fixtures_post_ac": [
+    {
+      "home": "Juventus",
+      "away": "Napoli",
+      "class": "sampling_seed_no_fixture",
+      "alias_pack_helps": false
+    },
+    {
+      "home": "Benfica",
+      "away": "Porto",
+      "class": "sampling_seed_no_fixture",
+      "alias_pack_helps": false
+    },
+    {
+      "home": "Ajax",
+      "away": "Plymouth",
+      "class": "sampling_seed_no_fixture",
+      "alias_pack_helps": false
+    },
+    {
+      "home": "Goku",
+      "away": "Naruto",
+      "class": "sampling_control_fiction",
+      "alias_pack_helps": false,
+      "warning": "Already false-positive maps toward Gokulam / Naruto Tokushima — do NOT add fiction aliases"
+    }
+  ],
+  "projections_if_B_implemented": {
+    "on_post_ac_residual": {
+      "resolve_rate": 0.9626,
+      "resolve_delta_pp": 0.0,
+      "premium_rate": 0.2523,
+      "premium_delta_pp": 0.0,
+      "reason": "zero alias residuals remain after A+C"
+    },
+    "on_name_only_fallback_stress": {
+      "resolve_uplift_pp_band": [5, 15],
+      "note": "Only if fixture_id bind fails and traffic falls back to name resolve (UCL/UEL/BR short names)"
+    },
+    "hits_resolve_ge_85_without_B": true,
+    "hits_resolve_ge_85_with_B": true,
+    "thin_premium_ge_50_with_B": false
+  },
+  "highest_roi_aliases_historical_pre_ac": [
+    {"query": "Mjallby AIF", "league": "UCL", "roi": "high_pre_ac_zero_post_ac"},
+    {"query": "Saburtalo", "league": "UCL", "roi": "high_pre_ac_zero_post_ac"},
+    {"query": "Ararat-Armenia", "league": "UCL", "roi": "high_pre_ac_zero_post_ac"},
+    {"query": "Fenerbahçe", "league": "UCL", "roi": "medium_diacritic"},
+    {"query": "Atletico Paranaense", "league": "BR", "roi": "medium_name_only"},
+    {"query": "Chapecoense-sc", "league": "BR", "roi": "medium_name_only"},
+    {"query": "Vitoria", "league": "BR", "roi": "medium_cross_league_risk"},
+    {"query": "Remo", "league": "BR", "roi": "medium_short_name_risk"}
+  ],
+  "risks": {
+    "false_positive": "high_if_fuzzy — Goku→Gokulam already observed",
+    "cross_league_contamination": "medium — Vitoria / Remo / Internacional short tokens",
+    "fiction_leakage": "high_if_unrestricted — control seed must stay unresolved"
+  },
+  "recommendation": "Defer Alias Pack B for resolve-gate. Prefer cert sampling hygiene (exclude fiction; optional exclude stale derby seeds) and harden fixture_id bind under throttle. Revisit B only for conversational name-only UX."
+}

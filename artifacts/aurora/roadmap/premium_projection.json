@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-07-20T03:52:00",
+  "baseline_source": "P3-A.4 diagnosis (n=113)",
+  "baseline": {
+    "n": 113,
+    "premium": 12,
+    "premium_fixture_rate": 0.1062,
+    "p_premium_given_resolved": 0.1667,
+    "note": "Recovered UCL/UEL/BR prematch fixtures likely BELOW current conditional premium — use dual scenarios"
+  },
+  "premium_density_assumptions": {
+    "inherit_current_conditional": 0.1667,
+    "recovered_prematch_thin_conservative": 0.08,
+    "recovered_prematch_thin_pessimistic": 0.0,
+    "rationale": "P3-A.3/A.4 show prematch soft-miss dominant; odds/stats thin on qualifiers"
+  },
+  "interventions": {
+    "A_reuse_fixture_id_hint": {
+      "recovered_conservative": 31.45,
+      "recovered_optimistic": 35.15,
+      "premium_rate_if_inherit_conditional": {
+        "conservative": 0.1526,
+        "optimistic": 0.1581,
+        "delta_pp_conservative": 4.64,
+        "delta_pp_optimistic": 5.19
+      },
+      "premium_rate_if_thin_recovered_0p08": {
+        "conservative": 0.1284,
+        "optimistic": 0.1311,
+        "delta_pp_conservative": 2.22,
+        "delta_pp_optimistic": 2.49
+      },
+      "premium_rate_if_recovered_zero_premium": {
+        "stays": 0.1062,
+        "delta_pp": 0.0
+      },
+      "thin_premium_gate_50": false
+    },
+    "B_ucl_uel_alias_packs": {
+      "recovered_conservative": 16.1,
+      "recovered_optimistic": 20.7,
+      "premium_rate_if_thin_recovered_0p08": {
+        "conservative": 0.1176,
+        "optimistic": 0.1208,
+        "delta_pp_conservative": 1.14,
+        "delta_pp_optimistic": 1.46
+      },
+      "thin_premium_gate_50": false
+    },
+    "C_skip_unnecessary_name_reresolve": {
+      "premium_effect": "none direct — same as A when bundled; may slightly improve signal fill via fewer wasted API calls before budget exhaustion",
+      "thin_premium_gate_50": false
+    },
+    "A_plus_C_primary": {
+      "expected_premium_band": [0.128, 0.158],
+      "expected_delta_pp_band": [2.2, 5.2],
+      "thin_premium_gate_50": false,
+      "verdict": "Resolve gate likely GO; premium/DRS gates remain HOLD"
+    },
+    "A_plus_B_plus_C_stacked": {
+      "expected_premium_band": [0.13, 0.165],
+      "expected_delta_pp_band": [2.5, 5.9],
+      "thin_premium_gate_50": false
+    }
+  },
+  "ceiling_reminder": {
+    "offline_wave3_premium": 0.625,
+    "live_full_cert_premium_p3a3": 0.0893,
+    "lite_top_only_premium": 0.2667,
+    "after_resolve_hardening_expected": "≈13–16% on mixed corpus — signal pack (stats/events/lineups/odds) still required for Thin Premium"
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "generated_at": "2026-07-20T03:38:02",
+  "status": "CERTIFIED_RUN",
+  "mode": "full",
+  "api_key_configured": true,
+  "sample_count": 113,
+  "corpus_planned": 113,
+  "bucket_mix": {
+    "top": 74,
+    "mid": 24,
+    "low": 14,
+    "control": 1,
+    "live_phase": 0,
+    "prematch_phase": 95,
+    "seed_phase": 18
+  },
+  "resolve_rate": 0.5,
+  "t3_t4_live_rate": 0.0893,
+  "pct_drs_ge_60": 0.0893,
+  "premium_fixture_rate": 0.0893,
+  "soft_miss_rate": 0.9115,
+  "drs_live_distribution": {
+    "T4": 10,
+    "T1": 30,
+    "T0": 57,
+    "T2": 16
+  },
+  "mean_drs": 26.45,
+  "mean_analyze_latency_ms": 1512.46,
+  "coverage_means": {
+    "xg": 0.135,
+    "odds": 0.1593,
+    "lineup": 0.0845,
+    "events": 0.0885
+  },
+  "signals_limiting_t3_t4": {
+    "statistics": 46,
+    "events": 46,
+    "lineups": 46,
+    "score": 46,
+    "referee": 46,
+    "live_momentum": 46,
+    "injuries": 34,
+    "odds": 30,
+    "xg": 16,
+    "standings": 3
+  },
+  "certification": {
+    "mode": "full",
+    "resolve_rate_real": 0.5,
+    "t3_t4_live_rate_real": 0.0893,
+    "pct_drs_ge_60_real": 0.0893,
+    "premium_fixture_rate_real": 0.0893,
+    "provider_health": "healthy",
+    "provider_failure_rate": 0.0046,
+    "provider_latency_ms": {
+      "p50": 242.64,
+      "p95": 264.03,
+      "mean": 245.5
+    },
+    "gates": {
+      "resolve_ge_85": false,
+      "drs60_ge_50": false,
+      "premium_ge_50": false,
+      "provider_health_ok": true,
+      "sample_floor": true
+    },
+    "verdict": "HOLD",
+    "go_thin_premium": false,
+    "lite_signal_only": false
+  },
+  "gates": {
+    "resolve_ge_85": false,
+    "drs60_ge_50": false,
+    "premium_ge_50": false,
+    "provider_health_ok": true,
+    "sample_floor": true
+  },
+  "verdict": "HOLD",
+  "throttle": {
+    "current_delay_sec": 0.75,
+    "min_delay_sec": 0.12,
+    "max_delay_sec": 8.0,
+    "consecutive_successes": 0,
+    "consecutive_failures": 2,
+    "rate_limit_hits": 2,
+    "waits": 178,
+    "total_wait_sec": 18.735,
+    "budget": {
+      "max_requests": 900,
+      "used": 431,
+      "remaining": 469,
+      "rejected": 0
+    }
+  }
+}

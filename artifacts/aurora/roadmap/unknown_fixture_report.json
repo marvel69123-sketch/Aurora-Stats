@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-07-20T14:29:11",
+  "status": "DIAGNOSIS_RUN",
+  "definition": "Unknown in P3-A.3 league_coverage = unresolved soft partials whose payload stamps league.name='Unknown' (build_partial_analyze_data). That label shadows corpus league_hint in by_league aggregation.",
+  "unresolved_count": 4,
+  "unknown_label_count": 4,
+  "failure_class_counts": {
+    "sampling_seed_no_fixture": 3,
+    "sampling_control_fiction": 1
+  },
+  "by_phase": {
+    "seed": 4
+  },
+  "by_bucket": {
+    "top": 1,
+    "mid": 1,
+    "low": 1,
+    "control": 1
+  },
+  "by_league_hint": {
+    "Serie A": 1,
+    "Primeira Liga": 1,
+    "Cross / weak": 1,
+    "Fiction": 1
+  },
+  "discovery_id_hint_present_but_unresolved": 0,
+  "cause_axes": {
+    "aliases": 0,
+    "fixture_discovery": 0,
+    "api_gaps": 0,
+    "sampling": 4
+  },
+  "fixtures": [
+    {
+      "home": "Juventus",
+      "away": "Napoli",
+      "league_hint": "Serie A",
+      "phase": "seed",
+      "bucket": "top",
+      "fixture_id_hint": null,
+      "failure_class": "sampling_seed_no_fixture",
+      "detail": "No fixture found between 'Juventus' and 'Napoli' (ids 10019/492) in recent/upcoming/H2H results."
+    },
+    {
+      "home": "Benfica",
+      "away": "Porto",
+      "league_hint": "Primeira Liga",
+      "phase": "seed",
+      "bucket": "mid",
+      "fixture_id_hint": null,
+      "failure_class": "sampling_seed_no_fixture",
+      "detail": "No fixture found between 'Benfica' and 'Porto' (ids 211/20782) in recent/upcoming/H2H results."
+    },
+    {
+      "home": "Ajax",
+      "away": "Plymouth",
+      "league_hint": "Cross / weak",
+      "phase": "seed",
+      "bucket": "low",
+      "fixture_id_hint": null,
+      "failure_class": "sampling_seed_no_fixture",
+      "detail": "No fixture found between 'Ajax' and 'Plymouth' (ids 194/1357) in recent/upcoming/H2H results."
+    },
+    {
+      "home": "Goku",
+      "away": "Naruto",
+      "league_hint": "Fiction",
+      "phase": "seed",
+      "bucket": "control",
+      "fixture_id_hint": null,
+      "failure_class": "sampling_control_fiction",
+      "detail": "No fixture found between 'Gokulam' and 'Naruto Tokushima' (ids 3464/11459) in recent/upcoming/H2H results."
+    }
+  ],
+  "throttle": {
+    "current_delay_sec": 0.12,
+    "min_delay_sec": 0.12,
+    "max_delay_sec": 8.0,
+    "consecutive_successes": 474,
+    "consecutive_failures": 0,
+    "rate_limit_hits": 0,
+    "waits": 128,
+    "total_wait_sec": 13.861,
+    "budget": {
+      "max_requests": 900,
+      "used": 474,
+      "remaining": 426,
+      "rejected": 0
+    }
+  }
+}

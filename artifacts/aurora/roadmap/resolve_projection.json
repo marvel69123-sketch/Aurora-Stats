@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-07-20T03:52:00",
+  "baseline_source": "P3-A.4 diagnosis (n=113)",
+  "baseline": {
+    "n": 113,
+    "resolved": 72,
+    "unresolved": 41,
+    "resolve_rate": 0.6372
+  },
+  "eligible_pools": {
+    "fixture_id_hint_unresolved": 37,
+    "alias_ucl_uel_unresolved": 23,
+    "discovery_name_miss_with_id": 4,
+    "sampling_no_id": 4,
+    "note": "UCL/UEL alias failures almost all also carry fixture_id_hint — overlap with ID path is high"
+  },
+  "interventions": {
+    "A_reuse_fixture_id_hint": {
+      "eligible": 37,
+      "capture_rate_conservative": 0.85,
+      "capture_rate_optimistic": 0.95,
+      "recovered_conservative": 31.45,
+      "recovered_optimistic": 35.15,
+      "resolve_rate_conservative": 0.9155,
+      "resolve_rate_optimistic": 0.9482,
+      "resolve_delta_pp_conservative": 27.83,
+      "resolve_delta_pp_optimistic": 31.1,
+      "hits_resolve_gate_85": true,
+      "effort": "S",
+      "risk": "low",
+      "roi_rank": 1
+    },
+    "B_ucl_uel_alias_packs": {
+      "eligible": 23,
+      "capture_rate_conservative": 0.7,
+      "capture_rate_optimistic": 0.9,
+      "recovered_conservative": 16.1,
+      "recovered_optimistic": 20.7,
+      "resolve_rate_conservative": 0.7796,
+      "resolve_rate_optimistic": 0.8204,
+      "resolve_delta_pp_conservative": 14.24,
+      "resolve_delta_pp_optimistic": 18.32,
+      "hits_resolve_gate_85": false,
+      "effort": "M",
+      "risk": "medium",
+      "roi_rank": 3,
+      "note": "Lower ROI than A for cert corpus because same fixtures are recoverable via fixture_id; higher value for chat/name-only entry"
+    },
+    "C_skip_unnecessary_name_reresolve": {
+      "description": "When fixture_id_hint (or explicit fixture_id) is present, skip team search + H2H pool; fetch /fixtures?id= only",
+      "effect": "Enables A; reduces provider calls and alias false paths",
+      "resolve_rate_delta_vs_A": 0.0,
+      "effort": "S (bundled with A)",
+      "risk": "low",
+      "roi_rank": 1
+    },
+    "A_plus_C_primary": {
+      "resolve_rate_conservative": 0.9155,
+      "resolve_rate_optimistic": 0.9482,
+      "residual_unresolved_expected": "4–8 (mostly sampling seeds/control + rare stale IDs)"
+    },
+    "A_plus_B_plus_C_stacked": {
+      "note": "B only adds beyond A for name-only paths and rare ID fetch failures",
+      "extra_recoveries_beyond_A_conservative": 2,
+      "extra_recoveries_beyond_A_optimistic": 4,
+      "resolve_rate_conservative": 0.9332,
+      "resolve_rate_optimistic": 0.9836,
+      "hits_resolve_gate_85": true
+    }
+  },
+  "p3a3_bridge": {
+    "p3a3_resolve_rate": 0.5,
+    "if_A_applied_on_similar_mix": "expect jump toward ~0.80–0.90 depending on share of rows with fixture_id_hint",
+    "note": "P3-A.3 Unknown n=57 was unresolved soft-partials; most discovered rows had IDs — A would have addressed the bulk"
+  },
+  "recommendation_order": [
+    "A_reuse_fixture_id_hint",
+    "C_skip_unnecessary_name_reresolve",
+    "B_ucl_uel_alias_packs"
+  ]
+}

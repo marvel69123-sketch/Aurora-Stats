@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-07-20T14:29:11",
+  "projections": {
+    "baseline": {
+      "resolve_rate": 0.9626,
+      "premium_fixture_rate": 0.2523,
+      "p_premium_given_resolved": 0.2621,
+      "n": 107,
+      "resolved": 103,
+      "premium": 27,
+      "unresolved": 4
+    },
+    "if_resolve_70": {
+      "target_resolve_rate": 0.7,
+      "resolve_delta_pp": 0.0,
+      "fixtures_to_recover": 0.0,
+      "expected_premium_rate": 0.2523,
+      "premium_delta_pp": 0.0,
+      "assumption": "newly resolved fixtures inherit current P(premium|resolved)=0.2621",
+      "thin_premium_gate_50": false,
+      "resolve_gate_85": false
+    },
+    "if_resolve_80": {
+      "target_resolve_rate": 0.8,
+      "resolve_delta_pp": 0.0,
+      "fixtures_to_recover": 0.0,
+      "expected_premium_rate": 0.2523,
+      "premium_delta_pp": 0.0,
+      "assumption": "newly resolved fixtures inherit current P(premium|resolved)=0.2621",
+      "thin_premium_gate_50": false,
+      "resolve_gate_85": false
+    },
+    "if_resolve_85": {
+      "target_resolve_rate": 0.85,
+      "resolve_delta_pp": 0.0,
+      "fixtures_to_recover": 0.0,
+      "expected_premium_rate": 0.2523,
+      "premium_delta_pp": 0.0,
+      "assumption": "newly resolved fixtures inherit current P(premium|resolved)=0.2621",
+      "thin_premium_gate_50": false,
+      "resolve_gate_85": true
+    },
+    "upper_bound_note": "Premium uplift from resolve alone is capped by signal density; Thin Premium still needs premium≥50% and DRS≥60≥50%.",
+    "pessimistic_premium_if_new_resolves_like_mls_softmiss": {
+      "note": "If recovered Unknowns get 0% premium (like MLS soft-miss block)",
+      "premium_stays_near": 0.2523
+    }
+  },
+  "root_causes_ranked": [
+    {
+      "cause": "sampling",
+      "count": 4,
+      "share_of_unresolved": 1.0
+    },
+    {
+      "cause": "aliases",
+      "count": 0,
+      "share_of_unresolved": 0.0
+    },
+    {
+      "cause": "fixture_discovery",
+      "count": 0,
+      "share_of_unresolved": 0.0
+    },
+    {
+      "cause": "api_gaps",
+      "count": 0,
+      "share_of_unresolved": 0.0
+    }
+  ],
+  "top_failure_classes": {
+    "sampling_seed_no_fixture": 3,
+    "sampling_control_fiction": 1
+  }
+}

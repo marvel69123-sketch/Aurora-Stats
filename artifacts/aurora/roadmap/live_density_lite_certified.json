@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-07-20T03:28:52",
+  "status": "CERTIFIED_RUN",
+  "mode": "lite",
+  "api_key_configured": true,
+  "sample_count": 30,
+  "corpus_planned": 30,
+  "bucket_mix": {
+    "top": 30,
+    "mid": 0,
+    "low": 0,
+    "control": 0,
+    "live_phase": 0,
+    "prematch_phase": 20,
+    "seed_phase": 10
+  },
+  "resolve_rate": 1.0,
+  "t3_t4_live_rate": 0.2667,
+  "pct_drs_ge_60": 0.2667,
+  "premium_fixture_rate": 0.2667,
+  "soft_miss_rate": 0.7333,
+  "drs_live_distribution": {
+    "T4": 8,
+    "T1": 22
+  },
+  "mean_drs": 46.47,
+  "mean_analyze_latency_ms": 2420.04,
+  "coverage_means": {
+    "xg": 0.2833,
+    "odds": 0.0,
+    "lineup": 0.2667,
+    "events": 0.2667
+  },
+  "signals_limiting_t3_t4": {
+    "statistics": 22,
+    "events": 22,
+    "lineups": 22,
+    "score": 22,
+    "referee": 22,
+    "injuries": 22,
+    "odds": 22,
+    "live_momentum": 22,
+    "xg": 20,
+    "standings": 12
+  },
+  "certification": {
+    "mode": "lite",
+    "resolve_rate_real": 1.0,
+    "t3_t4_live_rate_real": 0.2667,
+    "pct_drs_ge_60_real": 0.2667,
+    "premium_fixture_rate_real": 0.2667,
+    "provider_health": "healthy",
+    "provider_failure_rate": 0.0,
+    "provider_latency_ms": {
+      "p50": 243.16,
+      "p95": 321.59,
+      "mean": 254.05
+    },
+    "gates": {
+      "resolve_ge_85": true,
+      "drs60_ge_50": false,
+      "premium_ge_50": false,
+      "provider_health_ok": true,
+      "sample_floor": true
+    },
+    "verdict": "HOLD",
+    "go_thin_premium": false,
+    "lite_signal_only": true
+  },
+  "gates": {
+    "resolve_ge_85": true,
+    "drs60_ge_50": false,
+    "premium_ge_50": false,
+    "provider_health_ok": true,
+    "sample_floor": true
+  },
+  "verdict": "HOLD",
+  "throttle": {
+    "current_delay_sec": 0.25,
+    "min_delay_sec": 0.25,
+    "max_delay_sec": 10.0,
+    "consecutive_successes": 130,
+    "consecutive_failures": 0,
+    "rate_limit_hits": 0,
+    "waits": 78,
+    "total_wait_sec": 12.331,
+    "budget": {
+      "max_requests": 180,
+      "used": 130,
+      "remaining": 50,
+      "rejected": 0
+    }
+  }
+}

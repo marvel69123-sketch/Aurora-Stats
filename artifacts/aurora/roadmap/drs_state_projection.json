@@ -1,0 +1,53 @@
+{
+  "principle": "Do not penalize PREMATCH for absence of live-only signals. Score each state against an expected signal set; missing structural live signals in NS should be N/A, not DRS penalties.",
+  "state_expected_signals": {
+    "PREMATCH": [
+      "calendar",
+      "injuries",
+      "lineups",
+      "odds",
+      "referee",
+      "standings"
+    ],
+    "LIVE": [
+      "events",
+      "lineups",
+      "live_momentum",
+      "odds",
+      "score",
+      "statistics"
+    ],
+    "FINISHED": [
+      "events",
+      "lineups",
+      "odds",
+      "score",
+      "standings",
+      "statistics",
+      "xg"
+    ]
+  },
+  "structural_impossible_in_prematch": [
+    "events",
+    "live_momentum",
+    "score",
+    "statistics",
+    "xg"
+  ],
+  "proposed_rules": [
+    "If status in {NS,TBD}: exclude statistics/events/score/live_momentum/xg from missing penalties and from DRS denominator.",
+    "Prematch premium path: weight lineups + odds + injuries + standings + calendar (+ referee).",
+    "Live premium path: weight statistics + events + live_momentum + score (+ odds).",
+    "Finished premium path: weight statistics + events + xg + score (+ standings).",
+    "Optional: state-conditional tier thresholds (e.g. prematch T3 at calibrated lower bar) — product decision, not implemented here."
+  ],
+  "not_implemented": true,
+  "frozen": [
+    "engines",
+    "DRS",
+    "NMB",
+    "Gateway",
+    "Resolve",
+    "CostProtection"
+  ]
+}

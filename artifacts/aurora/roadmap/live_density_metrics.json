@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-07-20T02:34:49",
+  "wave": "p3a_operational",
+  "status": "BLOCKED_NO_API_KEY",
+  "api_key_configured": false,
+  "mode": "soft_no_key",
+  "note": "Real corpus executed (30 pairs). Metrics reflect missing API_FOOTBALL_KEY, not league coverage. Re-run with key to certify Thin Premium density.",
+  "sample_count": 30,
+  "resolve_rate": 0.0,
+  "soft_miss_rate": 1.0,
+  "drs_live_distribution": {
+    "T0": 30
+  },
+  "t3_t4_live_rate": 0.0,
+  "pct_drs_ge_60": 0.0,
+  "premium_fixture_rate": 0.0,
+  "narrative_usage_rate": 1.0,
+  "calendar_empty_rate": 1.0,
+  "mean_drs": 5.0,
+  "mean_analyze_latency_ms": 10.86,
+  "coverage_means": {
+    "xg": 0.0,
+    "odds": 0.0,
+    "lineup": 0.0,
+    "events": 0.0
+  },
+  "by_league": {
+    "Serie A": {
+      "n": 2,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 2,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    },
+    "Unknown": {
+      "n": 18,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 18,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    },
+    "Premier League": {
+      "n": 4,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 4,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    },
+    "La Liga": {
+      "n": 2,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 2,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    },
+    "Bundesliga": {
+      "n": 1,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 1,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    },
+    "International": {
+      "n": 3,
+      "resolved": 0,
+      "t3_t4": 0,
+      "drs_ge_60": 0,
+      "soft_miss": 3,
+      "resolve_rate": 0.0,
+      "t3_t4_rate": 0.0,
+      "drs_ge_60_rate": 0.0,
+      "soft_miss_rate": 1.0,
+      "mean_drs": 5.0
+    }
+  },
+  "signals_limiting_t3_t4": {}
+}

@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-07-20T15:07:57",
+  "n": 102,
+  "resolve_rate": 0.9902,
+  "premium_rate": 0.2255,
+  "state_counts": {
+    "LIVE": 6,
+    "PREMATCH": 96
+  },
+  "by_state": {
+    "PREMATCH": {
+      "n": 96,
+      "resolved": 96,
+      "resolve_rate": 1.0,
+      "premium": 18,
+      "premium_rate": 0.1875,
+      "p_premium_given_resolved": 0.1875,
+      "mean_drs": 56.92,
+      "coverage_means": {
+        "statistics": 0.0,
+        "lineups": 0.0,
+        "events": 0.0,
+        "injuries": 0.0495,
+        "odds": 0.0729,
+        "standings": 0.0729,
+        "xg": 0.0182,
+        "momentum": 0.0
+      },
+      "missing_among_non_premium": {
+        "statistics": 78,
+        "events": 78,
+        "lineups": 78,
+        "score": 78,
+        "referee": 78,
+        "live_momentum": 78,
+        "injuries": 73,
+        "fixture": 71,
+        "standings": 71,
+        "xg": 71,
+        "odds": 71,
+        "calendar": 71
+      },
+      "status_mix": {
+        "?": 18,
+        "NS": 78
+      }
+    },
+    "LIVE": {
+      "n": 6,
+      "resolved": 5,
+      "resolve_rate": 0.8333,
+      "premium": 5,
+      "premium_rate": 0.8333,
+      "p_premium_given_resolved": 1.0,
+      "mean_drs": 93.4,
+      "coverage_means": {
+        "statistics": 1.0,
+        "lineups": 0.94,
+        "events": 0.8,
+        "injuries": 0.38,
+        "odds": 1.0,
+        "standings": 1.0,
+        "xg": 0.2,
+        "momentum": 1.0
+      },
+      "missing_among_non_premium": {},
+      "status_mix": {
+        "1H": 1,
+        "2H": 5
+      }
+    },
+    "FINISHED": {
+      "n": 0,
+      "resolved": 0,
+      "resolve_rate": 0.0,
+      "premium": 0,
+      "premium_rate": 0.0,
+      "p_premium_given_resolved": null,
+      "mean_drs": null,
+      "coverage_means": {
+        "statistics": null,
+        "lineups": null,
+        "events": null,
+        "injuries": null,
+        "odds": null,
+        "standings": null,
+        "xg": null,
+        "momentum": null
+      },
+      "missing_among_non_premium": {},
+      "status_mix": {}
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-07-20T14:22:00",
+  "comparison": "P3-A.6 A+C fixture_id bind",
+  "before": {
+    "source": "roadmap/_before_p3a6_snapshot.json (P3-A.3 full cert)",
+    "generated_at": "2026-07-20T03:38:02",
+    "sample_count": 113,
+    "premium_fixture_rate": 0.0893,
+    "pct_drs_ge_60": 0.0893,
+    "t3_t4_live_rate": 0.0893,
+    "mean_drs": 26.45,
+    "coverage_means": {
+      "xg": 0.135,
+      "odds": 0.1593,
+      "lineup": 0.0845,
+      "events": 0.0885
+    },
+    "provider_health": "healthy",
+    "provider_failure_rate": 0.0046,
+    "provider_latency_ms": {
+      "p50": 242.64,
+      "p95": 264.03,
+      "mean": 245.5
+    }
+  },
+  "after": {
+    "source": "roadmap/live_density_certified.json",
+    "generated_at": "2026-07-20T14:20:55",
+    "sample_count": 109,
+    "premium_fixture_rate": 0.2407,
+    "pct_drs_ge_60": 0.2407,
+    "t3_t4_live_rate": 0.2407,
+    "mean_drs": 41.7,
+    "provider_health": "healthy",
+    "provider_failure_rate": 0.003,
+    "provider_latency_ms": {
+      "p50": 256.86,
+      "p95": 301.52,
+      "mean": 264.47
+    }
+  },
+  "delta": {
+    "premium_fixture_rate": 0.1514,
+    "premium_delta_pp": 15.14,
+    "pct_drs_ge_60": 0.1514,
+    "t3_t4_live_rate": 0.1514,
+    "mean_drs": 15.25,
+    "provider_failure_rate": -0.0016
+  },
+  "thin_premium_gate_50": false,
+  "regression_count": 0,
+  "note": "Premium rose with resolve + denser live_phase corpus (13 live after vs 0 before); still below Thin Premium 50% gate."
+}

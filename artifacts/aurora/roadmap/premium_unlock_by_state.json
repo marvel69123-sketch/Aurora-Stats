@@ -1,0 +1,199 @@
+{
+  "generated_at": "2026-07-20T15:07:57",
+  "by_state": {
+    "PREMATCH": {
+      "baseline_premium_rate": 0.1875,
+      "single_signal_roi": {
+        "statistics": {
+          "newly_premium": 78,
+          "premium_rate": 1.0,
+          "delta_pp": 81.25
+        },
+        "xg": {
+          "newly_premium": 71,
+          "premium_rate": 0.9271,
+          "delta_pp": 73.96
+        },
+        "lineups": {
+          "newly_premium": 5,
+          "premium_rate": 0.2396,
+          "delta_pp": 5.21
+        },
+        "events": {
+          "newly_premium": 0,
+          "premium_rate": 0.1875,
+          "delta_pp": 0.0
+        },
+        "live_momentum": {
+          "newly_premium": 0,
+          "premium_rate": 0.1875,
+          "delta_pp": 0.0
+        },
+        "odds": {
+          "newly_premium": 0,
+          "premium_rate": 0.1875,
+          "delta_pp": 0.0
+        },
+        "injuries": {
+          "newly_premium": 0,
+          "premium_rate": 0.1875,
+          "delta_pp": 0.0
+        },
+        "standings": {
+          "newly_premium": 0,
+          "premium_rate": 0.1875,
+          "delta_pp": 0.0
+        }
+      },
+      "contextual_expected_pack_fill": {
+        "fill_set": [
+          "calendar",
+          "injuries",
+          "lineups",
+          "odds",
+          "referee",
+          "standings"
+        ],
+        "premium_rate": 1.0,
+        "delta_pp": 81.25,
+        "operational_ceiling_estimate": 1.0
+      },
+      "unconstrained_fill_all_missing": {
+        "premium_rate": 1.0,
+        "note": "Ignores structural prematch emptiness — upper fantasy bound"
+      },
+      "signals_that_move_premium": [
+        "statistics",
+        "xg",
+        "lineups"
+      ]
+    },
+    "LIVE": {
+      "baseline_premium_rate": 0.8333,
+      "single_signal_roi": {
+        "statistics": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "lineups": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "events": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "live_momentum": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "odds": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "xg": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "injuries": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        },
+        "standings": {
+          "newly_premium": 0,
+          "premium_rate": 0.8333,
+          "delta_pp": 0.0
+        }
+      },
+      "contextual_expected_pack_fill": {
+        "fill_set": [
+          "events",
+          "lineups",
+          "live_momentum",
+          "odds",
+          "score",
+          "statistics"
+        ],
+        "premium_rate": 0.8333,
+        "delta_pp": 0.0,
+        "operational_ceiling_estimate": 0.8333
+      },
+      "unconstrained_fill_all_missing": {
+        "premium_rate": 0.8333,
+        "note": "Ignores structural prematch emptiness — upper fantasy bound"
+      },
+      "signals_that_move_premium": []
+    },
+    "FINISHED": {
+      "baseline_premium_rate": 0.0,
+      "single_signal_roi": {
+        "statistics": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "lineups": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "events": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "live_momentum": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "odds": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "xg": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "injuries": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        },
+        "standings": {
+          "newly_premium": 0,
+          "premium_rate": 0.0,
+          "delta_pp": 0.0
+        }
+      },
+      "contextual_expected_pack_fill": {
+        "fill_set": [
+          "events",
+          "lineups",
+          "odds",
+          "score",
+          "standings",
+          "statistics",
+          "xg"
+        ],
+        "premium_rate": 0.0,
+        "delta_pp": 0.0,
+        "operational_ceiling_estimate": 0.0
+      },
+      "unconstrained_fill_all_missing": {
+        "premium_rate": 0.0,
+        "note": "Ignores structural prematch emptiness — upper fantasy bound"
+      },
+      "signals_that_move_premium": []
+    }
+  }
+}

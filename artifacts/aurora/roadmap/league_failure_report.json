@@ -1,0 +1,222 @@
+{
+  "generated_at": "2026-07-20T14:29:11",
+  "ranked_by_resolve_failures": [
+    {
+      "league_hint": "Cross / weak",
+      "n": 1,
+      "resolve_failures": 1,
+      "resolve_rate": 0.0,
+      "failure_rate": 1.0,
+      "top_classes": {
+        "sampling_seed_no_fixture": 1
+      }
+    },
+    {
+      "league_hint": "Fiction",
+      "n": 1,
+      "resolve_failures": 1,
+      "resolve_rate": 0.0,
+      "failure_rate": 1.0,
+      "top_classes": {
+        "sampling_control_fiction": 1
+      }
+    },
+    {
+      "league_hint": "Primeira Liga",
+      "n": 1,
+      "resolve_failures": 1,
+      "resolve_rate": 0.0,
+      "failure_rate": 1.0,
+      "top_classes": {
+        "sampling_seed_no_fixture": 1
+      }
+    },
+    {
+      "league_hint": "Serie A",
+      "n": 9,
+      "resolve_failures": 1,
+      "resolve_rate": 0.8889,
+      "failure_rate": 0.1111,
+      "top_classes": {
+        "sampling_seed_no_fixture": 1
+      }
+    },
+    {
+      "league_hint": "1. Liga",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "A Lyga",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Allsvenskan",
+      "n": 5,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "BR Serie A",
+      "n": 4,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Bundesliga",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "EPL",
+      "n": 4,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "First League",
+      "n": 2,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Friendlies Clubs",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "International",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "K League 1",
+      "n": 8,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "La Liga",
+      "n": 2,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Liga MX",
+      "n": 5,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Liga Profesional Argentina",
+      "n": 2,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Ligue 1",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Major League Soccer",
+      "n": 15,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Premier League",
+      "n": 15,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Segunda División",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Superettan",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "UEFA Champions League",
+      "n": 14,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "UEFA Europa League",
+      "n": 9,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Veikkausliiga",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    },
+    {
+      "league_hint": "Virsliga",
+      "n": 1,
+      "resolve_failures": 0,
+      "resolve_rate": 1.0,
+      "failure_rate": 0.0,
+      "top_classes": {}
+    }
+  ],
+  "note": "Ranked by corpus league_hint (sampling origin), not payload league.name='Unknown'."
+}

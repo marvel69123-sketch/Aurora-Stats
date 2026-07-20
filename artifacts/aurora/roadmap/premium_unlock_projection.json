@@ -1,0 +1,244 @@
+{
+  "generated_at": "2026-07-20T14:36:46",
+  "baseline_premium_rate": 0.2453,
+  "target": 0.5,
+  "combos": {
+    "stats_only": {
+      "fill": [
+        "statistics"
+      ],
+      "newly_premium": 31,
+      "still_gap": 45,
+      "premium_rate": 0.5377,
+      "premium_delta_pp": 29.25,
+      "unlocks_50": true
+    },
+    "stats_lineups": {
+      "fill": [
+        "statistics",
+        "lineups"
+      ],
+      "newly_premium": 54,
+      "still_gap": 22,
+      "premium_rate": 0.7547,
+      "premium_delta_pp": 50.94,
+      "unlocks_50": true
+    },
+    "stats_events": {
+      "fill": [
+        "statistics",
+        "events"
+      ],
+      "newly_premium": 32,
+      "still_gap": 44,
+      "premium_rate": 0.5472,
+      "premium_delta_pp": 30.19,
+      "unlocks_50": true
+    },
+    "stats_events_lineups": {
+      "fill": [
+        "statistics",
+        "events",
+        "lineups"
+      ],
+      "newly_premium": 73,
+      "still_gap": 3,
+      "premium_rate": 0.934,
+      "premium_delta_pp": 68.87,
+      "unlocks_50": true
+    },
+    "match_state_pack": {
+      "fill": [
+        "statistics",
+        "events",
+        "lineups",
+        "live_momentum",
+        "score"
+      ],
+      "newly_premium": 76,
+      "still_gap": 0,
+      "premium_rate": 0.9623,
+      "premium_delta_pp": 71.7,
+      "unlocks_50": true
+    },
+    "match_state_plus_odds": {
+      "fill": [
+        "statistics",
+        "events",
+        "lineups",
+        "live_momentum",
+        "score",
+        "odds"
+      ],
+      "newly_premium": 76,
+      "still_gap": 0,
+      "premium_rate": 0.9623,
+      "premium_delta_pp": 71.7,
+      "unlocks_50": true
+    },
+    "stats_events_momentum": {
+      "fill": [
+        "statistics",
+        "events",
+        "live_momentum"
+      ],
+      "newly_premium": 54,
+      "still_gap": 22,
+      "premium_rate": 0.7547,
+      "premium_delta_pp": 50.94,
+      "unlocks_50": true
+    },
+    "lineups_odds_calendar": {
+      "fill": [
+        "lineups",
+        "odds",
+        "calendar"
+      ],
+      "newly_premium": 50,
+      "still_gap": 26,
+      "premium_rate": 0.717,
+      "premium_delta_pp": 47.17,
+      "unlocks_50": true
+    },
+    "full_core_wave2": {
+      "fill": [
+        "statistics",
+        "xg",
+        "events",
+        "live_momentum",
+        "lineups"
+      ],
+      "newly_premium": 76,
+      "still_gap": 0,
+      "premium_rate": 0.9623,
+      "premium_delta_pp": 71.7,
+      "unlocks_50": true
+    }
+  },
+  "minimal_combo_for_50": {
+    "fill": [
+      "statistics"
+    ],
+    "newly_premium": 31,
+    "still_gap": 45,
+    "premium_rate": 0.5377,
+    "premium_delta_pp": 29.25,
+    "unlocks_50": true
+  },
+  "dependencies": {
+    "co_missing_top": [
+      {
+        "pair": [
+          "events",
+          "lineups"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "events",
+          "live_momentum"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "events",
+          "score"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "events",
+          "statistics"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "lineups",
+          "live_momentum"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "lineups",
+          "score"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "lineups",
+          "statistics"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "live_momentum",
+          "score"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "live_momentum",
+          "statistics"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "score",
+          "statistics"
+        ],
+        "count": 76
+      },
+      {
+        "pair": [
+          "events",
+          "referee"
+        ],
+        "count": 75
+      },
+      {
+        "pair": [
+          "lineups",
+          "referee"
+        ],
+        "count": 75
+      },
+      {
+        "pair": [
+          "live_momentum",
+          "referee"
+        ],
+        "count": 75
+      },
+      {
+        "pair": [
+          "referee",
+          "score"
+        ],
+        "count": 75
+      },
+      {
+        "pair": [
+          "referee",
+          "statistics"
+        ],
+        "count": 75
+      }
+    ],
+    "notes": [
+      "statistics/events/score/lineups/referee/live_momentum often co-miss on prematch (API empty until live/post)",
+      "live_momentum DRS credit depends on h2h absence (up to 6 vs +2)",
+      "wave2 synergy requires xg+events(+momentum)",
+      "wave3 cluster bonuses: calendar+lineups; odds+lineups+calendar",
+      "live_or_finished core +8 requires non-NS status — prematch ceiling is structural"
+    ]
+  }
+}
