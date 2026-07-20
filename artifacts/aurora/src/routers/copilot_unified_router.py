@@ -3501,6 +3501,37 @@ async def _copilot_inner(
         intent = intent if intent and intent != "unknown" else "general_chat"
         logger.warning("[AUDIT] MasterIntent: NL routing blocked (non-sport)")
 
+    # P2.5-S — sport understanding recall after NL: never leave real sport as unknown
+    try:
+        from src.conversation.sport_understanding import (
+            enrich_sport_entities as _su_enrich,
+            is_fixture_pair_ask as _su_fx,
+            should_force_sport_mode as _su_force,
+            stamp_sport_understanding as _su_stamp,
+        )
+
+        _mi_s = (
+            (_master.intent if _master else None)
+            or str((ctx.get("master_intent") or {}).get("intent") or "")
+        )
+        if _sport_ok and _su_force(message, ctx, master_intent=_mi_s):
+            _su_stamp(ctx, message, master_intent=_mi_s, forced=True)
+            entities = _su_enrich(entities if isinstance(entities, dict) else {}, message)
+            if _su_fx(message) and intent in {None, "", "unknown", "general_chat", "clarification"}:
+                intent = "analyze_match"
+                routing_confidence = max(float(routing_confidence or 0), 0.86)
+                logger.warning("[AUDIT] P25SportUnderstanding: forced analyze_match")
+            elif intent in {None, "", "unknown"}:
+                # Team-form / sport chat — keep sport-ok path; stamp mode for harness
+                intent = intent if intent and intent != "unknown" else "conversation_assist"
+                routing_confidence = max(float(routing_confidence or 0), 0.84)
+                logger.warning(
+                    "[AUDIT] P25SportUnderstanding: stamped SPORT on intent=%s",
+                    intent,
+                )
+    except Exception as _su_exc:
+        logger.warning("copilot: P25 sport understanding skipped (%s)", _su_exc)
+
     logger.info(
         "copilot request_id=%s session=%s intent=%s conf=%.3f entities=%s "
         "message=%r skipped_nl=%s",
@@ -5009,6 +5040,39 @@ async def _copilot_inner(
         payload = _cont_restore(payload) or payload
     except Exception:
         pass
+
+    # P2.5-S — ensure sport-owned payloads expose dialog_mode=SPORT (not null/UNKNOWN)
+    try:
+        if isinstance(payload, dict):
+            from src.conversation.sport_understanding import (
+                enrich_sport_entities as _su_final,
+                should_force_sport_mode as _su_force_final,
+            )
+
+            _ents_f = dict(payload.get("entities") or {})
+            _owner_f = str(_ents_f.get("turn_owner") or "").upper()
+            _intent_f = str(payload.get("intent") or intent or "")
+            _mi_f = (
+                (_master.intent if _master else None)
+                or str((ctx.get("master_intent") or {}).get("intent") or "")
+            )
+            _sport_owned = (
+                _owner_f == "SPORT"
+                or _intent_f in {"analyze_match", "follow_up", "live_team_analysis"}
+                or _ents_f.get("p25_sport_understanding")
+                or _ents_f.get("team_opinion_path")
+                or _su_force_final(message, ctx, master_intent=_mi_f)
+            )
+            if _sport_owned and str(_ents_f.get("dialog_mode") or "").upper() not in {
+                "FICTION",
+                "REPAIR",
+                "IDENTITY",
+            }:
+                _ents_f = _su_final(_ents_f, message)
+                payload["entities"] = _ents_f
+                entities = _ents_f
+    except Exception as _su_final_exc:
+        logger.warning("copilot: P25 final sport stamp skipped (%s)", _su_final_exc)
 
     return CopilotResponse(
         intent             = payload["intent"],

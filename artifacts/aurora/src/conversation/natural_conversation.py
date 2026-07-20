@@ -390,14 +390,28 @@ def detect_natural_intent(message: str) -> dict[str, Any] | None:
         return {"kind": "historical_copa"}
 
     # Team opinion / football chat — single club, no "x"
+    # P2.5-S — also "tá bem / ta bem / como tá" form asks
     if not re.search(r"\b\w+\s+[xX]\s+\w+\b", message or ""):
         if re.search(
             r"\b(o\s+que\s+(?:voce\s+)?acha\s+d[oe]|oq\s+acha\s+d[oe]|"
-            r"o\s+que\s+achou\s+d[oe]|como\s+(?:esta|vai)\s+o|"
+            r"o\s+que\s+achou\s+d[oe]|como\s+(?:esta|vai|ta|tá)\s+o|"
+            r"como\s+(?:esta|vai|ta|tá)\b|"
+            r"(?:ta|tá|esta|está|vai)\s+bem\b|"
             r"e\s+ai\s+(?:do|de)|fala\s+(?:um\s+pouco\s+)?(?:do|sobre)\s+|"
             r"opiniao\s+sobre|momento\s+(?:atual\s+)?d[oe])\b",
             folded,
         ):
+            team = _extract_one_team(folded)
+            if team:
+                return {
+                    "kind": "team_opinion",
+                    "team": team,
+                    "moment": bool(
+                        re.search(r"\b(agora|agr|momento|atualmente)\b", folded)
+                    ),
+                }
+        # "o Bahia tá bem" / "Corinthians ta bem agora" without leading como
+        if re.search(r"\b(?:ta|tá|esta|está|vai)\s+bem\b", folded):
             team = _extract_one_team(folded)
             if team:
                 return {
@@ -891,6 +905,10 @@ async def try_natural_conversation(
             family = "team_opinion"
             entities["team"] = team
             entities["opinion_time"] = True
+            # P2.5-S — mark sport pipeline ownership (not UNKNOWN/SMALL_TALK)
+            entities["dialog_mode"] = "SPORT"
+            entities["p25_sport_understanding"] = True
+            entities["sport_ask_shape"] = "team_form"
             entities["response_type_before_finalize"] = entities.get("response_type")
             if detected.get("recent_match"):
                 entities["recent_match"] = True

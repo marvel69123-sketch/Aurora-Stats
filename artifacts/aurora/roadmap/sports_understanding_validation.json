@@ -1,0 +1,92 @@
+{
+  "version": "P2.5-S",
+  "generated_at": "2026-07-20T23:08:12.210277+00:00",
+  "sport_cases": 5,
+  "sport_bad_dialog_mode_count": 0,
+  "sport_dialog_modes": {
+    "SPORT": 5
+  },
+  "sport_intents": {
+    "conversation_assist": 3,
+    "follow_up": 2
+  },
+  "target_met": true,
+  "fiction_modes": [
+    "FICTION",
+    "FICTION"
+  ],
+  "rows": [
+    {
+      "kind": "form",
+      "user": "Aurora, o Bahia tá bem?!!!",
+      "intent": "conversation_assist",
+      "dialog_mode": "SPORT",
+      "p25": true,
+      "turn_owner": "SPORT",
+      "team": "Bahia"
+    },
+    {
+      "kind": "form",
+      "user": "olha, o Corinthians tá bem? agora",
+      "intent": "conversation_assist",
+      "dialog_mode": "SPORT",
+      "p25": true,
+      "turn_owner": "SPORT",
+      "team": "Corinthians"
+    },
+    {
+      "kind": "form",
+      "user": "então, o Botafogo tá bem? agora",
+      "intent": "conversation_assist",
+      "dialog_mode": "SPORT",
+      "p25": true,
+      "turn_owner": "SPORT",
+      "team": "Botafogo"
+    },
+    {
+      "kind": "fixture",
+      "user": "Flamengo x Palmeiras",
+      "intent": "follow_up",
+      "dialog_mode": "SPORT",
+      "p25": true,
+      "turn_owner": "SPORT",
+      "team": "Flamengo"
+    },
+    {
+      "kind": "fixture",
+      "user": "analisar Santos x Bahia",
+      "intent": "follow_up",
+      "dialog_mode": "SPORT",
+      "p25": true,
+      "turn_owner": "SPORT",
+      "team": "Santos"
+    },
+    {
+      "kind": "small",
+      "user": "oi",
+      "intent": "small_talk",
+      "dialog_mode": null,
+      "p25": false,
+      "turn_owner": "GA",
+      "team": null
+    },
+    {
+      "kind": "fiction",
+      "user": "Goku vs Naruto quem ganha?",
+      "intent": "clarification",
+      "dialog_mode": "FICTION",
+      "p25": false,
+      "turn_owner": "FICTION",
+      "team": null
+    },
+    {
+      "kind": "fiction",
+      "user": "Batman vs Superman",
+      "intent": "clarification",
+      "dialog_mode": "FICTION",
+      "p25": false,
+      "turn_owner": "FICTION",
+      "team": null
+    }
+  ]
+}

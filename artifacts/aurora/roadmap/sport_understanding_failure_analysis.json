@@ -1,0 +1,1515 @@
+{
+  "version": "sport_understanding_failure_analysis",
+  "generated_at": "2026-07-20T22:52:08.991871+00:00",
+  "mode": "ANALYSIS_ONLY",
+  "corpus": {
+    "sessions": 81,
+    "sport_turns_analyzed": 3979,
+    "sport_turns_with_any_fail_tag": 2095,
+    "fail_tag_rate": 0.5265,
+    "mean_understanding_confidence_sport": 6.776,
+    "low_uc_rate_le4": 0.0309,
+    "destroy_loop_taxonomy": {
+      "counts": {
+        "context_confusion": 2517,
+        "over_asking": 485,
+        "greeting_reset": 149,
+        "clarification_loop": 11
+      },
+      "total_loop_events": 3162,
+      "share": {
+        "context_confusion": 0.796,
+        "over_asking": 0.1534,
+        "greeting_reset": 0.0471,
+        "clarification_loop": 0.0035
+      }
+    },
+    "conversation_failures_sportish": 438,
+    "conversation_failure_reasons_sportish": {
+      "loop": 250,
+      "low_perceived_intelligence": 90,
+      "invention": 74,
+      "false_memory_accepted": 63,
+      "memory_loss": 51,
+      "low_continuity": 49
+    }
+  },
+  "principal_failure_tag": "intent_misroute_away_from_analyze_match",
+  "failure_tags_ranked": [
+    {
+      "tag": "soft_assume_template",
+      "count": 454,
+      "share_of_tagged_events": 0.1465
+    },
+    {
+      "tag": "fiction_false_positive",
+      "count": 427,
+      "share_of_tagged_events": 0.1378
+    },
+    {
+      "tag": "hollow_uncommitted_instead_of_sport",
+      "count": 386,
+      "share_of_tagged_events": 0.1246
+    },
+    {
+      "tag": "anchor_without_sport_answer",
+      "count": 346,
+      "share_of_tagged_events": 0.1116
+    },
+    {
+      "tag": "loop_flag",
+      "count": 254,
+      "share_of_tagged_events": 0.082
+    },
+    {
+      "tag": "harness:loop",
+      "count": 254,
+      "share_of_tagged_events": 0.082
+    },
+    {
+      "tag": "over_ask_instead_of_bind",
+      "count": 238,
+      "share_of_tagged_events": 0.0768
+    },
+    {
+      "tag": "harness:low_perceived_intelligence",
+      "count": 141,
+      "share_of_tagged_events": 0.0455
+    },
+    {
+      "tag": "invention_flag",
+      "count": 124,
+      "share_of_tagged_events": 0.04
+    },
+    {
+      "tag": "harness:invention",
+      "count": 124,
+      "share_of_tagged_events": 0.04
+    },
+    {
+      "tag": "low_understanding_confidence",
+      "count": 123,
+      "share_of_tagged_events": 0.0397
+    },
+    {
+      "tag": "harness:memory_loss",
+      "count": 78,
+      "share_of_tagged_events": 0.0252
+    },
+    {
+      "tag": "harness:low_continuity",
+      "count": 76,
+      "share_of_tagged_events": 0.0245
+    },
+    {
+      "tag": "harness:false_memory_accepted",
+      "count": 73,
+      "share_of_tagged_events": 0.0236
+    },
+    {
+      "tag": "identity_deflection",
+      "count": 1,
+      "share_of_tagged_events": 0.0003
+    }
+  ],
+  "question_shapes": {
+    "sport_chat_other": 1214,
+    "live_or_score": 561,
+    "ultra_short_sport": 1084,
+    "fixture_pair": 634,
+    "market_ask": 310,
+    "pronoun_followup": 176
+  },
+  "failures_by_shape": {
+    "sport_chat_other": {
+      "soft_assume_template": 242,
+      "anchor_without_sport_answer": 152,
+      "over_ask_instead_of_bind": 138,
+      "invention_flag": 110,
+      "harness:invention": 110,
+      "harness:low_perceived_intelligence": 110,
+      "harness:memory_loss": 76,
+      "harness:low_continuity": 74
+    },
+    "live_or_score": {
+      "soft_assume_template": 89,
+      "hollow_uncommitted_instead_of_sport": 41,
+      "over_ask_instead_of_bind": 36,
+      "loop_flag": 30,
+      "harness:loop": 30,
+      "anchor_without_sport_answer": 23,
+      "invention_flag": 10,
+      "harness:invention": 10
+    },
+    "ultra_short_sport": {
+      "hollow_uncommitted_instead_of_sport": 235,
+      "anchor_without_sport_answer": 152,
+      "loop_flag": 35,
+      "harness:loop": 35,
+      "soft_assume_template": 27,
+      "over_ask_instead_of_bind": 22,
+      "harness:low_perceived_intelligence": 5,
+      "invention_flag": 4
+    },
+    "fixture_pair": {
+      "fiction_false_positive": 357,
+      "loop_flag": 110,
+      "harness:loop": 110,
+      "low_understanding_confidence": 21,
+      "hollow_uncommitted_instead_of_sport": 20,
+      "anchor_without_sport_answer": 19,
+      "over_ask_instead_of_bind": 16,
+      "harness:low_perceived_intelligence": 15
+    },
+    "market_ask": {
+      "soft_assume_template": 86,
+      "over_ask_instead_of_bind": 26,
+      "hollow_uncommitted_instead_of_sport": 11,
+      "loop_flag": 7,
+      "harness:loop": 7
+    },
+    "pronoun_followup": {
+      "low_understanding_confidence": 28,
+      "loop_flag": 28,
+      "harness:loop": 28,
+      "hollow_uncommitted_instead_of_sport": 21,
+      "soft_assume_template": 8,
+      "harness:low_perceived_intelligence": 1
+    }
+  },
+  "failures_by_profile": {
+    "irritado": {
+      "soft_assume_template": 27,
+      "fiction_false_positive": 14,
+      "anchor_without_sport_answer": 7,
+      "low_understanding_confidence": 7,
+      "harness:false_memory_accepted": 7,
+      "hollow_uncommitted_instead_of_sport": 6,
+      "loop_flag": 1,
+      "harness:loop": 1
+    },
+    "emocional": {
+      "soft_assume_template": 15,
+      "fiction_false_positive": 14,
+      "harness:memory_loss": 6,
+      "harness:low_continuity": 6,
+      "anchor_without_sport_answer": 6,
+      "over_ask_instead_of_bind": 5,
+      "loop_flag": 4,
+      "harness:loop": 4
+    },
+    "caotico": {
+      "fiction_false_positive": 264,
+      "loop_flag": 80,
+      "harness:loop": 80,
+      "anchor_without_sport_answer": 27,
+      "hollow_uncommitted_instead_of_sport": 27,
+      "low_understanding_confidence": 20,
+      "harness:false_memory_accepted": 20,
+      "soft_assume_template": 19
+    },
+    "esportivo": {
+      "hollow_uncommitted_instead_of_sport": 280,
+      "anchor_without_sport_answer": 231,
+      "soft_assume_template": 187,
+      "over_ask_instead_of_bind": 127,
+      "loop_flag": 98,
+      "harness:loop": 98,
+      "harness:memory_loss": 52,
+      "harness:low_continuity": 50
+    },
+    "exigente": {
+      "harness:low_perceived_intelligence": 98,
+      "soft_assume_template": 95,
+      "invention_flag": 83,
+      "harness:invention": 83,
+      "over_ask_instead_of_bind": 56,
+      "anchor_without_sport_answer": 32,
+      "fiction_false_positive": 27,
+      "loop_flag": 26
+    },
+    "power_user": {
+      "soft_assume_template": 91,
+      "hollow_uncommitted_instead_of_sport": 46,
+      "loop_flag": 44,
+      "harness:loop": 44,
+      "over_ask_instead_of_bind": 39,
+      "anchor_without_sport_answer": 35,
+      "low_understanding_confidence": 31,
+      "fiction_false_positive": 25
+    },
+    "chatgpt_user": {
+      "fiction_false_positive": 37,
+      "low_understanding_confidence": 12,
+      "harness:false_memory_accepted": 12,
+      "soft_assume_template": 12,
+      "anchor_without_sport_answer": 6,
+      "harness:memory_loss": 4,
+      "harness:low_continuity": 4,
+      "hollow_uncommitted_instead_of_sport": 3
+    },
+    "casual": {
+      "fiction_false_positive": 24,
+      "soft_assume_template": 8,
+      "low_understanding_confidence": 3,
+      "harness:false_memory_accepted": 3,
+      "anchor_without_sport_answer": 2
+    }
+  },
+  "intent_on_sport_turns": {
+    "clarification": 1884,
+    "conversation_assist": 884,
+    "conversation_repair": 780,
+    "follow_up": 210,
+    "small_talk": 182,
+    "analyze_match": 27,
+    "emotional": 12
+  },
+  "dialog_mode_on_sport_turns": {
+    "UNKNOWN": 1033,
+    "SMALL_TALK": 940,
+    "?": 741,
+    "REPAIR": 584,
+    "FICTION": 579,
+    "CLARIFICATION": 102
+  },
+  "esportivo_sessions": [
+    {
+      "run_id": "esportivo_L10_1012_c65b27fa",
+      "length": 10,
+      "loop_rate": 0.2,
+      "break_turn": 1,
+      "failure_count": 3,
+      "understanding_mean": 6.55
+    },
+    {
+      "run_id": "esportivo_L10_1014_5dac0bd4",
+      "length": 10,
+      "loop_rate": 0.2,
+      "break_turn": 1,
+      "failure_count": 3,
+      "understanding_mean": 6.45
+    },
+    {
+      "run_id": "esportivo_L50_1035_6c92d40f",
+      "length": 50,
+      "loop_rate": 0.1,
+      "break_turn": 1,
+      "failure_count": 7,
+      "understanding_mean": 6.76
+    },
+    {
+      "run_id": "esportivo_L50_1036_0080d941",
+      "length": 50,
+      "loop_rate": 0.1,
+      "break_turn": 1,
+      "failure_count": 7,
+      "understanding_mean": 6.69
+    },
+    {
+      "run_id": "esportivo_L200_1058_c7ff6db1",
+      "length": 200,
+      "loop_rate": 0.1,
+      "break_turn": 1,
+      "failure_count": 26,
+      "understanding_mean": 6.697
+    },
+    {
+      "run_id": "esportivo_L100_1049_e0121c86",
+      "length": 100,
+      "loop_rate": 0.06,
+      "break_turn": 7,
+      "failure_count": 8,
+      "understanding_mean": 6.835
+    },
+    {
+      "run_id": "esportivo_L500_1067_1a5a410d",
+      "length": 500,
+      "loop_rate": 0.048,
+      "break_turn": 1,
+      "failure_count": 49,
+      "understanding_mean": 6.881
+    },
+    {
+      "run_id": "esportivo_L1000_1076_bbcc2414",
+      "length": 1000,
+      "loop_rate": 0.034,
+      "break_turn": 1,
+      "failure_count": 97,
+      "understanding_mean": 6.883
+    },
+    {
+      "run_id": "esportivo_L10_1013_b76ca8b0",
+      "length": 10,
+      "loop_rate": 0.0,
+      "break_turn": 1,
+      "failure_count": 1,
+      "understanding_mean": 6.9
+    }
+  ],
+  "examples": {
+    "soft_assume_template": [
+      {
+        "run_id": "irritado_L10_1003_efece322",
+        "profile": "irritado",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "Aurora, o Bahia tá bem?!!!",
+        "aurora": "Vou assumir o fio da conversa pra gente avançar. |  | Entendi que o pedido era: “Aurora, o Bahia tá bem?!!!”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "irritado_L10_1004_e19b705f",
+        "profile": "irritado",
+        "length": 10,
+        "turn": 1,
+        "shape": "live_or_score",
+        "intent": "small_talk",
+        "dialog_mode": "UNKNOWN",
+        "user": "olha, o Corinthians tá bem? agora",
+        "aurora": "Vou assumir o fio da conversa pra gente avançar. |  | Entendi que o pedido era: “como está o Corinthians atualmente?”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "irritado_L10_1005_a58aead4",
+        "profile": "irritado",
+        "length": 10,
+        "turn": 1,
+        "shape": "live_or_score",
+        "intent": "small_talk",
+        "dialog_mode": "UNKNOWN",
+        "user": "então, o Botafogo tá bem? agora",
+        "aurora": "Vou assumir o fio da conversa pra gente avançar. |  | Entendi que o pedido era: “como está o Botafogo atualmente?”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1010_c27c6548",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 8,
+        "shape": "market_ask",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "antes você confirmou odd 1.80",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Entendi que o pedido era: “antes você confirmou odd 1.80”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1011_2e768dea",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 6,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_assist",
+        "dialog_mode": "SMALL_TALK",
+        "user": "sao paulo hj",
+        "aurora": "Seguindo do ponto anterior. |  | Entendi que o pedido era: “qual a capital da França? brincadeira, volta pro futebol”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L10_1013_b76ca8b0",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 7,
+        "shape": "market_ask",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "me dá a odd exata do Fortaleza agora",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Entendi que o pedido era: “me dá a odd exata do Fortaleza agora”. Vou responder em cima disso. Se não for exatamente, me corrige em uma frase sem lista de opções.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      }
+    ],
+    "fiction_false_positive": [
+      {
+        "run_id": "emocional_L10_1007_8e3cc452",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 3,
+        "shape": "fixture_pair",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "Goku vs Naruto quem ganha?",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1009_9643c768",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 1,
+        "shape": "fixture_pair",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "primeiro produtividade, depois Atlético-MG, aí Batman vs Superman",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1010_c27c6548",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 1,
+        "shape": "fixture_pair",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "olha, primeiro viagem, depois Corinthians, aí Batman vs Superman agora",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1010_c27c6548",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 6,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "primeiro produtividade, depois São Paulo, aí e se o Pikachu jogasse no Flamengo",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brinca",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1010_c27c6548",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 7,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "primeiro viagem, depois Corinthians, aí e se o Pikachu jogasse no Flamengo sério",
+        "aurora": "Outro formato, mesmo assunto: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeir",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "caotico_L10_1011_2e768dea",
+        "profile": "caotico",
+        "length": 10,
+        "turn": 1,
+        "shape": "fixture_pair",
+        "intent": "clarification",
+        "dialog_mode": "FICTION",
+        "user": "olha, Goku vs Naruto quem ganha e depois me fala do Flamengo",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      }
+    ],
+    "hollow_uncommitted_instead_of_sport": [
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 8,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "já falei",
+        "aurora": "Mudando o formato: sem status de compromisso de novo. Me diga só o assunto em uma linha e eu entro.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 9,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "já falei",
+        "aurora": "Modo aberto sem checklist e sem travar no fio antigo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 13,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "para de repetir",
+        "aurora": "Aqui sem compromisso preso. Manda o próximo pedido quando estiver pronto.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 20,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "preste atenção",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Sem perguntar de novo. |  | Mudando o formato: sem status de compromisso de novo. Me diga só o assunto em uma linha e eu entro.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 25,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "já falei",
+        "aurora": "Sem o mesmo bloco: |  | Sem perguntar de novo. |  | Mudando o formato: sem status de compromisso de novo. Me diga só o assunto em uma linha e eu entro.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 32,
+        "shape": "ultra_short_sport",
+        "intent": "clarification",
+        "dialog_mode": "CLARIFICATION",
+        "user": "e se inverter?",
+        "aurora": "Mudando o formato: sem status de compromisso de novo. Me diga só o assunto em uma linha e eu entro.",
+        "understanding_confidence": 6.5,
+        "failure_reasons": []
+      }
+    ],
+    "anchor_without_sport_answer": [
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 8,
+        "shape": "ultra_short_sport",
+        "intent": "clarification",
+        "dialog_mode": "CLARIFICATION",
+        "user": "e o meio-campo?",
+        "aurora": "Ancorando no que você trouxe (“e o meio-campo?”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 6.5,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 7,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "você parece um robô",
+        "aurora": "Ancorando no que você trouxe (“você parece um robô”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 10,
+        "shape": "ultra_short_sport",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "para de repetir",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Sem perguntar de novo. |  | Pegando o fio de “para de repetir”: avanço em cima disso. Se não for exatamente, corrige em uma frase.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "emocional_L50_1031_9f4d48a6",
+        "profile": "emocional",
+        "length": 50,
+        "turn": 20,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "Aurora, tô apaixonado porque o São Paulo joga hoje pfv",
+        "aurora": "Ancorando no que você trouxe (“Aurora, tô apaixonado porque o São Paulo joga hoje pfv”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "emocional_L50_1032_b05d102c",
+        "profile": "emocional",
+        "length": 50,
+        "turn": 21,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "olha, tô esperançoso porque o Corinthians joga hoje pfv",
+        "aurora": "Ancorando no que você trouxe (“olha, tô esperançoso porque o Corinthians joga hoje pfv”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 6,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "amigo, eu torço pro Atlético-MG, me dá uma opinião sincera sobre o clássico!!!",
+        "aurora": "Ancorando no que você trouxe (“amigo, eu torço pro Atlético-MG, me dá uma opinião sincera sobre o clássico!!!”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      }
+    ],
+    "loop_flag": [
+      {
+        "run_id": "emocional_L10_1006_1a0b0c9c",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 4,
+        "shape": "ultra_short_sport",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "corrigindo: era Palmeiras",
+        "aurora": "Assumindo o time **Internacional** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "emocional_L10_1008_7a6f99e8",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 4,
+        "shape": "sport_chat_other",
+        "intent": "emotional",
+        "dialog_mode": null,
+        "user": "amigo, tô triste porque o Internacional joga hoje??",
+        "aurora": "Mantendo foco Corinthians | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "você falou que meu nome era outro",
+        "aurora": "Mantendo foco E O Meio Campo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 6,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "Aurora, qual a probabilidade de vitória do Atlético-MG em %? pfv",
+        "aurora": "Mantendo foco E O Meio Campo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 4,
+        "shape": "market_ask",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "então, me convence que o Vasco é superior sem usar odds?? né",
+        "aurora": "Mantendo foco Flamengo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "você prometeu lembrar meu time favorito",
+        "aurora": "Mantendo foco Flamengo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      }
+    ],
+    "harness:loop": [
+      {
+        "run_id": "emocional_L10_1006_1a0b0c9c",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 4,
+        "shape": "ultra_short_sport",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "corrigindo: era Palmeiras",
+        "aurora": "Assumindo o time **Internacional** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "emocional_L10_1008_7a6f99e8",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 4,
+        "shape": "sport_chat_other",
+        "intent": "emotional",
+        "dialog_mode": null,
+        "user": "amigo, tô triste porque o Internacional joga hoje??",
+        "aurora": "Mantendo foco Corinthians | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "você falou que meu nome era outro",
+        "aurora": "Mantendo foco E O Meio Campo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 6,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "Aurora, qual a probabilidade de vitória do Atlético-MG em %? pfv",
+        "aurora": "Mantendo foco E O Meio Campo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 4,
+        "shape": "market_ask",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "então, me convence que o Vasco é superior sem usar odds?? né",
+        "aurora": "Mantendo foco Flamengo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "follow_up",
+        "dialog_mode": null,
+        "user": "você prometeu lembrar meu time favorito",
+        "aurora": "Mantendo foco Flamengo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop"
+        ]
+      }
+    ],
+    "over_ask_instead_of_bind": [
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 8,
+        "shape": "ultra_short_sport",
+        "intent": "clarification",
+        "dialog_mode": "CLARIFICATION",
+        "user": "e o meio-campo?",
+        "aurora": "Ancorando no que você trouxe (“e o meio-campo?”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 6.5,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1035_6c92d40f",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 46,
+        "shape": "ultra_short_sport",
+        "intent": "clarification",
+        "dialog_mode": "CLARIFICATION",
+        "user": "e o meio-campo?",
+        "aurora": "Ancorando no que você trouxe (“e o meio-campo?”): posso seguir nisso direto sem menu e sem repetir o bloco anterior. Quer aprofundar ou mudar o recorte?",
+        "understanding_confidence": 6.5,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "esportivo_L50_1036_0080d941",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 43,
+        "shape": "ultra_short_sport",
+        "intent": "clarification",
+        "dialog_mode": "CLARIFICATION",
+        "user": "e o meio-campo?",
+        "aurora": "Mantendo “e o meio-campo?” como âncora. Resposta curta: estou contigo nesse ponto o que priorizar agora?",
+        "understanding_confidence": 6.5,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 17,
+        "shape": "market_ask",
+        "intent": "conversation_assist",
+        "dialog_mode": "SMALL_TALK",
+        "user": "amigo, me dá a odd exata do Atlético-MG agora??",
+        "aurora": "Avançando no assunto sem menu. |  | Assunto: “amigo, me dá a odd exata do Atlético-MG agora??”. Sigo nisso agora. Se mudou, diga o novo foco sem checklist.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "power_user_L50_1041_47b80178",
+        "profile": "power_user",
+        "length": 50,
+        "turn": 22,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "cara, quem é melhor Flamengo ou Fluminense? em uma frase",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Continuando: “cara, quem é melhor Flamengo ou Fluminense? em uma frase”. Conversa esportiva opinião e contexto, sem inventar número. Foco: time, clássico ou sensação?",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      },
+      {
+        "run_id": "emocional_L100_1047_4bb9920b",
+        "profile": "emocional",
+        "length": 100,
+        "turn": 43,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "olha, tô inseguro porque o Internacional joga hoje??",
+        "aurora": "Pegando o fio de “olha, tô inseguro porque o Internacional joga hoje??”: avanço em cima disso. Se não for exatamente, corrige em uma frase.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": []
+      }
+    ],
+    "harness:low_perceived_intelligence": [
+      {
+        "run_id": "exigente_L10_1015_288ac90f",
+        "profile": "exigente",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Sobre “qual a probabilidade de vitória do Cruzeiro em %?”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L10_1016_ee27f278",
+        "profile": "exigente",
+        "length": 10,
+        "turn": 2,
+        "shape": "fixture_pair",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "monta um raciocínio em 3 passos sobre Corinthians vs Palmeiras sem odds e sem xG inventado — e quero que você realmente preste atenção nisso",
+        "aurora": "",
+        "understanding_confidence": 4.5,
+        "failure_reasons": [
+          "loop",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "esportivo_L50_1036_0080d941",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 16,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Atlético-MG em %?",
+        "aurora": "Seguindo com o que parece ser o pedido. |  | Assunto: “qual a probabilidade de vitória do Atlético-MG em %?”. Sigo nisso agora. Se mudou, diga o novo foco sem checklist.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 7,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Botafogo em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sobre “qual a probabilidade de vitória do Botafogo em %? e quero que você realmente preste aten”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 21,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Trato “qual a probabilidade de vitória do Cruzeiro em %?” como o alvo. Resposta direta; se errei o enquadro, corrige em uma linha.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 3,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Corinthians em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sem perguntar de novo. |  | Sem rodeio retomando direto. |  | Entendi que o pedido era: “qual a probabilidade de vitória do Corinthians em %? e quero que você realmente preste atenção nisso”. Vou responder em cima disso.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      }
+    ],
+    "invention_flag": [
+      {
+        "run_id": "exigente_L10_1015_288ac90f",
+        "profile": "exigente",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Sobre “qual a probabilidade de vitória do Cruzeiro em %?”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "esportivo_L50_1036_0080d941",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 16,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Atlético-MG em %?",
+        "aurora": "Seguindo com o que parece ser o pedido. |  | Assunto: “qual a probabilidade de vitória do Atlético-MG em %?”. Sigo nisso agora. Se mudou, diga o novo foco sem checklist.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 7,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Botafogo em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sobre “qual a probabilidade de vitória do Botafogo em %? e quero que você realmente preste aten”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 21,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Trato “qual a probabilidade de vitória do Cruzeiro em %?” como o alvo. Resposta direta; se errei o enquadro, corrige em uma linha.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 3,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Corinthians em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sem perguntar de novo. |  | Sem rodeio retomando direto. |  | Entendi que o pedido era: “qual a probabilidade de vitória do Corinthians em %? e quero que você realmente preste atenção nisso”. Vou responder em cima disso.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 4,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "olha, qual a probabilidade de vitória do Bahia em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Sem perguntar de novo. |  | Mantendo “olha, qual a probabilidade de vitória do Bahia em %? e quero que você realmente preste a” como âncora. Resposta curta: estou contigo nesse pont",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      }
+    ],
+    "harness:invention": [
+      {
+        "run_id": "exigente_L10_1015_288ac90f",
+        "profile": "exigente",
+        "length": 10,
+        "turn": 5,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Sobre “qual a probabilidade de vitória do Cruzeiro em %?”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "esportivo_L50_1036_0080d941",
+        "profile": "esportivo",
+        "length": 50,
+        "turn": 16,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Atlético-MG em %?",
+        "aurora": "Seguindo com o que parece ser o pedido. |  | Assunto: “qual a probabilidade de vitória do Atlético-MG em %?”. Sigo nisso agora. Se mudou, diga o novo foco sem checklist.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 7,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Botafogo em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sobre “qual a probabilidade de vitória do Botafogo em %? e quero que você realmente preste aten”, fico no assunto sem checklist. Diz se quer continuidade ou um ângulo novo.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1037_caff4b51",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 21,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "qual a probabilidade de vitória do Cruzeiro em %?",
+        "aurora": "Mantendo continuidade, sem travar no template. |  | Trato “qual a probabilidade de vitória do Cruzeiro em %?” como o alvo. Resposta direta; se errei o enquadro, corrige em uma linha.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 3,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "qual a probabilidade de vitória do Corinthians em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Sem perguntar de novo. |  | Sem rodeio retomando direto. |  | Entendi que o pedido era: “qual a probabilidade de vitória do Corinthians em %? e quero que você realmente preste atenção nisso”. Vou responder em cima disso.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      },
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 4,
+        "shape": "sport_chat_other",
+        "intent": "conversation_repair",
+        "dialog_mode": null,
+        "user": "olha, qual a probabilidade de vitória do Bahia em %? — e quero que você realmente preste atenção nisso",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Sem perguntar de novo. |  | Mantendo “olha, qual a probabilidade de vitória do Bahia em %? e quero que você realmente preste a” como âncora. Resposta curta: estou contigo nesse pont",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "invention",
+          "low_perceived_intelligence"
+        ]
+      }
+    ],
+    "low_understanding_confidence": [
+      {
+        "run_id": "exigente_L50_1038_20fa110b",
+        "profile": "exigente",
+        "length": 50,
+        "turn": 44,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": "SMALL_TALK",
+        "user": "você disse que o Flamengo ganhou de 5 a 0",
+        "aurora": "Avançando no assunto sem menu. |  | Continuando: “você disse que o Flamengo ganhou de 5 a 0”. Conversa esportiva opinião e contexto, sem inventar número. Foco: time, clássico ou sensação?",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "false_memory_accepted"
+        ]
+      },
+      {
+        "run_id": "power_user_L50_1041_47b80178",
+        "profile": "power_user",
+        "length": 50,
+        "turn": 32,
+        "shape": "fixture_pair",
+        "intent": "clarification",
+        "dialog_mode": null,
+        "user": "monta um raciocínio em 3 passos sobre Atlético-MG vs Cruzeiro sem odds e sem xG inventado",
+        "aurora": "O contexto esportivo anterior foi limpo. |  | Me diga um confronto real (Time A x Time B) para continuar.",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "chatgpt_user_L50_1043_14184c33",
+        "profile": "chatgpt_user",
+        "length": 50,
+        "turn": 26,
+        "shape": "sport_chat_other",
+        "intent": "small_talk",
+        "dialog_mode": null,
+        "user": "você disse que o Flamengo ganhou de 5 a 0",
+        "aurora": "**Flamengo** panorama 📡 **Como chega** | Com o contexto atual do Flamengo, o foco útil é fase + próximo desafio isso costuma ser o que a torcida quer saber. 📅 **Próximos jogos** | O próximo desafio do Flamengo depende do",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "false_memory_accepted"
+        ]
+      },
+      {
+        "run_id": "caotico_L100_1048_523acd13",
+        "profile": "caotico",
+        "length": 100,
+        "turn": 49,
+        "shape": "sport_chat_other",
+        "intent": "clarification",
+        "dialog_mode": "UNKNOWN",
+        "user": "você disse que o Flamengo ganhou de 5 a 0",
+        "aurora": "Avançando no assunto sem menu. |  | Continuando: “você disse que o Flamengo ganhou de 5 a 0”. Conversa esportiva opinião e contexto, sem inventar número. Foco: time, clássico ou sensação?",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "false_memory_accepted"
+        ]
+      },
+      {
+        "run_id": "esportivo_L100_1049_e0121c86",
+        "profile": "esportivo",
+        "length": 100,
+        "turn": 21,
+        "shape": "pronoun_followup",
+        "intent": "clarification",
+        "dialog_mode": null,
+        "user": "e o outro?",
+        "aurora": "O contexto esportivo anterior foi limpo. |  | Me diga um confronto real (Time A x Time B) para continuar.",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "loop"
+        ]
+      },
+      {
+        "run_id": "esportivo_L100_1049_e0121c86",
+        "profile": "esportivo",
+        "length": 100,
+        "turn": 52,
+        "shape": "pronoun_followup",
+        "intent": "clarification",
+        "dialog_mode": null,
+        "user": "e o outro?",
+        "aurora": "O contexto esportivo anterior foi limpo. |  | Me diga um confronto real (Time A x Time B) para continuar.",
+        "understanding_confidence": 4.0,
+        "failure_reasons": [
+          "loop"
+        ]
+      }
+    ],
+    "harness:memory_loss": [
+      {
+        "run_id": "emocional_L10_1006_1a0b0c9c",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "lembra: meu nome é Lu e eu torço pro Internacional. código MEM_Lu_Internacional",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      },
+      {
+        "run_id": "emocional_L10_1007_8e3cc452",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "cara, lembra: meu nome é Pedro e eu torço pro Santos. código MEM_Pedro_Santos em uma frase",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      },
+      {
+        "run_id": "emocional_L10_1008_7a6f99e8",
+        "profile": "emocional",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "lembra: meu nome é Mari e eu torço pro Corinthians. código MEM_Mari_Corinthians em uma frase",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1012_c65b27fa",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "lembra: meu nome é Mari e eu torço pro Grêmio. código MEM_Mari_Grêmio",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1013_b76ca8b0",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "lembra: meu nome é Bia e eu torço pro Fluminense. código MEM_Bia_Fluminense",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      },
+      {
+        "run_id": "esportivo_L10_1014_5dac0bd4",
+        "profile": "esportivo",
+        "length": 10,
+        "turn": 1,
+        "shape": "sport_chat_other",
+        "intent": "conversation_assist",
+        "dialog_mode": null,
+        "user": "lembra: meu nome é Rafa e eu torço pro Flamengo. código MEM_Rafa_Flamengo",
+        "aurora": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+        "understanding_confidence": 7.0,
+        "failure_reasons": [
+          "memory_loss",
+          "low_continuity"
+        ]
+      }
+    ]
+  },
+  "danger_snippets_sport": [
+    {
+      "persona": "esportivo",
+      "danger_score": 53.516,
+      "sessions": 9,
+      "break_rate": 1.0,
+      "avg_break_turn": 1.667,
+      "loop_rate": 0.0508,
+      "avg_perceived_intelligence": 6.789,
+      "avg_human_likeness": 6.873,
+      "avg_return_probability": 6.454,
+      "failure_events": 201
+    },
+    {
+      "category": "sport_continuity",
+      "events": 45,
+      "loop_rate": 0.0889,
+      "avg_destructiveness": 4.032,
+      "avg_perceived_intelligence": 6.84,
+      "danger_score": 25.884
+    },
+    {
+      "category": "sport_light",
+      "events": 520,
+      "loop_rate": 0.0596,
+      "avg_destructiveness": 1.25,
+      "avg_perceived_intelligence": 6.946,
+      "danger_score": 9.663
+    }
+  ],
+  "causal_verdict": {
+    "summary": "Aurora still fails real sport questions primarily because they are almost never routed to analyze_match (1.8% of real-team turns). They land in clarification / conversation_assist / UNKNOWN|SMALL_TALK, which emit soft-assume meta replies, anchors, or hollow recovery — talking about the ask without answering it. Perception MVPs fixed sticky banks, not sport referent+intent binding.",
+    "layers": [
+      {
+        "layer": "intent_router",
+        "issue": "real team asks → clarification/assist (not analyze_match)",
+        "evidence": "23/1285 analyze_match (1.8%)",
+        "effect": "No sport-answer path engaged"
+      },
+      {
+        "layer": "dialog_mode",
+        "issue": "UNKNOWN / SMALL_TALK dominate",
+        "evidence": "UNKNOWN 505 + SMALL_TALK 360 of real-team turns",
+        "effect": "Wrong reply family selected"
+      },
+      {
+        "layer": "answer_fit",
+        "issue": "soft_assume_template echoes user without sport content",
+        "evidence": "Bahia ta bem? → Entendi que o pedido era…",
+        "effect": "User feels misunderstood despite mid/high UC"
+      },
+      {
+        "layer": "followup_binding",
+        "issue": "part/pronoun asks get diversification anchors",
+        "evidence": "e o meio-campo? → Ancorando no que voce trouxe",
+        "effect": "Continuity without referent resolution"
+      },
+      {
+        "layer": "repair_side_effect",
+        "issue": "short frustration → hollow uncommitted",
+        "evidence": "ja falei → modo aberto",
+        "effect": "Sport thread abandoned after complaint"
+      },
+      {
+        "layer": "loop_taxonomy",
+        "issue": "context_confusion 79.6% of destroy loops",
+        "evidence": "destroy_loop_taxonomy.json",
+        "effect": "Binding/understanding class, not cooldown class"
+      }
+    ]
+  },
+  "refined_real_team_routing": {
+    "real_team_turns": 1285,
+    "analyze_match_count": 23,
+    "analyze_match_rate": 0.0179,
+    "soft_assume_on_real_rate": 0.1136,
+    "intent_distribution": {
+      "clarification": 641,
+      "conversation_assist": 385,
+      "conversation_repair": 125,
+      "follow_up": 64,
+      "small_talk": 36,
+      "analyze_match": 23,
+      "emotional": 11
+    },
+    "dialog_mode_distribution": {
+      "UNKNOWN": 505,
+      "SMALL_TALK": 360,
+      "?": 253,
+      "REPAIR": 96,
+      "FICTION": 70,
+      "CLARIFICATION": 1
+    },
+    "note": "Broad fiction tag is inflated by chaos prompts (Pikachu/Batman). True root cause on real-team asks is intent/dialog misrouting."
+  }
+}

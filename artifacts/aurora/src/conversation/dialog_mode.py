@@ -227,6 +227,28 @@ def _is_real_fixture(message: str | None) -> bool:
     )
 
 
+def _should_force_sport_mode(
+    message: str | None,
+    ctx: dict[str, Any] | None,
+    *,
+    master_intent: str | None = None,
+) -> bool:
+    try:
+        from src.conversation.sport_understanding import should_force_sport_mode
+
+        return bool(
+            should_force_sport_mode(
+                message, ctx, master_intent=master_intent
+            )
+        )
+    except Exception:
+        # Fail-open local: known clubs / real fixtures / SPORT_QUERY
+        intent = (master_intent or "").upper()
+        if intent in {"SPORT_QUERY", "LIVE_MATCH"} and not is_fiction_message(message):
+            return True
+        return _is_real_fixture(message)
+
+
 def resolve_dialog_mode(
     message: str,
     ctx: dict[str, Any] | None = None,
@@ -280,6 +302,18 @@ def resolve_dialog_mode(
         mode = "SPORT"
     elif is_fiction_message(message):
         mode = "FICTION"
+    # P2.5-S — real sport asks must not fall to UNKNOWN/SMALL_TALK
+    elif _should_force_sport_mode(message, ctx, master_intent=intent):
+        mode = "SPORT"
+        _bump(ctx, "p25_sport_forced")
+        try:
+            from src.conversation.sport_understanding import stamp_sport_understanding
+
+            stamp_sport_understanding(
+                ctx, message, master_intent=intent, forced=True
+            )
+        except Exception:
+            pass
     # After fiction wipe: short sport FUs cannot reuse a frame — clarify
     # (unless frustration / assume-cap — never sport menu under frustration)
     elif blob.get("post_fiction_release") and _is_sport_short_fu(message):
@@ -322,35 +356,47 @@ def resolve_dialog_mode(
         mode = "UNKNOWN"
 
     # Clarify / UNKNOWN expire → assume (SMALL_TALK content path)
+    # P2.5-S — never demote forced SPORT into SMALL_TALK soft-assume
     if mode in {"CLARIFICATION", "UNKNOWN"} and _assume:
-        mode = "SMALL_TALK"
-        _bump(ctx, "clarify_expired")
-        try:
-            from src.conversation.perception_conversation_state import (
-                get_perception_state as _gps2,
-            )
+        if _should_force_sport_mode(message, ctx, master_intent=intent):
+            mode = "SPORT"
+            _bump(ctx, "p25_sport_blocked_assume")
+        else:
+            mode = "SMALL_TALK"
+            _bump(ctx, "clarify_expired")
+            try:
+                from src.conversation.perception_conversation_state import (
+                    get_perception_state as _gps2,
+                )
 
-            _gps2(ctx)["counters"]["clarify_expired"] = int(
-                _gps2(ctx)["counters"].get("clarify_expired") or 0
-            ) + 1
-            _gps2(ctx)["counters"]["assume_clarify"] = int(
-                _gps2(ctx)["counters"].get("assume_clarify") or 0
-            ) + 1
-        except Exception:
-            pass
+                _gps2(ctx)["counters"]["clarify_expired"] = int(
+                    _gps2(ctx)["counters"].get("clarify_expired") or 0
+                ) + 1
+                _gps2(ctx)["counters"]["assume_clarify"] = int(
+                    _gps2(ctx)["counters"].get("assume_clarify") or 0
+                ) + 1
+            except Exception:
+                pass
 
     # Legacy clarify cap: 3rd underspec → expire to assume (not UNKNOWN ping-pong)
     if mode == "CLARIFICATION" and int(blob.get("clarify_streak") or 0) >= 2:
-        mode = "SMALL_TALK"
-        _bump(ctx, "clarify_cap_unknown")
+        if _should_force_sport_mode(message, ctx, master_intent=intent):
+            mode = "SPORT"
+        else:
+            mode = "SMALL_TALK"
+            _bump(ctx, "clarify_cap_unknown")
 
     # Anti-loop identity streak → assume chat, not clarify menu
     if mode == "IDENTITY" and int(blob.get("identity_streak") or 0) >= 1:
         mode = "SMALL_TALK"
         _bump(ctx, "anti_loop_forced")
     if mode == "UNKNOWN" and int(blob.get("unknown_streak") or 0) >= 1:
-        mode = "SMALL_TALK"
-        _bump(ctx, "anti_loop_forced")
+        if _should_force_sport_mode(message, ctx, master_intent=intent):
+            mode = "SPORT"
+            _bump(ctx, "p25_sport_blocked_unknown_loop")
+        else:
+            mode = "SMALL_TALK"
+            _bump(ctx, "anti_loop_forced")
 
     # Same signature: never force CLARIFICATION from REPAIR/UNKNOWN (sticky menus)
     sig = f"{mode}"

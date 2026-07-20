@@ -155,7 +155,8 @@ _SPORT = re.compile(
     r"\bvs\.?\b|"
     r"\b(jogo|jogos|partida|partidas|confronto|confrontos|fixture|mercado|odds|"
     r"brasileirao|libertadores|champions|premier|"
-    r"como\s+esta\s+(?:o|a)\s+\w+|o\s+que\s+acha\s+d[oe]|"
+    r"como\s+(?:esta|ta|tá)\s+(?:o|a)\s+\w+|o\s+que\s+acha\s+d[oe]|"
+    r"(?:ta|tá|esta|está|vai)\s+bem|"
     r"joga\s+(?:hoje|amanha)|"
     r"tem\s+jogo|proximo\s+jogo|escalacao)\b"
     r")",

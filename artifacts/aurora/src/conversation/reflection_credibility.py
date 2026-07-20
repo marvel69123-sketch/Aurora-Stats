@@ -673,7 +673,15 @@ def apply_credibility_to_payload(
             payload["bankroll_recommendation"] = br
             ents["show_header"] = False
             ents["social"] = True
-            if payload.get("intent") not in {
+            # P2.5-S — never demote sport-owned turns to small_talk
+            _sport_owned = (
+                str(ents.get("dialog_mode") or "").upper() == "SPORT"
+                or ents.get("p25_sport_understanding")
+                or ents.get("team_opinion_path")
+                or str(ents.get("turn_owner") or "").upper() == "SPORT"
+                or ents.get("natural_kind") in {"team_opinion", "team_calendar", "kickoff_lookup"}
+            )
+            if not _sport_owned and payload.get("intent") not in {
                 "small_talk",
                 "greeting",
                 "identity",
