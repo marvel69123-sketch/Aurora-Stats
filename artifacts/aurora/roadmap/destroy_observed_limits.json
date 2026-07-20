@@ -1,0 +1,24 @@
+{
+  "version": "P3-C.3",
+  "generated_at": "2026-07-20T22:24:05.584571+00:00",
+  "cognitive_limit_observed": {
+    "memory_checks": 444,
+    "memory_hit_rate": 0.6104,
+    "memory_miss_rate": 0.3896,
+    "avg_understanding_confidence": 6.602,
+    "avg_perceived_intelligence": 6.375,
+    "observed_cognitive_ceiling_turns_before_memory_or_pi_collapse": 8.418
+  },
+  "conversational_limit_observed": {
+    "avg_break_turn": 8.418,
+    "median_break_turn": 1,
+    "p90_break_turn": 14,
+    "max_capacity_turns_observed": 209,
+    "avg_capacity_turns": 10.951,
+    "max_context_sustained_max": 677,
+    "max_context_sustained_mean": 56.185,
+    "loop_rate_global": 0.182,
+    "sessions": 81,
+    "break_rate": 0.8272
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "version": "P3-D.4",
+  "generated_at": "2026-07-20T22:24:19.169834+00:00",
+  "baseline": "post_commitment_recovery_destroy",
+  "treatment": "response_diversification_mvp",
+  "classification": "PARTIAL",
+  "human_perception_score": {
+    "before": 64.38,
+    "after": 72.03,
+    "delta": 7.65
+  },
+  "loop_rate": {
+    "before": 0.5453,
+    "after": 0.182,
+    "absolute_delta": -0.3633,
+    "relative_reduction_pct": 66.62,
+    "target": "<=0.35",
+    "target_met": true
+  },
+  "break_turn": {
+    "before": 6.157,
+    "after": 8.418,
+    "delta": 2.261
+  },
+  "metric_deltas": {
+    "Perceived_Intelligence": 0.395,
+    "Human_Likeness": 0.351,
+    "Frustration": 0.751,
+    "Continuity": -0.036,
+    "Understanding_Confidence": 0.35,
+    "Loop_Rate": -0.3633,
+    "Fatigue": 0.444,
+    "Recovery_Ability": 0.717,
+    "Trust": -0.012,
+    "Return_Probability": 0.722
+  },
+  "by_length_delta": {
+    "10": {
+      "before_avg_loop_rate": 0.115,
+      "after_avg_loop_rate": 0.093,
+      "delta_loop_rate": -0.022,
+      "before_avg_break_turn": 2.476,
+      "after_avg_break_turn": 2.167,
+      "delta_break_turn": -0.309
+    },
+    "50": {
+      "before_avg_loop_rate": 0.182,
+      "after_avg_loop_rate": 0.12,
+      "delta_loop_rate": -0.062,
+      "before_avg_break_turn": 3.538,
+      "after_avg_break_turn": 5.857,
+      "delta_break_turn": 2.319
+    },
+    "100": {
+      "before_avg_loop_rate": 0.137,
+      "after_avg_loop_rate": 0.071,
+      "delta_loop_rate": -0.066,
+      "before_avg_break_turn": 12.222,
+      "after_avg_break_turn": 8.875,
+      "delta_break_turn": -3.347
+    },
+    "200": {
+      "before_avg_loop_rate": 0.317,
+      "after_avg_loop_rate": 0.164,
+      "delta_loop_rate": -0.153,
+      "before_avg_break_turn": 5.0,
+      "after_avg_break_turn": 5.0,
+      "delta_break_turn": 0.0
+    },
+    "500": {
+      "before_avg_loop_rate": 0.666,
+      "after_avg_loop_rate": 0.266,
+      "delta_loop_rate": -0.4,
+      "before_avg_break_turn": 9.333,
+      "after_avg_break_turn": 25.444,
+      "delta_break_turn": 16.111
+    },
+    "1000": {
+      "before_avg_loop_rate": 0.621,
+      "after_avg_loop_rate": 0.163,
+      "delta_loop_rate": -0.458,
+      "before_avg_break_turn": 10.444,
+      "after_avg_break_turn": 10.889,
+      "delta_break_turn": 0.445
+    }
+  },
+  "perception_improved": true,
+  "notes": [
+    "Baseline = post–commitment recovery destroy (loop 0.5453 / HPS 64.38).",
+    "Fingerprint + speech-act cooldown + recovery diversify + sport suppress + context anchors.",
+    "Uncommitted finite-bank loops cleared from loop mass; residual mostly sport boilerplate.",
+    "PARTIAL vs SUCCESS bar on break turn (8.4 < 10); loop target ≤0.35 met."
+  ]
+}

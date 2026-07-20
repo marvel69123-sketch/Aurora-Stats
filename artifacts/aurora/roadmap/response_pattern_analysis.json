@@ -1,0 +1,1253 @@
+{
+  "version": "P3-D.3",
+  "generated_at": "2026-07-20T22:24:20.382267+00:00",
+  "mode": "analysis_only",
+  "corpus": {
+    "sessions": 81,
+    "total_replies": 17349,
+    "loop_replies": 3141,
+    "loop_rate_global": 0.182,
+    "context": "post_commitment_recovery_mvp destroy"
+  },
+  "family_ranked_by_loop": [
+    {
+      "rank": 1,
+      "family": "sport_analysis_boilerplate",
+      "loop_count": 2230,
+      "loop_share": 0.71,
+      "all_count": 2238,
+      "all_share": 0.129,
+      "loop_density": 0.9964,
+      "top_intents": {
+        "conversation_repair": 2229,
+        "clarification": 6,
+        "conversation_assist": 3
+      },
+      "streak_ge3_events": 5
+    },
+    {
+      "rank": 2,
+      "family": "legacy_clarify_triage",
+      "loop_count": 485,
+      "loop_share": 0.1544,
+      "all_count": 591,
+      "all_share": 0.0341,
+      "loop_density": 0.8206,
+      "top_intents": {
+        "clarification": 591
+      },
+      "streak_ge3_events": 31
+    },
+    {
+      "rank": 3,
+      "family": "other_content",
+      "loop_count": 318,
+      "loop_share": 0.1012,
+      "all_count": 7312,
+      "all_share": 0.4215,
+      "loop_density": 0.0435,
+      "top_intents": {
+        "clarification": 2464,
+        "conversation_repair": 1819,
+        "conversation_assist": 1601,
+        "small_talk": 1041,
+        "follow_up": 346
+      },
+      "streak_ge3_events": 7
+    },
+    {
+      "rank": 4,
+      "family": "soft_assume_goal",
+      "loop_count": 92,
+      "loop_share": 0.0293,
+      "all_count": 5021,
+      "all_share": 0.2894,
+      "loop_density": 0.0183,
+      "top_intents": {
+        "clarification": 2559,
+        "conversation_assist": 2145,
+        "conversation_repair": 165,
+        "small_talk": 138,
+        "emotional": 11
+      },
+      "streak_ge3_events": 2
+    },
+    {
+      "rank": 5,
+      "family": "too_short",
+      "loop_count": 8,
+      "loop_share": 0.0025,
+      "all_count": 621,
+      "all_share": 0.0358,
+      "loop_density": 0.0129,
+      "top_intents": {
+        "small_talk": 621
+      },
+      "streak_ge3_events": 0
+    },
+    {
+      "rank": 6,
+      "family": "greeting_identity",
+      "loop_count": 7,
+      "loop_share": 0.0022,
+      "all_count": 22,
+      "all_share": 0.0013,
+      "loop_density": 0.3182,
+      "top_intents": {
+        "small_talk": 15,
+        "identity": 7
+      },
+      "streak_ge3_events": 0
+    },
+    {
+      "rank": 7,
+      "family": "sport_chat_soft",
+      "loop_count": 1,
+      "loop_share": 0.0003,
+      "all_count": 5,
+      "all_share": 0.0003,
+      "loop_density": 0.2,
+      "top_intents": {
+        "conversation_assist": 3,
+        "conversation_repair": 2
+      },
+      "streak_ge3_events": 0
+    }
+  ],
+  "top_loop_fingerprints": [
+    {
+      "rank": 1,
+      "fingerprint": "eu teria uma visao cautelosa. | o ponto que mais pesa para mim: | • ha contexto suficiente em o jogo ativo | •",
+      "loop_count": 994,
+      "loop_share": 0.3165,
+      "all_count": 996,
+      "example": "Eu teria uma visão cautelosa. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo |",
+      "family": "sport_analysis_boilerplate"
+    },
+    {
+      "rank": 2,
+      "fingerprint": "eu entraria so com filtro — e bem consciente do risco. | o que sustenta minha leitura: | • ha contexto suficie",
+      "loop_count": 499,
+      "loop_share": 0.1589,
+      "all_count": 500,
+      "example": "Eu entraria só com filtro — e bem consciente do risco. | O que sustenta minha leitura: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não",
+      "family": "sport_analysis_boilerplate"
+    },
+    {
+      "rank": 3,
+      "fingerprint": "vejo valor, mas com algumas ressalvas. | o que mais me chama atencao: | • ha contexto suficiente em o jogo ati",
+      "loop_count": 494,
+      "loop_share": 0.1573,
+      "all_count": 496,
+      "example": "Vejo valor, mas com algumas ressalvas. | O que mais me chama atenção: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir ",
+      "family": "sport_analysis_boilerplate"
+    },
+    {
+      "rank": 4,
+      "fingerprint": "voce esta falando de: | selecao / time? | jogo especifico? | noticias?",
+      "loop_count": 485,
+      "loop_share": 0.1544,
+      "all_count": 591,
+      "example": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+      "family": "legacy_clarify_triage"
+    },
+    {
+      "rank": 5,
+      "fingerprint": "ha um caminho interessante, sem euforia. | o ponto que mais pesa para mim: | • ha contexto suficiente em o jog",
+      "loop_count": 243,
+      "loop_share": 0.0774,
+      "all_count": 246,
+      "example": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso rea",
+      "family": "sport_analysis_boilerplate"
+    },
+    {
+      "rank": 6,
+      "fingerprint": "se for outra coisa, pode falar.",
+      "loop_count": 73,
+      "loop_share": 0.0232,
+      "all_count": 208,
+      "example": "Se for outra coisa, pode falar.",
+      "family": "other_content"
+    },
+    {
+      "rank": 7,
+      "fingerprint": "o contexto esportivo anterior foi limpo. | | me diga um confronto real (time a x time b) para continuar.",
+      "loop_count": 62,
+      "loop_share": 0.0197,
+      "all_count": 172,
+      "example": "O contexto esportivo anterior foi limpo. |  | Me diga um confronto real (Time A x Time B) para continuar.",
+      "family": "other_content"
+    },
+    {
+      "rank": 8,
+      "fingerprint": "assumindo o time **<TEAM>** (sem confronto completo). | escopo de **time** — sem inventar adversario. | no-bet",
+      "loop_count": 39,
+      "loop_share": 0.0124,
+      "all_count": 87,
+      "example": "Assumindo o time **Corinthians** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 9,
+      "fingerprint": "sem o mesmo bloco: | | esse confronto parece **ficcao / hipotetico** nao trato como partida real de futebol. |",
+      "loop_count": 26,
+      "loop_share": 0.0083,
+      "all_count": 93,
+      "example": "Sem o mesmo bloco: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x ",
+      "family": "soft_assume_goal"
+    },
+    {
+      "rank": 10,
+      "fingerprint": "esse confronto parece **ficcao / hipotetico** nao trato como partida real de futebol. | | se quiser analise es",
+      "loop_count": 24,
+      "loop_share": 0.0076,
+      "all_count": 189,
+      "example": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brinc",
+      "family": "soft_assume_goal"
+    },
+    {
+      "rank": 11,
+      "fingerprint": "mantendo foco <TEAM> | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes para stake",
+      "loop_count": 23,
+      "loop_share": 0.0073,
+      "all_count": 48,
+      "example": "Mantendo foco Bahia | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 12,
+      "fingerprint": "mudando o angulo pra nao repetir. | | esse confronto parece **ficcao / hipotetico** nao trato como partida rea",
+      "loop_count": 21,
+      "loop_share": 0.0067,
+      "all_count": 112,
+      "example": "Mudando o ângulo pra não repetir. |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real ",
+      "family": "soft_assume_goal"
+    },
+    {
+      "rank": 13,
+      "fingerprint": "outro formato, mesmo assunto: | | esse confronto parece **ficcao / hipotetico** nao trato como partida real de",
+      "loop_count": 15,
+      "loop_share": 0.0048,
+      "all_count": 103,
+      "example": "Outro formato, mesmo assunto: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.",
+      "family": "soft_assume_goal"
+    },
+    {
+      "rank": 14,
+      "fingerprint": "pode ser o que exatamente quer que eu salve? ex.: *salve minha banca de <N> reais*.",
+      "loop_count": 10,
+      "loop_share": 0.0032,
+      "all_count": 71,
+      "example": "Pode ser o que exatamente quer que eu salve? Ex.: *salve minha banca de 100 reais*.",
+      "family": "other_content"
+    },
+    {
+      "rank": 15,
+      "fingerprint": "assumindo o time **vitoria** (sem confronto completo). | escopo de **time** — sem inventar adversario. | no-be",
+      "loop_count": 7,
+      "loop_share": 0.0022,
+      "all_count": 13,
+      "example": "Assumindo o time **Vitoria** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 16,
+      "fingerprint": "assumindo o time **atletico mineiro** (sem confronto completo). | escopo de **time** — sem inventar adversario",
+      "loop_count": 7,
+      "loop_share": 0.0022,
+      "all_count": 11,
+      "example": "Assumindo o time **Atletico Mineiro** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 17,
+      "fingerprint": "mantendo foco e o meio campo | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes pa",
+      "loop_count": 6,
+      "loop_share": 0.0019,
+      "all_count": 16,
+      "example": "Mantendo foco E O Meio Campo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 18,
+      "fingerprint": "mantendo foco compara | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes para stak",
+      "loop_count": 6,
+      "loop_share": 0.0019,
+      "all_count": 18,
+      "example": "Mantendo foco Compara | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 19,
+      "fingerprint": "anotei o fio atual (**<TEAM>**) na memoria curta da conversa. para banca, me diga o valor (ex.: *salve minha b",
+      "loop_count": 6,
+      "loop_share": 0.0019,
+      "all_count": 27,
+      "example": "Anotei o fio atual (**Santos**) na memória curta da conversa. Para banca, me diga o valor (ex.: *salve minha banca de 100 reais*).",
+      "family": "other_content"
+    },
+    {
+      "rank": 20,
+      "fingerprint": "bom dia em que posso ajudar?",
+      "loop_count": 6,
+      "loop_share": 0.0019,
+      "all_count": 6,
+      "example": "Bom dia em que posso ajudar?",
+      "family": "other_content"
+    },
+    {
+      "rank": 21,
+      "fingerprint": "assumindo o time **cruzeiro** (sem confronto completo). | escopo de **time** — sem inventar adversario. | no-b",
+      "loop_count": 5,
+      "loop_share": 0.0016,
+      "all_count": 11,
+      "example": "Assumindo o time **Cruzeiro** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 22,
+      "fingerprint": "mantendo foco fluminense | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes para s",
+      "loop_count": 5,
+      "loop_share": 0.0016,
+      "all_count": 8,
+      "example": "Mantendo foco Fluminense | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 23,
+      "fingerprint": "eu sou a aurora. em que posso ajudar?",
+      "loop_count": 5,
+      "loop_share": 0.0016,
+      "all_count": 5,
+      "example": "Eu sou a Aurora. Em que posso ajudar?",
+      "family": "greeting_identity"
+    },
+    {
+      "rank": 24,
+      "fingerprint": "mantendo foco voce nao entendeu | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 18,
+      "example": "Mantendo foco Voce Nao Entendeu | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 25,
+      "fingerprint": "mantendo foco seja mais especifico | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficien",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 8,
+      "example": "Mantendo foco Seja Mais Especifico | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 26,
+      "fingerprint": "mantendo foco isso esta errado | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes ",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 10,
+      "example": "Mantendo foco Isso Esta Errado | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 27,
+      "fingerprint": "boa tarde em que posso ajudar?",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 4,
+      "example": "Boa tarde em que posso ajudar?",
+      "family": "other_content"
+    },
+    {
+      "rank": 28,
+      "fingerprint": "mantendo foco para de repetir | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes p",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 12,
+      "example": "Mantendo foco Para De Repetir | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | **Botafogo x Vasco** — pré-leitura ⚔ **Contexto** | Co",
+      "family": "other_content"
+    },
+    {
+      "rank": 29,
+      "fingerprint": "falou qualquer coisa e so chamar.",
+      "loop_count": 4,
+      "loop_share": 0.0013,
+      "all_count": 95,
+      "example": "Falou qualquer coisa é só chamar.",
+      "family": "other_content"
+    },
+    {
+      "rank": 30,
+      "fingerprint": "mantendo foco e se inverter | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes par",
+      "loop_count": 3,
+      "loop_share": 0.001,
+      "all_count": 10,
+      "example": "Mantendo foco E Se Inverter | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 31,
+      "fingerprint": "ate a proxima.",
+      "loop_count": 3,
+      "loop_share": 0.001,
+      "all_count": 85,
+      "example": "Até a próxima.",
+      "family": "other_content"
+    },
+    {
+      "rank": 32,
+      "fingerprint": "quando quiser olhar um jogo, estou por aqui.",
+      "loop_count": 3,
+      "loop_share": 0.001,
+      "all_count": 86,
+      "example": "Quando quiser olhar um jogo, estou por aqui.",
+      "family": "other_content"
+    },
+    {
+      "rank": 33,
+      "fingerprint": "ate mais!",
+      "loop_count": 3,
+      "loop_share": 0.001,
+      "all_count": 86,
+      "example": "Até mais!",
+      "family": "too_short"
+    },
+    {
+      "rank": 34,
+      "fingerprint": "mantendo foco produtividade | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes par",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 5,
+      "example": "Mantendo foco Produtividade | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 35,
+      "fingerprint": "mantendo foco corrigindo: era <TEAM> | escopo de **time** — sem inventar adversario. | no-bet: sinais insufici",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 7,
+      "example": "Mantendo foco Corrigindo: Era Palmeiras | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 36,
+      "fingerprint": "mantendo foco cruzeiro | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes para sta",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 4,
+      "example": "Mantendo foco Cruzeiro | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 37,
+      "fingerprint": "mantendo foco preciso desabafar | escopo de **time** — sem inventar adversario. | no-bet: sinais insuficientes",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 3,
+      "example": "Mantendo foco Preciso Desabafar | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 38,
+      "fingerprint": "assumindo o time **fluminense** (sem confronto completo). | escopo de **time** — sem inventar adversario. | no",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 4,
+      "example": "Assumindo o time **Fluminense** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 39,
+      "fingerprint": "mantendo foco <TEAM> x <TEAM> | no-bet: sinais insuficientes para stake. | | ?",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 4,
+      "example": "Mantendo foco Palmeiras x Flamengo | No-bet: sinais insuficientes para stake. |  | ?",
+      "family": "other_content"
+    },
+    {
+      "rank": 40,
+      "fingerprint": "estou com o time **compara**, mas sem adversario. | me diga o confronto (time a x time b).",
+      "loop_count": 2,
+      "loop_share": 0.0006,
+      "all_count": 8,
+      "example": "Estou com o time **Compara**, mas sem adversário. | Me diga o confronto (Time A x Time B).",
+      "family": "other_content"
+    }
+  ],
+  "fingerprint_concentration": [
+    {
+      "top_k": 1,
+      "share": 0.3165
+    },
+    {
+      "top_k": 2,
+      "share": 0.4753
+    },
+    {
+      "top_k": 3,
+      "share": 0.6326
+    },
+    {
+      "top_k": 4,
+      "share": 0.787
+    },
+    {
+      "top_k": 5,
+      "share": 0.8644
+    },
+    {
+      "top_k": 6,
+      "share": 0.8876
+    },
+    {
+      "top_k": 7,
+      "share": 0.9074
+    },
+    {
+      "top_k": 8,
+      "share": 0.9198
+    },
+    {
+      "top_k": 9,
+      "share": 0.928
+    },
+    {
+      "top_k": 10,
+      "share": 0.9357
+    },
+    {
+      "top_k": 11,
+      "share": 0.943
+    },
+    {
+      "top_k": 12,
+      "share": 0.9497
+    },
+    {
+      "top_k": 13,
+      "share": 0.9545
+    },
+    {
+      "top_k": 14,
+      "share": 0.9577
+    },
+    {
+      "top_k": 15,
+      "share": 0.9599
+    },
+    {
+      "top_k": 16,
+      "share": 0.9621
+    },
+    {
+      "top_k": 17,
+      "share": 0.964
+    },
+    {
+      "top_k": 18,
+      "share": 0.9659
+    },
+    {
+      "top_k": 19,
+      "share": 0.9678
+    },
+    {
+      "top_k": 20,
+      "share": 0.9698
+    }
+  ],
+  "by_profile": [
+    {
+      "profile": "emocional",
+      "loop_events": 1505,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 1488,
+          "share": 0.9887
+        },
+        {
+          "family": "other_content",
+          "count": 15,
+          "share": 0.01
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 1,
+          "share": 0.0007
+        }
+      ]
+    },
+    {
+      "profile": "poucas_palavras",
+      "loop_events": 558,
+      "top_families": [
+        {
+          "family": "legacy_clarify_triage",
+          "count": 485,
+          "share": 0.8692
+        },
+        {
+          "family": "other_content",
+          "count": 73,
+          "share": 0.1308
+        }
+      ]
+    },
+    {
+      "profile": "casual",
+      "loop_events": 516,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 499,
+          "share": 0.9671
+        },
+        {
+          "family": "other_content",
+          "count": 15,
+          "share": 0.0291
+        },
+        {
+          "family": "too_short",
+          "count": 2,
+          "share": 0.0039
+        }
+      ]
+    },
+    {
+      "profile": "irritado",
+      "loop_events": 253,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 243,
+          "share": 0.9605
+        },
+        {
+          "family": "other_content",
+          "count": 9,
+          "share": 0.0356
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 1,
+          "share": 0.004
+        }
+      ]
+    },
+    {
+      "profile": "esportivo",
+      "loop_events": 98,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 95,
+          "share": 0.9694
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 2,
+          "share": 0.0204
+        },
+        {
+          "family": "too_short",
+          "count": 1,
+          "share": 0.0102
+        }
+      ]
+    },
+    {
+      "profile": "caotico",
+      "loop_events": 87,
+      "top_families": [
+        {
+          "family": "soft_assume_goal",
+          "count": 81,
+          "share": 0.931
+        },
+        {
+          "family": "other_content",
+          "count": 4,
+          "share": 0.046
+        },
+        {
+          "family": "too_short",
+          "count": 2,
+          "share": 0.023
+        }
+      ]
+    },
+    {
+      "profile": "power_user",
+      "loop_events": 73,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 68,
+          "share": 0.9315
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 3,
+          "share": 0.0411
+        },
+        {
+          "family": "sport_chat_soft",
+          "count": 1,
+          "share": 0.0137
+        }
+      ]
+    },
+    {
+      "profile": "exigente",
+      "loop_events": 29,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 23,
+          "share": 0.7931
+        },
+        {
+          "family": "greeting_identity",
+          "count": 3,
+          "share": 0.1034
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 2,
+          "share": 0.069
+        }
+      ]
+    },
+    {
+      "profile": "chatgpt_user",
+      "loop_events": 22,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 16,
+          "share": 0.7273
+        },
+        {
+          "family": "greeting_identity",
+          "count": 4,
+          "share": 0.1818
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 2,
+          "share": 0.0909
+        }
+      ]
+    }
+  ],
+  "by_length": [
+    {
+      "length": "10",
+      "loop_events": 24,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 21,
+          "share": 0.875
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 3,
+          "share": 0.125
+        }
+      ]
+    },
+    {
+      "length": "50",
+      "loop_events": 108,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 45,
+          "share": 0.4167
+        },
+        {
+          "family": "other_content",
+          "count": 30,
+          "share": 0.2778
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 27,
+          "share": 0.25
+        }
+      ]
+    },
+    {
+      "length": "100",
+      "loop_events": 63,
+      "top_families": [
+        {
+          "family": "other_content",
+          "count": 33,
+          "share": 0.5238
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 23,
+          "share": 0.3651
+        },
+        {
+          "family": "soft_assume_goal",
+          "count": 7,
+          "share": 0.1111
+        }
+      ]
+    },
+    {
+      "length": "200",
+      "loop_events": 293,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 198,
+          "share": 0.6758
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 44,
+          "share": 0.1502
+        },
+        {
+          "family": "other_content",
+          "count": 39,
+          "share": 0.1331
+        }
+      ]
+    },
+    {
+      "length": "500",
+      "loop_events": 1193,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 993,
+          "share": 0.8324
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 113,
+          "share": 0.0947
+        },
+        {
+          "family": "other_content",
+          "count": 64,
+          "share": 0.0536
+        }
+      ]
+    },
+    {
+      "length": "1000",
+      "loop_events": 1460,
+      "top_families": [
+        {
+          "family": "sport_analysis_boilerplate",
+          "count": 994,
+          "share": 0.6808
+        },
+        {
+          "family": "legacy_clarify_triage",
+          "count": 275,
+          "share": 0.1884
+        },
+        {
+          "family": "other_content",
+          "count": 131,
+          "share": 0.0897
+        }
+      ]
+    }
+  ],
+  "ask_rates": {
+    "all_replies": 0.3017,
+    "loop_replies": 0.2076
+  },
+  "family_streak_ge3": {
+    "legacy_clarify_triage": 31,
+    "other_content": 7,
+    "sport_analysis_boilerplate": 5,
+    "soft_assume_goal": 2
+  },
+  "answers": {
+    "1_dominant_loop_family": "sport_analysis_boilerplate",
+    "2_top3_families": [
+      "sport_analysis_boilerplate",
+      "legacy_clarify_triage",
+      "other_content"
+    ],
+    "3_escape_still_dominant": false,
+    "4_uncommitted_share_of_loops": 0.0,
+    "5_sport_boilerplate_share": 0.71,
+    "6_soft_assume_share": 0.0293,
+    "7_ask_rate_on_loops": 0.2076,
+    "8_top10_fingerprint_concentration": 0.9357,
+    "9_commitment_recovery_effect": "abandon_escape_ask + uncommitted_explicit together are 0.0% of loops; sport_analysis_boilerplate remains the largest single sticky family if ranked #1, or second — see ranked table."
+  },
+  "examples": {
+    "other_content": [
+      {
+        "run_id": "irritado_L10_1003_efece322",
+        "profile": "irritado",
+        "length": "10",
+        "turn": 3,
+        "user": "tô puto com isso",
+        "aurora": "Mantendo foco Bahia | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      },
+      {
+        "run_id": "irritado_L10_1004_e19b705f",
+        "profile": "irritado",
+        "length": "10",
+        "turn": 4,
+        "user": "você não entendeu",
+        "aurora": "Assumindo o time **Corinthians** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      },
+      {
+        "run_id": "irritado_L10_1004_e19b705f",
+        "profile": "irritado",
+        "length": "10",
+        "turn": 5,
+        "user": "você não entendeu",
+        "aurora": "Assumindo o time **Corinthians** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      },
+      {
+        "run_id": "irritado_L10_1005_a58aead4",
+        "profile": "irritado",
+        "length": "10",
+        "turn": 3,
+        "user": "claro, genial, exatamente o que eu precisava",
+        "aurora": "Mantendo foco Botafogo | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      },
+      {
+        "run_id": "emocional_L10_1006_1a0b0c9c",
+        "profile": "emocional",
+        "length": "10",
+        "turn": 4,
+        "user": "corrigindo: era Palmeiras",
+        "aurora": "Assumindo o time **Internacional** (sem confronto completo). | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      },
+      {
+        "run_id": "emocional_L10_1008_7a6f99e8",
+        "profile": "emocional",
+        "length": "10",
+        "turn": 3,
+        "user": "mudando de assunto: me fala de viagem",
+        "aurora": "Mantendo foco Corinthians | Escopo de **time** — sem inventar adversário. | No-bet: sinais insuficientes para stake. |  | ?",
+        "intent": "follow_up"
+      }
+    ],
+    "legacy_clarify_triage": [
+      {
+        "run_id": "poucas_palavras_L10_1018_07f2f7f5",
+        "profile": "poucas_palavras",
+        "length": "10",
+        "turn": 3,
+        "user": "sim",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "poucas_palavras_L10_1020_326d04b8",
+        "profile": "poucas_palavras",
+        "length": "10",
+        "turn": 7,
+        "user": "mais",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "poucas_palavras_L10_1020_326d04b8",
+        "profile": "poucas_palavras",
+        "length": "10",
+        "turn": 10,
+        "user": "mais",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "poucas_palavras_L50_1039_e1721ced",
+        "profile": "poucas_palavras",
+        "length": "50",
+        "turn": 7,
+        "user": "continua",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "poucas_palavras_L50_1039_e1721ced",
+        "profile": "poucas_palavras",
+        "length": "50",
+        "turn": 8,
+        "user": "sim",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "poucas_palavras_L50_1039_e1721ced",
+        "profile": "poucas_palavras",
+        "length": "50",
+        "turn": 19,
+        "user": "mais",
+        "aurora": "Você está falando de: |  Seleção / time? |  Jogo específico? |  Notícias?",
+        "intent": "clarification"
+      }
+    ],
+    "sport_analysis_boilerplate": [
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 6,
+        "user": "você não entendeu",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      },
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 7,
+        "user": "preste atenção",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      },
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 8,
+        "user": "preste atenção",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      },
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 9,
+        "user": "isso está errado",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      },
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 10,
+        "user": "você parece um robô",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      },
+      {
+        "run_id": "irritado_L50_1030_c2029e54",
+        "profile": "irritado",
+        "length": "50",
+        "turn": 11,
+        "user": "preste atenção",
+        "aurora": "Há um caminho interessante, sem euforia. | O ponto que mais pesa para mim: | • há contexto suficiente em o jogo ativo | • o confronto já está ancorado na conversa — não preciso reabrir tudo | • ainda vejo margem para tra",
+        "intent": "conversation_repair"
+      }
+    ],
+    "soft_assume_goal": [
+      {
+        "run_id": "caotico_L50_1033_635f41a1",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 13,
+        "user": "Goku vs Naruto quem ganha?",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "caotico_L50_1033_635f41a1",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 14,
+        "user": "Goku vs Naruto quem ganha?",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "caotico_L50_1033_635f41a1",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 15,
+        "user": "Goku vs Naruto quem ganha?",
+        "aurora": "Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode falar o que você quer fazer",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "caotico_L50_1033_635f41a1",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 39,
+        "user": "cara, primeiro produtividade, depois Fortaleza, aí e se o Pikachu jogasse no Flamengo??",
+        "aurora": "Sem o mesmo bloco: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode fal",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "caotico_L50_1034_91bb1126",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 15,
+        "user": "Goku vs Naruto quem ganha?",
+        "aurora": "Outro formato, mesmo assunto: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeir",
+        "intent": "clarification"
+      },
+      {
+        "run_id": "caotico_L50_1034_91bb1126",
+        "profile": "caotico",
+        "length": "50",
+        "turn": 44,
+        "user": "primeiro produtividade, depois Cruzeiro, aí Goku vs Naruto quem ganha",
+        "aurora": "Sem o mesmo bloco: |  | Esse confronto parece **ficção / hipotético** não trato como partida real de futebol. |  | Se quiser análise esportiva, me diga um jogo real (ex.: Time A x Time B). Se for só brincadeira, pode fal",
+        "intent": "clarification"
+      }
+    ],
+    "too_short": [
+      {
+        "run_id": "emocional_L200_1056_942b0bab",
+        "profile": "emocional",
+        "length": "200",
+        "turn": 186,
+        "user": "obrigado",
+        "aurora": "Por nada.",
+        "intent": "small_talk"
+      },
+      {
+        "run_id": "casual_L1000_1072_a03dc8bb",
+        "profile": "casual",
+        "length": "1000",
+        "turn": 948,
+        "user": "flw",
+        "aurora": "Até mais!",
+        "intent": "small_talk"
+      },
+      {
+        "run_id": "casual_L1000_1072_a03dc8bb",
+        "profile": "casual",
+        "length": "1000",
+        "turn": 997,
+        "user": "obrigado",
+        "aurora": "Tamo junto.",
+        "intent": "small_talk"
+      },
+      {
+        "run_id": "caotico_L1000_1075_36a2bce6",
+        "profile": "caotico",
+        "length": "1000",
+        "turn": 928,
+        "user": "valeu",
+        "aurora": "Disponha.",
+        "intent": "small_talk"
+      },
+      {
+        "run_id": "caotico_L1000_1075_36a2bce6",
+        "profile": "caotico",
+        "length": "1000",
+        "turn": 983,
+        "user": "até mais",
+        "aurora": "Até mais!",
+        "intent": "small_talk"
+      },
+      {
+        "run_id": "esportivo_L1000_1076_bbcc2414",
+        "profile": "esportivo",
+        "length": "1000",
+        "turn": 973,
+        "user": "até mais",
+        "aurora": "Até logo.",
+        "intent": "small_talk"
+      }
+    ],
+    "greeting_identity": [
+      {
+        "run_id": "exigente_L200_1059_8bfe7ec8",
+        "profile": "exigente",
+        "length": "200",
+        "turn": 43,
+        "user": "me explica o que você é",
+        "aurora": "Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      },
+      {
+        "run_id": "exigente_L1000_1077_d6931bd8",
+        "profile": "exigente",
+        "length": "1000",
+        "turn": 112,
+        "user": "você é a Aurora?",
+        "aurora": "Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      },
+      {
+        "run_id": "exigente_L1000_1077_d6931bd8",
+        "profile": "exigente",
+        "length": "1000",
+        "turn": 141,
+        "user": "você é a Aurora?",
+        "aurora": "Sem o mesmo bloco: |  | Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      },
+      {
+        "run_id": "chatgpt_user_L1000_1080_ecb10f30",
+        "profile": "chatgpt_user",
+        "length": "1000",
+        "turn": 30,
+        "user": "você é a Aurora?",
+        "aurora": "Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      },
+      {
+        "run_id": "chatgpt_user_L1000_1080_ecb10f30",
+        "profile": "chatgpt_user",
+        "length": "1000",
+        "turn": 307,
+        "user": "me explica o que você é",
+        "aurora": "Mudando o ângulo pra não repetir. |  | Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      },
+      {
+        "run_id": "chatgpt_user_L1000_1080_ecb10f30",
+        "profile": "chatgpt_user",
+        "length": "1000",
+        "turn": 668,
+        "user": "me explica o que você é",
+        "aurora": "Eu sou a Aurora. Em que posso ajudar?",
+        "intent": "identity"
+      }
+    ],
+    "sport_chat_soft": [
+      {
+        "run_id": "power_user_L200_1061_329892f8",
+        "profile": "power_user",
+        "length": "200",
+        "turn": 109,
+        "user": "compara",
+        "aurora": "Sem o mesmo bloco: |  | Continuando de onde paramos. |  | No fio “Corinthians x Palmeiras o que você acha sem inventar número” respondo em papo de esporte, sem placar/odd inventados. O que você quer priorizar?",
+        "intent": "conversation_assist"
+      }
+    ]
+  },
+  "definitions": {
+    "sport_analysis_boilerplate": "Frozen sports engine prose (cautela/vejo valor/contexto suficiente).",
+    "uncommitted_explicit": "P3-D.2 no-commitment non-ask lines.",
+    "abandon_escape_ask": "Post-abandon open ask (escape budget).",
+    "soft_assume_goal": "Goal soft-assume / rebuild continue templates.",
+    "legacy_clarify_triage": "Old seleção/time/jogo triage.",
+    "fiction_refusal": "Fiction/hypothetical refusal.",
+    "sport_chat_soft": "Conversational sport chat without analysis boilerplate."
+  }
+}

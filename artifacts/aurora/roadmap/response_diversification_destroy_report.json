@@ -1,0 +1,91 @@
+{
+  "version": "P3-D.4",
+  "generated_at": "2026-07-20T22:24:19.169834+00:00",
+  "profile": "destroy",
+  "sessions": 81,
+  "total_turns": 17370,
+  "seed_corpus_count": 1500,
+  "classification": "PARTIAL",
+  "implemented": [
+    "fingerprint_cooldown",
+    "speech_act_cooldown",
+    "recovery_diversification",
+    "sport_boilerplate_suppression",
+    "context_anchors_before_uncommitted"
+  ],
+  "not_implemented": [
+    "multiple_hypotheses",
+    "belief_stacks",
+    "sports_engine_changes",
+    "personality_changes",
+    "new_memories"
+  ],
+  "metrics_after": {
+    "Perceived_Intelligence": 6.567,
+    "Human_Likeness": 6.415,
+    "Frustration": 7.002,
+    "Continuity": 7.059,
+    "Understanding_Confidence": 6.724,
+    "Loop_Rate": 0.182,
+    "Fatigue": 9.664,
+    "Recovery_Ability": 8.474,
+    "Trust": 7.449,
+    "Return_Probability": 6.154
+  },
+  "metrics_before": {
+    "Perceived_Intelligence": 6.172,
+    "Human_Likeness": 6.064,
+    "Frustration": 6.251,
+    "Continuity": 7.095,
+    "Understanding_Confidence": 6.374,
+    "Loop_Rate": 0.5453,
+    "Fatigue": 9.22,
+    "Recovery_Ability": 7.757,
+    "Trust": 7.461,
+    "Return_Probability": 5.432
+  },
+  "conversational_limits": {
+    "avg_break_turn": 8.418,
+    "median_break_turn": 1,
+    "p90_break_turn": 14,
+    "max_capacity_turns_observed": 209,
+    "avg_capacity_turns": 10.951,
+    "max_context_sustained_max": 677,
+    "max_context_sustained_mean": 56.185,
+    "loop_rate_global": 0.182,
+    "sessions": 81,
+    "break_rate": 0.8272
+  },
+  "cognitive_limits": {
+    "memory_checks": 444,
+    "memory_hit_rate": 0.6104,
+    "memory_miss_rate": 0.3896,
+    "avg_understanding_confidence": 6.602,
+    "avg_perceived_intelligence": 6.375,
+    "observed_cognitive_ceiling_turns_before_memory_or_pi_collapse": 8.418
+  },
+  "human_perception_score": {
+    "before": 64.38,
+    "after": 72.03,
+    "delta": 7.65
+  },
+  "loop_reduction_pct": 66.62,
+  "artifacts": {
+    "perception_metrics": "roadmap/perception_metrics.json",
+    "baseline_snapshot": "roadmap/baselines/pre_response_diversification_perception_metrics.json",
+    "patch": "roadmap/response_diversification_patch.md",
+    "delta": "roadmap/human_perception_delta.json"
+  },
+  "residual_patterns_post": {
+    "dominant_loop_family": "sport_analysis_boilerplate",
+    "uncommitted_explicit_share": 0.0,
+    "sport_analysis_share_of_remaining_loops": 0.71,
+    "legacy_clarify_share": 0.154,
+    "note": "Absolute loop volume down sharply; sport share is of residual loops only."
+  },
+  "notes": [
+    "Loop 0.5453→0.182 (−66.6% rel); HPS 64.38→72.03; target ≤0.35 met.",
+    "Uncommitted bank loops eliminated from loop mass; sport boilerplate is main residual.",
+    "PARTIAL: break avg 8.4 (<10 SUCCESS bar) despite large loop cut."
+  ]
+}

@@ -383,7 +383,15 @@ def render_depth_reply(
         pass
 
     text = "\n".join(sections).strip()
-    return _strip_banned_phrases(text)
+    text = _strip_banned_phrases(text)
+    # P3-D.4 — suppress only here; anti_sticky diversify_reply records once
+    try:
+        from src.conversation.response_diversification import suppress_sport_boilerplate
+
+        text = suppress_sport_boilerplate(ctx, text)
+    except Exception:
+        pass
+    return text
 
 
 def should_use_depth(intent_key: str) -> bool:

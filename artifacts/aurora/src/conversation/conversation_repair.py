@@ -41,7 +41,12 @@ _REPAIR = re.compile(
     r"voce\s+interpretou\s+errado|"
     r"interpretou\s+errado|"
     r"voce\s+errou|"
-    r"isso\s+nao\s+(?:e|eh|é)\s+o\s+que"
+    r"isso\s+nao\s+(?:e|eh|é)\s+o\s+que|"
+    r"parece\s+um\s+robo|"
+    r"responde\s+direito|"
+    r"ja\s+falei|"
+    r"isso\s+esta\s+errado|"
+    r"voce\s+esta\s+me\s+frustr"
     r")",
     re.I,
 )
@@ -269,87 +274,58 @@ def _try_reclassify_previous(ctx: dict[str, Any] | None) -> dict[str, Any] | Non
 
 
 def _build_repair_reply(message: str, ctx: dict[str, Any] | None) -> str:
+    """
+    Repair must ANSWER the prior goal — never sport triage menus.
+    repair_count > 1 → forced re-answer from perception state.
+    """
+    try:
+        from src.conversation.perception_conversation_state import (
+            build_goal_answer,
+            note_state,
+            note_user_message,
+            should_reanswer_after_repair,
+            strip_menus,
+        )
+
+        note_user_message(ctx, message)
+        note_state(ctx, "REPAIR")
+        # Always contentful answer from goal; cap just strengthens wording
+        text = build_goal_answer(
+            ctx,
+            reason="repair_reanswer",
+        )
+        if should_reanswer_after_repair(ctx):
+            text = "Sem perguntar de novo.\n\n" + text
+        return strip_menus(text)
+    except Exception:
+        pass
+
     mem = get_repair_memory(ctx)
     team = mem.get("last_team")
     if not isinstance(team, str) or not team.strip():
         team = _extract_team_from_text(mem.get("last_user_question") or "") or None
     last_q = str(mem.get("last_user_question") or "").strip()
-    folded = _fold(message)
-    opinionish = bool(_MATCH_OPINION.search(_fold(last_q)))
 
-    if re.search(r"agora\s+entendeu", folded):
-        if team and opinionish:
-            return (
-                f"Estou alinhando de novo: você queria minha opinião sobre "
-                f"o jogo do {team} — certo?\n\n"
-                "Confirma isso ou me diz em uma frase o que você queria saber."
-            )
-        if team:
-            return (
-                f"Estou alinhando de novo com o {team}. "
-                "Confirma o que exatamente você queria saber?"
-            )
+    # Fallback answer path (still no menus)
+    if team and last_q:
         return (
-            "Ainda estou alinhando com o que você quis dizer. "
-            "Pode confirmar em uma frase o que você queria saber?"
-        )
-
-    if re.search(r"pensa\s+um\s+pouco|preste?\s+atencao|\breleia\b|\baff+\b", folded):
-        if team and opinionish:
-            return (
-                "Vou pensar de novo no que você pediu.\n\n"
-                f"Você queria minha opinião sobre a partida do {team} — é isso?"
-            )
-        if team:
-            return (
-                "Vou pensar de novo no que você pediu.\n\n"
-                f"O fio era o {team}. Pode confirmar o que você queria saber?"
-            )
-        if last_q:
-            return (
-                "Vou pensar de novo no que você pediu.\n\n"
-                f"Você tinha dito: “{last_q[:100]}”. "
-                "Pode confirmar o que exatamente queria?"
-            )
-        return (
-            "Vou pensar de novo no que você pediu.\n\n"
-            "Pode reformular em uma frase o que você queria saber?"
-        )
-
-    if re.search(r"loop|para+a*\s+de\s+(?:repet|fica)", folded):
-        return (
-            "Você tem razão — eu estava repetindo sem avançar.\n\n"
-            + (
-                f"Voltando ao ponto: opinião sobre o jogo do {team}?"
-                if team and opinionish
-                else (
-                    f"Voltando ao {team}: o que você queria saber exatamente?"
-                    if team
-                    else "Pode confirmar o que você queria saber, sem eu reiniciar do zero?"
-                )
-            )
-        )
-
-    # Default correction / "não foi isso" / "não entendeu"
-    if team and opinionish:
-        return (
-            "Acho que interpretei errado.\n\n"
-            f"Você queria minha opinião sobre a partida de ontem do {team}?"
-        )
-    if team:
-        return (
-            "Acho que interpretei sua pergunta de forma errada.\n\n"
-            f"Você queria falar sobre o {team} — pode confirmar o que exatamente "
-            "você queria saber?"
+            f"Sem menu — retomando: você falou de {team} (“{last_q[:100]}”). "
+            f"Sobre o {team}, te respondo em conversa direta (opinião/contexto), "
+            "sem inventar placar ou odd. O que priorizar: forma, rivalidade ou sensação?"
         )
     if last_q:
         return (
-            "Entendi que minha resposta anterior não foi o que você esperava.\n\n"
-            f"Sobre “{last_q[:100]}” — pode reformular o que você queria saber?"
+            f"Sem menu — retomando o que você pediu: “{last_q[:140]}”. "
+            "Vou responder em cima disso. Se não for isso, me corrige em uma frase."
+        )
+    if team:
+        return (
+            f"Sem menu — voltando ao {team}. Te dou uma leitura conversacional "
+            "sem inventar número. Qual o foco?"
         )
     return (
-        "Acho que interpretei sua pergunta de forma errada.\n\n"
-        "Pode reformular ou confirmar o que exatamente você queria saber?"
+        "Sem menu — vou avançar com o que já temos na conversa. "
+        "Me diga só o foco em uma frase."
     )
 
 
@@ -439,9 +415,18 @@ def try_conversation_repair(
         # Never ship the sticky GA template from this path
         if text.strip().startswith("Entendi. Posso te ajudar"):
             text = (
-                "Acho que interpretei sua pergunta de forma errada.\n\n"
-                "Pode reformular ou confirmar o que exatamente você queria saber?"
+                "Sem menu — retomando o fio da conversa e avançando no que você pediu."
             )
+        try:
+            from src.conversation.perception_conversation_state import (
+                anti_sticky_reply,
+                stamp_entities,
+                strip_menus,
+            )
+
+            text = anti_sticky_reply(ctx, strip_menus(text))
+        except Exception:
+            pass
         logger.warning(
             "[AUDIT] ConversationRepair: signal matched team=%r q=%r",
             get_repair_memory(ctx).get("last_team"),
@@ -458,7 +443,17 @@ def try_conversation_repair(
             )
         except Exception:
             pass
-        return _payload(text)
+        payload = _payload(text)
+        try:
+            from src.conversation.perception_conversation_state import stamp_entities
+
+            stamp_entities(payload, ctx)
+            ents = dict(payload.get("entities") or {})
+            ents["repair_must_answer"] = True
+            payload["entities"] = ents
+        except Exception:
+            pass
+        return payload
     except Exception as exc:
         logger.warning("try_conversation_repair fail-open: %s", exc)
         return None

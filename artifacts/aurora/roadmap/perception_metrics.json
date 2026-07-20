@@ -1,0 +1,76 @@
+{
+  "version": "P3-C.2",
+  "generated_at": "2026-07-20T22:24:04.880773+00:00",
+  "profile_mode": "destroy",
+  "seed_corpus_count": 1500,
+  "sessions": 81,
+  "total_turns": 17370,
+  "metrics": {
+    "Perceived_Intelligence": 6.567,
+    "Human_Likeness": 6.415,
+    "Frustration": 7.002,
+    "Continuity": 7.059,
+    "Understanding_Confidence": 6.724,
+    "Loop_Rate": 0.182,
+    "Fatigue": 9.664,
+    "Recovery_Ability": 8.474,
+    "Trust": 7.449,
+    "Return_Probability": 6.154
+  },
+  "scale": "0-10 except Loop_Rate which is 0-1 rate",
+  "by_length": {
+    "10": {
+      "sessions": 27,
+      "avg_break_turn": 2.167,
+      "avg_loop_rate": 0.093,
+      "avg_capacity": 4.111,
+      "max_capacity": 10
+    },
+    "50": {
+      "sessions": 18,
+      "avg_break_turn": 5.857,
+      "avg_loop_rate": 0.12,
+      "avg_capacity": 14.889,
+      "max_capacity": 50
+    },
+    "100": {
+      "sessions": 9,
+      "avg_break_turn": 8.875,
+      "avg_loop_rate": 0.071,
+      "avg_capacity": 18.111,
+      "max_capacity": 100
+    },
+    "200": {
+      "sessions": 9,
+      "avg_break_turn": 5.0,
+      "avg_loop_rate": 0.164,
+      "avg_capacity": 4.0,
+      "max_capacity": 28
+    },
+    "500": {
+      "sessions": 9,
+      "avg_break_turn": 25.444,
+      "avg_loop_rate": 0.266,
+      "avg_capacity": 24.444,
+      "max_capacity": 209
+    },
+    "1000": {
+      "sessions": 9,
+      "avg_break_turn": 10.889,
+      "avg_loop_rate": 0.163,
+      "avg_capacity": 9.889,
+      "max_capacity": 31
+    }
+  },
+  "by_profile_sessions": {
+    "casual": 9,
+    "irritado": 9,
+    "emocional": 9,
+    "caotico": 9,
+    "esportivo": 9,
+    "exigente": 9,
+    "poucas_palavras": 9,
+    "power_user": 9,
+    "chatgpt_user": 9
+  }
+}

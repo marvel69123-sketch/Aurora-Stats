@@ -101,7 +101,15 @@ def pick_variant(family: str, ctx: dict[str, Any] | None = None) -> str:
     opts = list(FAMILIES.get(family) or FAMILIES["opener_neutral"])
     recent = list((ctx or {}).get(VARIATION_RECENT_KEY) or [])
     fresh = [o for o in opts if o not in recent]
-    choice = random.choice(fresh or opts)
+    # P3-D.4 — prefer options off fingerprint cooldown when available
+    try:
+        from src.conversation.response_diversification import fingerprint_on_cooldown
+
+        cooler = [o for o in (fresh or opts) if not fingerprint_on_cooldown(ctx, o)]
+        pool = cooler or fresh or opts
+    except Exception:
+        pool = fresh or opts
+    choice = random.choice(pool)
     if ctx is not None:
         ctx[VARIATION_RECENT_KEY] = ([choice] + recent)[:24]
     return choice
