@@ -1,0 +1,281 @@
+{
+  "http": 200,
+  "session": "tb002-live-s2-d4ab44d5",
+  "user": "Quem está melhor?",
+  "response": {
+    "intent": "follow_up",
+    "entities": {
+      "followup": true,
+      "turn_owner": "SPORT",
+      "rewrite_locked": true,
+      "response_owner": "sport_intent_skill",
+      "show_header": false,
+      "response_selector": true,
+      "response_selector_owner": "sport_intent_skill",
+      "response_selector_priority": 90,
+      "response_selector_confidence": 0.85,
+      "response_selector_fallback": false,
+      "response_selector_skip_honesty": true,
+      "sport_intent_authored": true,
+      "followup_before_fallback": true,
+      "continuity_followup": true,
+      "final_response": true,
+      "continuity_draft": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool).\n\nAinda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte.",
+      "sport_intent": "recent_form",
+      "sport_skill": "skill_recent_form",
+      "sport_intent_confidence": 0.85,
+      "ownership_finalize_pass": "presence",
+      "owner_stability_counters": {
+        "owner_lock_activated": 2,
+        "owner_lock_preserved": 0,
+        "owner_steal_attempted": 0,
+        "owner_steal_blocked": 0,
+        "owner_transition_denied": 0,
+        "continuity_guard_triggered": 0,
+        "loop_guard_triggered": 0,
+        "owner_lock_ttl_expired": 0,
+        "dangerous_transition_detected": 0,
+        "orphan_state_detected": 2,
+        "owner_claim_forced": 0,
+        "ga_block_without_claim": 0,
+        "owner_claimed_after_block": 0,
+        "dangerous_transition_after_block": 0,
+        "ownerless_transition": 0,
+        "advanced_continuity_hits": 0,
+        "owner_reclaimed": 0,
+        "owner_lock_duration": 2,
+        "claim_repetition_count": 0,
+        "owner_release_triggered": 2,
+        "sticky_owner_detected": 0
+      },
+      "owner_lock_duration": 0,
+      "claim_repetition_count": 0,
+      "owner_release_triggered": true,
+      "continuity_score": 0.81,
+      "continuity_signals": {
+        "last_owner": "SPORT",
+        "fixture_id": "chelsea x liverpool",
+        "resolved_fixture": "Chelsea x Liverpool",
+        "resolved_team": "Chelsea",
+        "pronouns": false,
+        "short_followups": false,
+        "recent_entities": true,
+        "continuity_ttl": 3,
+        "advanced_continuity_hits": 0,
+        "owner_lock_active": false,
+        "sport_context": true
+      },
+      "sport_guard_counters": {
+        "sport_anchor_created": 2,
+        "sport_anchor_used": 1,
+        "sport_anchor_expired": 1,
+        "nc_blocked_by_sport": 0,
+        "ga_blocked_by_sport": 0,
+        "continuity_preserved": 1,
+        "continuity_lost": 1
+      },
+      "sport_anchor_active": true,
+      "sport_anchor_ttl": 4,
+      "sport_anchor_fixture": "Chelsea vs Liverpool",
+      "ambiguous_guard_counters": {
+        "ambiguous_detected": 0,
+        "clarification_triggered": 0,
+        "bootstrap_blocked": 0,
+        "context_jump_detected": 0,
+        "continuity_dropped": 0,
+        "sticky_template_blocked": 0
+      },
+      "ambiguous_pending_clarify": false,
+      "csl": {
+        "teams": [
+          "Chelsea",
+          "Liverpool"
+        ],
+        "topic": "comparison",
+        "last_intent": "follow_up",
+        "date_context": null,
+        "episode_id": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+        "fixture": "Chelsea vs Liverpool",
+        "phase": "FOLLOWUP"
+      },
+      "entity_input_overlap_ok": true,
+      "entity_input_overlap_missing": [],
+      "judge_understanding_score": 8.7,
+      "judge_utility_score": 4.8,
+      "judge_continuity_score": 9.0,
+      "judge_credibility_score": 8.0,
+      "judge_naturalness_score": 3.5,
+      "judge_clarity_score": 3.5,
+      "judge_overall_score": 6.5,
+      "judge_band": "Aceitável",
+      "judge_mode": "rubric",
+      "response_type_after_finalize": null,
+      "final_summary_prefix": "?",
+      "entity_v2": true,
+      "bind_action": "ASSUME",
+      "ambiguity_score": 0.0,
+      "binding_quality": "PARTIAL",
+      "focus_kind": "FIXTURE",
+      "bind_assumptions": [
+        "Mantendo foco Liverpool x Chelsea (comparativo De Forca)"
+      ],
+      "clarify_reason": null,
+      "referent_fixture": "Liverpool x Chelsea (comparativo De Forca)",
+      "referent_team": null,
+      "bind_candidates": [],
+      "srf": {
+        "focus_kind": "FIXTURE",
+        "fixture_label": "Liverpool x Chelsea (comparativo De Forca)",
+        "focus_team": null,
+        "binding_quality": "PARTIAL"
+      },
+      "p25_entity_v2": true,
+      "confidence_explanation": {
+        "display_score": 46,
+        "tier": "baixa",
+        "meaning": "riqueza_de_dados",
+        "internal_score": 3.5,
+        "internal_label": "adequada",
+        "drivers_positive": [],
+        "drivers_negative": [
+          {
+            "code": "MISSING_XG",
+            "label": "xG ausente"
+          },
+          {
+            "code": "MISSING_STATS",
+            "label": "Sem estatísticas confirmadas"
+          },
+          {
+            "code": "BINDING_PARTIAL",
+            "label": "Fixture parcialmente resolvido"
+          }
+        ],
+        "binding": {
+          "quality": "PARTIAL",
+          "disclosed_assumptions": [
+            "Mantendo foco Liverpool x Chelsea (comparativo De Forca)"
+          ]
+        },
+        "next_signals": [
+          "xG",
+          "estatísticas da partida",
+          "fixture oficial confirmado"
+        ],
+        "disclaimer": "Confiança mede completude / riqueza dos dados, não certeza do resultado."
+      },
+      "p25_confidence_explain": true,
+      "dialog_mode": "SPORT",
+      "p25_sport_understanding": true,
+      "team": "Chelsea",
+      "sport_ask_shape": "team_form"
+    },
+    "request_id": "1108bb81",
+    "generated_at": "2026-07-21T05:02:20.301921+00:00",
+    "routing_confidence": 0.85,
+    "match": null,
+    "status": null,
+    "is_live": false,
+    "minute": null,
+    "match_card": null,
+    "fixture_status": null,
+    "fixture_found": null,
+    "fixture_quality": null,
+    "backend_commit": "4d3f8e9",
+    "frontend_commit": "chatgpt-2026-07-21T0151",
+    "executive_summary": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool).\n\nAinda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte.",
+    "best_markets": [],
+    "confidence": {
+      "score": 3.5,
+      "label": "adequada",
+      "explanation": "Response selector skill / hold candidate.",
+      "data_sources": [
+        "ResponseSelector"
+      ]
+    },
+    "risk": {
+      "level": "Médio",
+      "flags": [],
+      "invalidation_conditions": []
+    },
+    "bankroll_recommendation": {
+      "recommended_stake_pct": 0.0,
+      "method": "quarter-Kelly",
+      "examples": {},
+      "reasoning": "Selector candidate — sem novo stake.",
+      "no_bet": true
+    },
+    "positive_factors": [],
+    "negative_factors": [],
+    "historical_references": [],
+    "knowledge_notes": [
+      "response_selector owner=sport_intent_skill",
+      "Confiança: 46% (baixa) — riqueza de dados. − xG ausente, Sem estatísticas confirmadas.",
+      "Confiança mede completude / riqueza dos dados, não certeza do resultado."
+    ],
+    "final_recommendation": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool).\n\nAinda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte.",
+    "session_id": "tb002-live-s2-d4ab44d5",
+    "aurora_version": "Copilot v1.0 + LLM",
+    "brain": {},
+    "suggested_follow_ups": [
+      "E os escanteios?",
+      "E os gols? Over/Under?",
+      "E os cartões?",
+      "Quanto apostar?"
+    ],
+    "response_metadata": {
+      "need_web": {
+        "need": "none",
+        "reason": "deep_thinking:match_analysis",
+        "topic": "Chelsea",
+        "query": null,
+        "result_count": 0,
+        "summary": null,
+        "used_in_response": false,
+        "status": "skipped"
+      },
+      "formatter": {
+        "applied": true,
+        "kind": "generic",
+        "response_mode": "detailed",
+        "v": "4.8.1"
+      },
+      "personality_applied": {
+        "emojis": "none",
+        "enthusiasm": "medium",
+        "structure": "balanced",
+        "detail": "normal"
+      },
+      "prediction_id": "4aa0303c-510a-453e-a312-c6248efc501a"
+    },
+    "debug": {
+      "fixture_found": "DATA_MISSING",
+      "fixture_id": "DATA_MISSING",
+      "data_source": "DATA_MISSING",
+      "markets_source": "DATA_MISSING",
+      "market_reasoning": "DATA_MISSING",
+      "fallback_used": "DATA_MISSING",
+      "confidence_source": "DATA_MISSING",
+      "corner_average": "DATA_MISSING",
+      "goal_average": "DATA_MISSING",
+      "xg_home": "DATA_MISSING",
+      "xg_away": "DATA_MISSING",
+      "form_score": "DATA_MISSING",
+      "fixture_resolver": "DATA_MISSING",
+      "entity_match_score": "DATA_MISSING",
+      "market_generation_enabled": "DATA_MISSING",
+      "fixture_quality": "DATA_MISSING",
+      "llm_judge": {
+        "overall": 6.5,
+        "understanding": 8.7,
+        "utility": 4.8,
+        "continuity": 9.0,
+        "credibility": 8.0,
+        "naturalness": 3.5,
+        "clarity": 3.5,
+        "band": "Aceitável",
+        "mode": "rubric"
+      }
+    }
+  }
+}

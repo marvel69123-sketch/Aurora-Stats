@@ -1,0 +1,279 @@
+{
+  "flag_matrix": {
+    "ENABLE_RESPONSE_SELECTOR": "1",
+    "ENABLE_SPORT_INTENTS": "1",
+    "ENABLE_CSL": "1",
+    "ENABLE_SPORTS_LANGUAGE_LAYER": "1",
+    "ENABLE_SPORT_NLG": "0",
+    "ENABLE_ENTITY_EDGE": "0",
+    "ENABLE_TOPIC_BOUNDARY_V2": "1"
+  },
+  "scenarios": {
+    "s1": {
+      "turns": [
+        {
+          "scenario": "s1_switch",
+          "turn": 1,
+          "user": "Flamengo x Palmeiras",
+          "http": 200,
+          "intent": "analyze_match",
+          "sport_intent": "compare_strength",
+          "episode_id": "422215e9-607f-4487-a4cb-7ada2be1e92e",
+          "csl_fixture": "Flamengo vs Palmeiras",
+          "csl_teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "SLOT_READY",
+          "home": "Flamengo",
+          "away": "Palmeiras",
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Flamengo e Palmeiras sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Flamengo vs Palmeiras (Serie A) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers e what",
+          "summary_prefix": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Flamengo x Palmeiras** — leitura preliminar |  | Confronto re",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": true,
+          "mentions_palmeiras": true,
+          "mentions_liverpool": false,
+          "mentions_chelsea": false,
+          "mentions_inter": false
+        },
+        {
+          "scenario": "s1_switch",
+          "turn": 2,
+          "user": "Liverpool x Chelsea",
+          "http": 200,
+          "intent": "analyze_match",
+          "sport_intent": "compare_strength",
+          "episode_id": "4675b349-15e8-4728-a790-98ee1db9fced",
+          "csl_fixture": "Chelsea vs Liverpool",
+          "csl_teams": [
+            "Chelsea",
+            "Liverpool"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "SLOT_READY",
+          "home": "Chelsea",
+          "away": "Liverpool",
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Chelsea x Liverpool** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Chelsea e Liverpool sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Chelsea vs Liverpool (Premier League) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers and",
+          "summary_prefix": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Chelsea x Liverpool** — leitura preliminar |  | Confronto rec",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": false,
+          "mentions_palmeiras": false,
+          "mentions_liverpool": true,
+          "mentions_chelsea": true,
+          "mentions_inter": false
+        }
+      ],
+      "judgment": {
+        "pass": true,
+        "episode_rotated": true,
+        "subject_liverpool_chelsea": true,
+        "no_flamengo_contamination": true,
+        "no_mantendo_foco_flamengo": true,
+        "csl_fixture_clean": true,
+        "evidence": {
+          "ep1": "422215e9-607f-4487-a4cb-7ada2be1e92e",
+          "ep2": "4675b349-15e8-4728-a790-98ee1db9fced",
+          "csl_fixture_t2": "Chelsea vs Liverpool",
+          "csl_teams_t2": [
+            "Chelsea",
+            "Liverpool"
+          ],
+          "flamengo_t2": false,
+          "prefix_t2": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Chelsea x Liverpool** — leitura preliminar |  | Confronto rec"
+        }
+      }
+    },
+    "s2": {
+      "turns": [
+        {
+          "scenario": "s2_switch_fu",
+          "turn": 1,
+          "user": "Flamengo x Palmeiras",
+          "http": 200,
+          "intent": "analyze_match",
+          "sport_intent": "compare_strength",
+          "episode_id": "28e1a114-bc48-4caa-b139-95fa5666b7fa",
+          "csl_fixture": "Flamengo vs Palmeiras",
+          "csl_teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "SLOT_READY",
+          "home": "Flamengo",
+          "away": "Palmeiras",
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Flamengo e Palmeiras sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Flamengo vs Palmeiras (Serie A) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers e what",
+          "summary_prefix": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Flamengo x Palmeiras** — leitura preliminar |  | Confronto re",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": true,
+          "mentions_palmeiras": true,
+          "mentions_liverpool": false,
+          "mentions_chelsea": false,
+          "mentions_inter": false
+        },
+        {
+          "scenario": "s2_switch_fu",
+          "turn": 2,
+          "user": "Liverpool x Chelsea",
+          "http": 200,
+          "intent": "analyze_match",
+          "sport_intent": "compare_strength",
+          "episode_id": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+          "csl_fixture": "Chelsea vs Liverpool",
+          "csl_teams": [
+            "Chelsea",
+            "Liverpool"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "SLOT_READY",
+          "home": "Chelsea",
+          "away": "Liverpool",
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Chelsea x Liverpool** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Chelsea e Liverpool sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Chelsea vs Liverpool (Premier League) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers and",
+          "summary_prefix": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Chelsea x Liverpool** — leitura preliminar |  | Confronto rec",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": false,
+          "mentions_palmeiras": false,
+          "mentions_liverpool": true,
+          "mentions_chelsea": true,
+          "mentions_inter": false
+        },
+        {
+          "scenario": "s2_switch_fu",
+          "turn": 3,
+          "user": "Quem está melhor?",
+          "http": 200,
+          "intent": "follow_up",
+          "sport_intent": "recent_form",
+          "episode_id": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+          "csl_fixture": "Chelsea vs Liverpool",
+          "csl_teams": [
+            "Chelsea",
+            "Liverpool"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "FOLLOWUP",
+          "home": null,
+          "away": null,
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool).\n\nAinda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte.",
+          "summary_prefix": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool). |  | Ainda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte.",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": false,
+          "mentions_palmeiras": false,
+          "mentions_liverpool": true,
+          "mentions_chelsea": true,
+          "mentions_inter": false
+        }
+      ],
+      "judgment": {
+        "pass": true,
+        "episode_rotated_t1_t2": true,
+        "t3_same_liverpool_episode": true,
+        "t3_about_liverpool_chelsea": true,
+        "no_flamengo_on_t3": true,
+        "no_mantendo_foco": true,
+        "evidence": {
+          "ep1": "28e1a114-bc48-4caa-b139-95fa5666b7fa",
+          "ep2": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+          "ep3": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+          "csl_fixture_t3": "Chelsea vs Liverpool",
+          "csl_teams_t3": [
+            "Chelsea",
+            "Liverpool"
+          ],
+          "flamengo_t3": false,
+          "prefix_t3": "Comparando a **fase recente** de **Chelsea** e **Liverpool** (contexto: Chelsea vs Liverpool). |  | Ainda sem fechar um placar numérico inventado neste turno — posso afunilar em estatísticas, mando de campo ou mercados se você escolher o recorte."
+        }
+      }
+    },
+    "s3": {
+      "turns": [
+        {
+          "scenario": "s3_partial",
+          "turn": 1,
+          "user": "Flamengo x Palmeiras",
+          "http": 200,
+          "intent": "analyze_match",
+          "sport_intent": "compare_strength",
+          "episode_id": "92ec4bc6-d125-4d2d-b95e-7fb5b7ce88f9",
+          "csl_fixture": "Flamengo vs Palmeiras",
+          "csl_teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "csl_topic": "comparison",
+          "csl_phase": "SLOT_READY",
+          "home": "Flamengo",
+          "away": "Palmeiras",
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Flamengo e Palmeiras sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Flamengo vs Palmeiras (Serie A) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers e what",
+          "summary_prefix": "Com **dados parciais**… | Sinais disponíveis: times reconhecidos. | Ainda não tenho: xG, estatísticas da partida, eventos. | No-bet: sinais insuficientes para stake. | Para subir confiança: xG, estatísticas da partida, eventos. |  | **Flamengo x Palmeiras** — leitura preliminar |  | Confronto re",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": true,
+          "mentions_palmeiras": true,
+          "mentions_liverpool": false,
+          "mentions_chelsea": false,
+          "mentions_inter": false
+        },
+        {
+          "scenario": "s3_partial",
+          "turn": 2,
+          "user": "Inter joga hoje?",
+          "http": 200,
+          "intent": "small_talk",
+          "sport_intent": null,
+          "episode_id": "948985e8-b1bb-4b8c-944b-f6143d95ec5b",
+          "csl_fixture": null,
+          "csl_teams": [
+            "Internacional"
+          ],
+          "csl_topic": "calendar",
+          "csl_phase": "SLOT_READY",
+          "home": null,
+          "away": null,
+          "topic_boundary_v2": {},
+          "episode_boundary": null,
+          "summary": "**Internacional** — leitura rápida 📊 **Momento**\nCom o contexto atual do Internacional, priorizo fase e ritmo — sem cravar um veredito seco. 🗞️ **O que circula**\nAinda sem um placar recente amarrado aqui; o útil é cruzar fase e próximo desafio. 📅 **Agenda à frente**\nO próximo desafio do Internacional depende do calendário oficial — com o adversário na mesa, a leitura fica bem mais afiada.",
+          "summary_prefix": "**Internacional** — leitura rápida 📊 **Momento** | Com o contexto atual do Internacional, priorizo fase e ritmo — sem cravar um veredito seco. 🗞️ **O que circula** | Ainda sem um placar recente amarrado aqui; o útil é cruzar fase e próximo desafio. 📅 **Agenda à frente** | O próximo des",
+          "has_mantendo_foco_flamengo": false,
+          "mentions_flamengo": false,
+          "mentions_palmeiras": false,
+          "mentions_liverpool": false,
+          "mentions_chelsea": false,
+          "mentions_inter": true
+        }
+      ],
+      "judgment": {
+        "pass": true,
+        "episode_rotated_or_partial": true,
+        "inter_subject": true,
+        "no_flamengo_fixture_reuse": true,
+        "no_mantendo_foco_flamengo": true,
+        "evidence": {
+          "ep1": "92ec4bc6-d125-4d2d-b95e-7fb5b7ce88f9",
+          "ep2": "948985e8-b1bb-4b8c-944b-f6143d95ec5b",
+          "csl_fixture_t2": null,
+          "csl_teams_t2": [
+            "Internacional"
+          ],
+          "flamengo_t2": false,
+          "boundary_t2": {},
+          "prefix_t2": "**Internacional** — leitura rápida 📊 **Momento** | Com o contexto atual do Internacional, priorizo fase e ritmo — sem cravar um veredito seco. 🗞️ **O que circula** | Ainda sem um placar recente amarrado aqui; o útil é cruzar fase e próximo desafio. 📅 **Agenda à frente** | O próximo des"
+        }
+      }
+    }
+  },
+  "all_pass": true,
+  "recommendation": "ENABLE_TOPIC_BOUNDARY_V2=1"
+}

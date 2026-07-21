@@ -1,0 +1,721 @@
+{
+  "http": 200,
+  "session": "tb002-live-s2-d4ab44d5",
+  "user": "Liverpool x Chelsea",
+  "response": {
+    "intent": "analyze_match",
+    "entities": {
+      "home": "Chelsea",
+      "away": "Liverpool",
+      "league": "Premier League",
+      "fixture_found": false,
+      "fixture_quality": "PARTIAL",
+      "market_generation_enabled": true,
+      "preliminary_analysis": true,
+      "allow_partial_analysis": true,
+      "rate_limited": false,
+      "entity_invalid": false,
+      "data_richness": {
+        "drs": 5,
+        "tier": "T0",
+        "components": {
+          "binding": 10,
+          "core": 0,
+          "context": 0,
+          "market": 0,
+          "synergy": 0,
+          "premium": 0,
+          "core_parts": {
+            "statistics": 0,
+            "xg": 0,
+            "standings": 0,
+            "events": 0,
+            "live_or_finished": 0
+          },
+          "context_parts": {
+            "lineups": 0,
+            "score": 0,
+            "h2h": 0,
+            "referee": 0,
+            "live_momentum": 0,
+            "calendar": 0
+          },
+          "market_parts": {
+            "pre_match_odd": 0,
+            "live_multi": 0
+          }
+        },
+        "penalties": {
+          "inference": 0,
+          "freshness": 0,
+          "rate_limit": 0,
+          "assume_undisclosed": 5
+        },
+        "confirmed": [
+          "teams",
+          "status",
+          "narrative"
+        ],
+        "inferred": [],
+        "missing": [
+          "fixture",
+          "statistics",
+          "standings",
+          "events",
+          "lineups",
+          "score",
+          "referee",
+          "xg",
+          "live_momentum",
+          "odds",
+          "calendar",
+          "injuries"
+        ],
+        "stale": [],
+        "completion_rate": 0.4,
+        "wave2_completion_rate": 0.25,
+        "wave3_completion_rate": 0.2,
+        "xg_coverage": 0.0,
+        "event_coverage": 0.0,
+        "odds_coverage": 0.0,
+        "calendar_coverage": 0.0,
+        "lineup_coverage": 0.0,
+        "injury_coverage": 0.0,
+        "premium_analysis": false,
+        "data_freshness_score": 0.1417
+      },
+      "degradation": {
+        "tier": "T0",
+        "drs": 5,
+        "posture": "clarify_or_refuse",
+        "honesty_modes": [
+          "DATA_PARTIAL",
+          "NO_BET_HARD"
+        ],
+        "allow_markets": false,
+        "allow_live_claims": false,
+        "withhold_fragile_markets": false,
+        "no_bet_hard": true,
+        "clarify_required": true,
+        "max_claim_strength": "none",
+        "never_invent": true,
+        "confirmed_signals": [
+          "teams",
+          "status",
+          "narrative"
+        ],
+        "missing_signals": [
+          "fixture",
+          "statistics",
+          "standings",
+          "events",
+          "lineups",
+          "score",
+          "referee",
+          "xg",
+          "live_momentum",
+          "odds",
+          "calendar",
+          "injuries"
+        ],
+        "empty_partial_risk": false
+      },
+      "nmb_completion_rate": 0.4,
+      "has_analysis": true,
+      "rewrite_locked": true,
+      "response_owner": "partial_analysis",
+      "final_response": true,
+      "fixture_status": "PARTIAL",
+      "markets_blocked": false,
+      "entity_match_score": 1.0,
+      "owner_stability_counters": {
+        "owner_lock_activated": 2,
+        "owner_lock_preserved": 0,
+        "owner_steal_attempted": 0,
+        "owner_steal_blocked": 0,
+        "owner_transition_denied": 0,
+        "continuity_guard_triggered": 0,
+        "loop_guard_triggered": 0,
+        "owner_lock_ttl_expired": 0,
+        "dangerous_transition_detected": 0,
+        "orphan_state_detected": 1,
+        "owner_claim_forced": 0,
+        "ga_block_without_claim": 0,
+        "owner_claimed_after_block": 0,
+        "dangerous_transition_after_block": 0,
+        "ownerless_transition": 0,
+        "advanced_continuity_hits": 0,
+        "owner_reclaimed": 0,
+        "owner_lock_duration": 1,
+        "claim_repetition_count": 0,
+        "owner_release_triggered": 1,
+        "sticky_owner_detected": 0
+      },
+      "owner_lock_duration": 1,
+      "claim_repetition_count": 0,
+      "owner_release_triggered": false,
+      "continuity_score": 1.0,
+      "continuity_signals": {
+        "last_owner": "partial_analysis",
+        "fixture_id": "chelsea x liverpool",
+        "resolved_fixture": "Chelsea x Liverpool",
+        "resolved_team": "Chelsea",
+        "pronouns": false,
+        "short_followups": false,
+        "recent_entities": true,
+        "continuity_ttl": 75,
+        "advanced_continuity_hits": 0,
+        "owner_lock_active": true,
+        "sport_context": true
+      },
+      "owner_lock_active": true,
+      "turn_owner": "GA",
+      "sport_guard_counters": {
+        "sport_anchor_created": 2,
+        "sport_anchor_used": 0,
+        "sport_anchor_expired": 1,
+        "nc_blocked_by_sport": 0,
+        "ga_blocked_by_sport": 0,
+        "continuity_preserved": 0,
+        "continuity_lost": 1
+      },
+      "sport_anchor_active": true,
+      "sport_anchor_ttl": 4,
+      "sport_anchor_fixture": "Chelsea vs Liverpool",
+      "ambiguous_guard_counters": {
+        "ambiguous_detected": 0,
+        "clarification_triggered": 0,
+        "bootstrap_blocked": 0,
+        "context_jump_detected": 0,
+        "continuity_dropped": 0,
+        "sticky_template_blocked": 0
+      },
+      "ambiguous_pending_clarify": false,
+      "csl": {
+        "teams": [
+          "Chelsea",
+          "Liverpool"
+        ],
+        "topic": "comparison",
+        "last_intent": "analyze_match",
+        "date_context": null,
+        "episode_id": "7f9b014c-fadb-4008-a6ee-cfe7d1fce011",
+        "fixture": "Chelsea vs Liverpool",
+        "phase": "SLOT_READY"
+      },
+      "sport_intent": "compare_strength",
+      "sport_skill": "skill_compare_strength",
+      "sport_intent_confidence": 0.82,
+      "entity_input_overlap_ok": true,
+      "entity_input_overlap_missing": [],
+      "judge_understanding_score": 8.7,
+      "judge_utility_score": 8.5,
+      "judge_continuity_score": 7.0,
+      "judge_credibility_score": 8.8,
+      "judge_naturalness_score": 8.0,
+      "judge_clarity_score": 7.5,
+      "judge_overall_score": 8.1,
+      "judge_band": "Boa",
+      "judge_mode": "rubric",
+      "response_type_after_finalize": null,
+      "final_summary_prefix": "**Chelsea x Liverpool** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preli",
+      "entity_v2": true,
+      "bind_action": "ASSUME",
+      "ambiguity_score": 0.0,
+      "binding_quality": "PARTIAL",
+      "focus_kind": "FIXTURE",
+      "bind_assumptions": [],
+      "clarify_reason": null,
+      "referent_fixture": "Liverpool x Chelsea (comparativo De Forca)",
+      "referent_team": null,
+      "bind_candidates": [],
+      "srf": {
+        "focus_kind": "FIXTURE",
+        "fixture_label": "Chelsea x Liverpool",
+        "focus_team": null,
+        "binding_quality": "PARTIAL"
+      },
+      "p25_entity_v2": true,
+      "honesty_block": {
+        "modes": [
+          "DATA_PARTIAL",
+          "PARTIAL_ANALYSIS",
+          "NO_BET_HARD"
+        ],
+        "assumption_line": null,
+        "mode_lines": [
+          "Com **dados parciais**…"
+        ],
+        "have": [
+          "times reconhecidos"
+        ],
+        "lack": [
+          "xG",
+          "estatísticas da partida",
+          "eventos"
+        ],
+        "posture": "No-bet: sinais insuficientes para stake.",
+        "next_signals": [
+          "xG",
+          "estatísticas da partida",
+          "eventos"
+        ],
+        "assumptions": []
+      },
+      "honesty_modes": [
+        "DATA_PARTIAL",
+        "PARTIAL_ANALYSIS",
+        "NO_BET_HARD"
+      ],
+      "p25_partial_honesty": true,
+      "honesty_prefix_applied": true,
+      "confidence_explanation": {
+        "display_score": 40,
+        "tier": "baixa",
+        "meaning": "riqueza_de_dados",
+        "internal_score": 2.7,
+        "internal_label": "fraca",
+        "drivers_positive": [
+          {
+            "code": "HAS_XG",
+            "label": "xG disponível"
+          }
+        ],
+        "drivers_negative": [
+          {
+            "code": "MISSING_STATS",
+            "label": "Sem estatísticas confirmadas"
+          },
+          {
+            "code": "BINDING_PARTIAL",
+            "label": "Fixture parcialmente resolvido"
+          },
+          {
+            "code": "PRELIMINARY",
+            "label": "Análise preliminar / dados parciais"
+          }
+        ],
+        "binding": {
+          "quality": "PARTIAL",
+          "disclosed_assumptions": []
+        },
+        "next_signals": [
+          "estatísticas da partida",
+          "fixture oficial confirmado"
+        ],
+        "disclaimer": "Confiança mede completude / riqueza dos dados, não certeza do resultado."
+      },
+      "p25_confidence_explain": true,
+      "dialog_mode": "SPORT",
+      "p25_sport_understanding": true,
+      "team": "Chelsea",
+      "sport_ask_shape": "fixture_pair"
+    },
+    "request_id": "5b7339a9",
+    "generated_at": "2026-07-21T05:02:20.246789+00:00",
+    "routing_confidence": 0.97,
+    "match": "Chelsea vs Liverpool",
+    "status": "Not Started",
+    "is_live": false,
+    "minute": null,
+    "match_card": {
+      "home": {
+        "name": "Chelsea",
+        "logo": "https://media.api-sports.io/football/teams/49.png"
+      },
+      "away": {
+        "name": "Liverpool",
+        "logo": "https://media.api-sports.io/football/teams/40.png"
+      },
+      "score": null,
+      "competition": {
+        "name": "Premier League",
+        "logo": null,
+        "country": "England",
+        "round": null
+      },
+      "venue": null,
+      "status_label": "Not Started",
+      "minute": null,
+      "is_live": false,
+      "momentum": null,
+      "predictability": {
+        "score": 2.7,
+        "label": "Baixa previsibilidade",
+        "summary": "Ainda faltam sinais claros para uma leitura confiante. Prefira acompanhar a evolução da partida antes de decidir."
+      }
+    },
+    "fixture_status": "PARTIAL",
+    "fixture_found": false,
+    "fixture_quality": "PARTIAL",
+    "backend_commit": "4d3f8e9",
+    "frontend_commit": "chatgpt-2026-07-21T0151",
+    "executive_summary": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Chelsea x Liverpool** — leitura preliminar\n\nConfronto reconhecido, mas com **dados parciais**. Segue uma análise preliminar — sem inventar números ausentes.\nAusentes agora: placar, estatísticas da partida, métricas avançadas de finalização, eventos, escalações, classificação, árbitro.\nSinais disponíveis: times, partida.\n\nLeitura preliminar (qualitativa):\n• Perfis históricos de Chelsea e Liverpool sugerem um jogo de alto nível técnico, mas sem estatísticas fechadas o veredito fica aberto.\n• Sem posse, métricas avançadas ou escalações confirmadas, evito cravar ritmo ou domínio — só forças relativas e tendência geral.\n• Mercados a observar com cautela (genéricos, não calculados): ambas marcam, over asiático moderado, equilíbrio do jogo.\n\nConfiança: **weak** (dados parciais).\n\nNota do motor (quando disponível):\nA partida Chelsea vs Liverpool (Premier League) está sendo analisada pela Aurora (análise pré-jogo). A pontuação metodológica da Aurora, de 4.0/10, ainda não atingiu o nível mínimo necessário para uma recomendação confiante neste momento — tenha cautela antes de agir em qualquer mercado desta partida. A avaliação se baseia nas médias de gols da temporada (dados de xG indisponíveis, aumentando a incerteza em todos os mercados de gols). No mercados currently pass Aurora's full methodology filter. The analysis abaixo de explains the key blockers and",
+    "best_markets": [
+      {
+        "rank": 0,
+        "market": "Mais de 8.5 Escanteios",
+        "probability": 72.1,
+        "expected_value": 26.5,
+        "confidence": 1.7,
+        "risk": "Alto",
+        "rationale": "Estimativa pré-jogo — referência de 10.5 escanteios/90."
+      },
+      {
+        "rank": 0,
+        "market": "Chelsea ou Liverpool (12 — Sem Empate)",
+        "probability": 79.6,
+        "expected_value": 12.1,
+        "confidence": 0.0,
+        "risk": "Alto",
+        "rationale": "Chelsea ou Liverpool vencem — empate perde. Probabilidade de empate: 20%."
+      },
+      {
+        "rank": 0,
+        "market": "Menos de 2.5 Gols",
+        "probability": 65.0,
+        "expected_value": 20.4,
+        "confidence": 0.2,
+        "risk": "Alto",
+        "rationale": "Menos de 2.5 gols. λ=2.10."
+      },
+      {
+        "rank": 0,
+        "market": "Mais de 1.5 Gols",
+        "probability": 62.0,
+        "expected_value": 17.0,
+        "confidence": 0.2,
+        "risk": "Alto",
+        "rationale": "Mais de 1.5 gols. λ=2.10."
+      },
+      {
+        "rank": 0,
+        "market": "Liverpool Handicap Asiático +0.5",
+        "probability": 60.2,
+        "expected_value": 15.8,
+        "confidence": 0.0,
+        "risk": "Alto",
+        "rationale": "Liverpool HA +0.5: vitória do visitante ou empate retornam lucro."
+      }
+    ],
+    "confidence": {
+      "score": 2.7,
+      "label": "fraca",
+      "explanation": "Análise preliminar com dados parciais (completude 22%; score 3.7→2.7). A **pontuação de confiança de 3.7/10** da Aurora (baixa) reflete tanto a qualidade dos dados disponíveis quanto a força dos sinais subjacentes.\n\n**Disponibilidade de dados:** dados de xG ✗ (usando média de gols por jogo); dados de classificação ✗ (usando referências da liga); árbitro não definido ✗.\n\n**Pontuação metodológica:** 4.0/10 (fraca) — esta é a média de 15 pontuações de categoria ponderadas. As contribuições mais fortes vieram de Aprendizado Histórico (10.0) e Detecção de Aposta de Valor (5.5). As áreas mais fracas foram Risco da Carteira (1.5) e Momentum ao vivo (3.0).\n\nConfiança não é probabilidade de vitória. Uma pontuação de confiança de 3.7/10 significa que a Aurora tem qualidade de dados e consistência de sinais low — não que o resultado seja 37% garantido. O futebol é inerentemente probabilístico. [PARTIAL: fixture oficial ausente — estimativas.]",
+      "data_sources": [
+        "Inference Layer V2 (dados parciais)",
+        "Gols Esperados (xG)",
+        "Classificação da liga",
+        "Perfil do árbitro"
+      ]
+    },
+    "risk": {
+      "level": "Alto",
+      "flags": [
+        "⚠ Sem Dados de xG Disponíveis — sem dados de xG disponíveis",
+        "⚠ **Risco da Carteira** pontua apenas 1.5/10 — esta é uma fraqueza crítica na análise atual: All 7 mercados are High-risk — exposição da carteira crítica.",
+        "⚠ **Momentum ao vivo** pontua apenas 3.0/10 — esta é uma fraqueza crítica na análise atual: Pre-match — no Momentum ao vivo data yet.",
+        "⚠ **Influência da Arbitragem** pontua apenas 3.0/10 — esta é uma fraqueza crítica na análise atual: Nenhuma informação de árbitro disponível — a influência não pode ser avaliada.",
+        "⚠ **Estilo Tático** pontua apenas 3.0/10 — esta é uma fraqueza crítica na análise atual: Nenhum dado de escalação disponível — o estilo tático não pode ser avaliado.",
+        "⚠ **Força das Equipes** pontua apenas 3.3/10 — esta é uma fraqueza crítica na análise atual: Chelsea taxa de vitória de 33%, Liverpool taxa de vitória de 33% — força combinada 33%.",
+        "⚠ **desempenho fora de casa** pontua apenas 3.5/10 — esta é uma fraqueza crítica na análise atual: Liverpool desempenho fora de casa — sem dados de classificação, usando referência.",
+        "⚠ **Análise de Gols Esperados (xG)** pontua apenas 3.5/10 — esta é uma fraqueza crítica na análise atual: sem dados de xG — as taxas de gols são inferidas apenas pela classificação da temporada.",
+        "⚠ **Sem dados de xG** — as probabilidades dos mercados de gols se baseiam na média de gols por jogo da temporada, e não na qualidade das finalizações. Todas as estimativas de gols e de ambas marcam carregam uma margem adicional de 15–20% de incerteza.",
+        "⚠ **Sem dados de classificação** — a força das equipes não pode ser calibrada pela posição na liga. A Aurora recorre às referências padrão da liga.",
+        "⚠ **Árbitro não definido** — os mercados de cartões e pênaltis não podem ser calibrados a um árbitro específico. A confiança do mercado de cartões é reduzida.",
+        "⚠ **A pontuação metodológica de 4.0/10 está abaixo do limite recomendado de 5.5.** O filtro da Aurora bloqueia recomendações abaixo deste nível. Qualquer aposta nesta partida carrega incerteza acima da média do modelo.",
+        "Dados incompletos (22%): score, statistics, xg, events, lineups, classificação, árbitro"
+      ],
+      "invalidation_conditions": [
+        "**Mudança de escalação**: Se um atacante importante ou o goleiro titular for desfalque em Chelsea ou Liverpool na escalação confirmada, refaça esta análise com as notícias atualizadas das equipes — a disponibilidade de jogadores pode alterar as probabilidades dos mercados de gols em 8–15%.",
+        "**Gol cedo durante o jogo**: Um gol nos primeiros 20 minutos muda significativamente a estrutura tática da partida. Todas as estimativas de probabilidade pré-jogo devem ser consideradas invalidadas e a análise ao vivo reconsultada.",
+        "**Dados de xG ficam disponíveis**: Assim que os dados de gols esperados ao vivo estiverem presentes, o modelo de Poisson produzirá estimativas de probabilidade materialmente diferentes. Refaça a análise quando os dados de xG forem preenchidos.",
+        "**Rodízio ou mudança tática**: A regra de conhecimento Congestionamento de Jogos — Risco de Rodízio sinaliza que o rodízio do elenco ou as primeiras partidas de um novo técnico criam alta variância não modelada pelas médias da temporada.",
+        "**Movimentação tardia das odds (>15% de queda)**: Se as odds da casa caírem mais de 15% sem notícias públicas que expliquem, isso pode indicar informação privilegiada sobre notícias das equipes ou condições do jogo. Trate movimentos bruscos tardios como sinal de cautela.",
+        "**Mudança de local ou clima**: Um estádio neutro remove completamente o componente de vantagem de jogar em casa. Chuva forte (>5mm/h) ou vento acima de 30 mph podem alterar as referências dos mercados de escanteios e gols em 5–20%.",
+        "**Melhora da pontuação metodológica**: A pontuação atual de 4.0/10 está abaixo do limite de alta confiança da Aurora, de 6.5. Se mais dados ficarem disponíveis (estatísticas ao vivo, árbitro confirmado, escalações divulgadas), rode novamente — a recomendação pode se fortalecer ou desaparecer."
+      ]
+    },
+    "bankroll_recommendation": {
+      "recommended_stake_pct": 0.0,
+      "method": "quarter-Kelly",
+      "examples": {},
+      "reasoning": "**Nenhuma stake recomendada.** A metodologia da Aurora não identificou um mercado com valor esperado positivo que passe por todos os filtros de confiança e risco. Apostar nesta partida seria agir contra a recomendação do modelo. Aguarde dados mais ricos (estatísticas ao vivo, escalações confirmadas) antes de reconsiderar. Dados parciais — Inference Layer V2 bloqueou stake até completar sinais.",
+      "no_bet": true
+    },
+    "positive_factors": [
+      "• **Aprendizado Histórico** (10.0/10): League precisão 100.0% (Premier League) — forte desempenho histórico (≥60% filtro)."
+    ],
+    "negative_factors": [
+      "Fixture oficial não localizada — análise em modo degradado (confiança reduzida; sem stake).",
+      "• **Risco da Carteira** (1.5/10): All 7 mercados are High-risk — exposição da carteira crítica. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Momentum ao vivo** (3.0/10): Pre-match — no Momentum ao vivo data yet. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Influência da Arbitragem** (3.0/10): Nenhuma informação de árbitro disponível — a influência não pode ser avaliada. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Estilo Tático** (3.0/10): Nenhum dado de escalação disponível — o estilo tático não pode ser avaliado. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Força das Equipes** (3.3/10): Chelsea taxa de vitória de 33%, Liverpool taxa de vitória de 33% — força combinada 33%. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **desempenho fora de casa** (3.5/10): Liverpool desempenho fora de casa — sem dados de classificação, usando referência. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Análise de Gols Esperados (xG)** (3.5/10): sem dados de xG — as taxas de gols são inferidas apenas pela classificação da temporada. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Contexto da Partida** (4.0/10): Partida futura — 0/4 sinais pré-jogo disponíveis. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **vantagem de jogar em casa** (4.0/10): Chelsea vantagem de jogar em casa — sem dados de classificação, usando referência. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Padrão de Cartões** (4.0/10): Pre-match cartões — historical referência applied, no live falta data. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Padrão de Escanteios** (4.5/10): Pre-match escanteios — referência ~11.0/90 applied, no live data. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Forma Atual** (5.0/10): Chelsea form: N/A · Liverpool form: N/A — equipe líder em 50%. — esta categoria está puxando a pontuação geral para baixo.",
+      "• **Motivação & Importância** (5.0/10): Partida de temporada regular (None) — nível de motivação padrão. — esta categoria está puxando a pontuação geral para baixo."
+    ],
+    "historical_references": [
+      "**League profile — Premier League:** Premier League: 1 Aurora analyses.",
+      "**Chelsea profile from memory:** Chelsea: 1 Aurora analyses.",
+      "**Histórico geral**: 2 previsões registradas — 1 vitórias, 0 derrotas, 1 pendentes. Precisão atual: 100.0%. ROI: +50.0%.",
+      "**Mais de 8.5 Escanteios historical precisão**: 100.0% (1W / 0L across resolved previsões).",
+      "**Mercado de melhor desempenho da Aurora**: Mais de 8.5 Escanteios — maior precisão histórica.",
+      "**League alignment**: Premier League is Aurora's highest-precisão league in the current dataset. Historical performance here is above average."
+    ],
+    "knowledge_notes": [
+      "Confronto reconhecido — partida oficial não localizada no momento. Análise com dados parciais / estimativas.",
+      "[REGRA DE OURO] Nunca Aposte Sem Valor Esperado Positivo: Esta é a primeira e mais importante regra da Aurora. Toda aposta feita deve ter valor esperado positivo. Instinto, leald",
+      "[REGRA DE OURO] Nunca Aposte Quando a Confiança Está Abaixo de 5.0: A pontuação de confiança da Aurora mede a qualidade dos dados. Abaixo de 5.0 significa que a Aurora está adivinhando. Pa",
+      "[REGRA DE OURO] Nunca Mude a Metodologia com Base em uma Única Partida: O Aurora Evolution Engine sugere mudanças de peso após cada partida. No entanto, o resultado de uma única partida é esta",
+      "[REGRA DE OURO] Proteja a Banca Acima de Tudo: A preservação do capital vem antes do lucro. Uma perda de 50% da banca exige 100% de retorno para recuperar. Uma perda d",
+      "[REGRA DE OURO] Dados Antes da Narrativa: A Aurora sempre prioriza evidências estatísticas sobre narrativas de partidas. Uma história convincente sobre uma equipe",
+      "[ALERTA] Sem Dados de xG Disponíveis — sem dados de xG disponíveis",
+      "[REGRAS DE APOSTAS] Exigência de Valor Esperado Positivo: Considere apenas apostas com VE > +5%. VE = (probabilidade × odds_decimais) − 1. Apostas com VE nega",
+      "[GESTÃO DE RISCO] Stop-Loss de Drawdown: Quando o drawdown da banca atinge 20%, entre em modo de proteção: reduza pela metade todos os tamanh",
+      "[REGRAS PRÉ-JOGO] Confirmação da Escalação é Obrigatória: Nunca aposte em mercados que dependem de um jogador específico antes de as escalações serem confirma",
+      "[REGRAS DA LIGA] Referência de Escanteios da Premier League: A Premier League tem média de 10.1 escanteios por partida. Over 8.5 escanteios hits in approximately",
+      "[PSICOLOGIA] Viés de Recência — Não Supervalorize os Últimos 3 Resultados: Os apostadores supervalorizam consistentemente os resultados recentes em relação às médias da tempor",
+      "Dados encontrados: teams, fixture",
+      "Dados faltantes: score, statistics, xg, events, lineups, classificação, árbitro",
+      "Inferências realizadas: teams, fixture",
+      "Completude dos dados: 22% (penalidade de confiança −8.0)",
+      "Confiança: 40% (baixa) — riqueza de dados. + xG disponível. − Sem estatísticas confirmadas, Fixture parcialmente resolvido.",
+      "Confiança mede completude / riqueza dos dados, não certeza do resultado."
+    ],
+    "final_recommendation": "Leitura preliminar para **Chelsea x Liverpool** com dados parciais (confiança weak, 2.7/10). Sem stake até completar sinais. **Mais de 8.5 Escanteios** — Confiança fraca (2.7/10), sem stake recomendada, risco Alto, VE +26.5%.",
+    "session_id": "tb002-live-s2-d4ab44d5",
+    "aurora_version": "Aurora v3.3.1-beta",
+    "brain": {
+      "brain_version": "1.0.0",
+      "last_updated": "2026-07-07",
+      "sections": [
+        "mission",
+        "methodology",
+        "bankroll",
+        "betting_rules",
+        "confidence",
+        "markets",
+        "learning",
+        "glossary"
+      ],
+      "inference": {
+        "dados_encontrados": [
+          "teams",
+          "fixture"
+        ],
+        "dados_faltantes": [
+          "score",
+          "statistics",
+          "xg",
+          "events",
+          "lineups",
+          "standings",
+          "referee"
+        ],
+        "inferencias_realizadas": [
+          "teams",
+          "fixture"
+        ],
+        "data_completeness": 0.222,
+        "confidence_penalty": 8.0,
+        "penalties": [
+          {
+            "signal": "fixture",
+            "reason": "Fixture oficial não resolvida na API",
+            "penalty": 3.0
+          },
+          {
+            "signal": "score",
+            "reason": "Placar indisponível",
+            "penalty": 0.4
+          },
+          {
+            "signal": "statistics",
+            "reason": "Estatísticas da partida ausentes",
+            "penalty": 1.0
+          },
+          {
+            "signal": "xg",
+            "reason": "xG indisponível — engines usam GPG/standings",
+            "penalty": 1.2
+          },
+          {
+            "signal": "events",
+            "reason": "Eventos da partida ausentes",
+            "penalty": 0.5
+          },
+          {
+            "signal": "lineups",
+            "reason": "Escalações não confirmadas",
+            "penalty": 0.8
+          },
+          {
+            "signal": "standings",
+            "reason": "Classificação não disponível",
+            "penalty": 1.0
+          },
+          {
+            "signal": "referee",
+            "reason": "Árbitro não informado",
+            "penalty": 0.4
+          },
+          {
+            "signal": "fixture",
+            "reason": "[fixture_resolve] No team found matching 'Chelsea'. Tried variants: ['chelsea', 'Chelsea']. Try the official API name (e.g. 'Botafogo PB').",
+            "penalty": 3.0
+          },
+          {
+            "signal": "teams",
+            "reason": "Inferência: Nomes fornecidos pelo usuário: Chelsea x Liverpool",
+            "penalty": 1.5
+          },
+          {
+            "signal": "fixture",
+            "reason": "Inferência: Contexto sintético pré-jogo — fixture oficial não localizada",
+            "penalty": 2.25
+          },
+          {
+            "signal": "statistics",
+            "reason": "Sem fixture real — estatísticas indisponíveis",
+            "penalty": 1.0
+          },
+          {
+            "signal": "xg",
+            "reason": "Sem fixture real — xG indisponível",
+            "penalty": 1.2
+          },
+          {
+            "signal": "events",
+            "reason": "Sem fixture real — eventos indisponíveis",
+            "penalty": 0.5
+          },
+          {
+            "signal": "lineups",
+            "reason": "Sem fixture real — escalações indisponíveis",
+            "penalty": 0.8
+          },
+          {
+            "signal": "standings",
+            "reason": "Sem fixture real — classificação indisponível",
+            "penalty": 1.0
+          },
+          {
+            "signal": "referee",
+            "reason": "Sem fixture real — árbitro indisponível",
+            "penalty": 0.4
+          },
+          {
+            "signal": "score",
+            "reason": "Sem fixture real — placar indisponível",
+            "penalty": 0.4
+          }
+        ],
+        "notes": [
+          "Fixture oficial não resolvida na API",
+          "Placar indisponível",
+          "Estatísticas da partida ausentes",
+          "xG indisponível — engines usam GPG/standings",
+          "Eventos da partida ausentes",
+          "Escalações não confirmadas",
+          "Classificação não disponível",
+          "Árbitro não informado"
+        ]
+      }
+    },
+    "suggested_follow_ups": [
+      "E os escanteios?",
+      "Quanto apostar?",
+      "Qual o risco?",
+      "Existe opção mais segura?",
+      "Quais fatores positivos?"
+    ],
+    "response_metadata": {
+      "fixture_status": "PARTIAL",
+      "fixture_quality": "PARTIAL",
+      "fixture_found": false,
+      "markets_blocked": false,
+      "header_blocked": false,
+      "market_generation_enabled": true,
+      "entity_match_score": 1.0,
+      "credibility": {
+        "display_mode": "FULL_ANALYSIS",
+        "show_confidence": true,
+        "show_resumo_chrome": true,
+        "show_header": true,
+        "show_badges": true,
+        "thinking_label": null,
+        "source": "conversation.reflection_credibility"
+      },
+      "show_header": true,
+      "reflection": {
+        "user_real_intent": "generic_followup",
+        "chosen_answer": null,
+        "why_this_answer": "Mantive draft e humanizei jargão.",
+        "confidence": 0.6,
+        "position": "none",
+        "risks": [],
+        "display_mode": "FOLLOW_UP"
+      },
+      "need_web": {
+        "need": "none",
+        "reason": "deep_thinking:match_analysis",
+        "topic": "Chelsea",
+        "query": null,
+        "result_count": 0,
+        "summary": null,
+        "used_in_response": false,
+        "status": "skipped"
+      },
+      "formatter": {
+        "applied": true,
+        "kind": "analysis",
+        "response_mode": "detailed",
+        "v": "4.8.1"
+      },
+      "personality_applied": {
+        "emojis": "none",
+        "enthusiasm": "medium",
+        "structure": "balanced",
+        "detail": "normal"
+      },
+      "prediction_id": "adee955d-2f30-4938-bbe8-f984a530c3e6"
+    },
+    "debug": {
+      "fixture_found": false,
+      "fixture_id": "DATA_MISSING",
+      "data_source": "DATA_MISSING",
+      "markets_source": "DecisionCenter",
+      "market_reasoning": "Pre-match estimate — baseline 10.5 corners/90. | Chelsea or Liverpool win — draw loses. Draw probability: 20%. | Under 2.5 goals. λ=2.10.",
+      "fallback_used": true,
+      "confidence_source": "Inference Layer V2 (dados parciais), Expected Goals (xG), Classificação da liga, Perfil do árbitro",
+      "corner_average": "DATA_MISSING",
+      "goal_average": "DATA_MISSING",
+      "xg_home": "DATA_MISSING",
+      "xg_away": "DATA_MISSING",
+      "form_score": "DATA_MISSING",
+      "fixture_resolver": "analyze_pipeline",
+      "entity_match_score": "DATA_MISSING",
+      "market_generation_enabled": true,
+      "fixture_quality": "PARTIAL",
+      "llm_judge": {
+        "overall": 8.1,
+        "understanding": 8.7,
+        "utility": 8.5,
+        "continuity": 7.0,
+        "credibility": 8.8,
+        "naturalness": 8.0,
+        "clarity": 7.5,
+        "band": "Boa",
+        "mode": "rubric"
+      }
+    }
+  }
+}
