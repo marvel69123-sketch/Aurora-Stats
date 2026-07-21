@@ -256,7 +256,7 @@ def understand(message: str, ctx: dict[str, Any] | None = None) -> ConversationI
 
         # "bahia e chapecoense" / "bahia x chapecoense"
         pair = re.search(
-            r"\b([a-z0-9][a-z0-9.\s-]{1,30}?)\s+(?:e|x|vs|versus)\s+"
+            r"\b([a-z0-9][a-z0-9.\s-]{1,30}?)\s+(?:e|x|vs|versus|ou|contra|entre)\s+"
             r"([a-z0-9][a-z0-9.\s-]{1,30})\b",
             folded,
         )

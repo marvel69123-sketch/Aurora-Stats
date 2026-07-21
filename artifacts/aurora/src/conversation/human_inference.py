@@ -62,7 +62,7 @@ _CALENDAR = re.compile(
 )
 _TEMPORAL = re.compile(r"\b(hoje|amanha|agora|agr|atualmente)\b", re.I)
 _PAIR = re.compile(
-    r"([A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{1,28})\s+(?:x|X|vs\.?|versus)\s+"
+    r"([A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{1,28})\s+(?:x|X|vs\.?|versus|ou|contra|entre)\s+"
     r"([A-Za-zÀ-ÿ][\wÀ-ÿ.'-]{1,28})",
     re.I,
 )

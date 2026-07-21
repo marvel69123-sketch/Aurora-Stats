@@ -137,16 +137,28 @@ _COMMON_WORDS = {
 }
 
 
+def _is_blocked_fuzzy_token(t: str) -> bool:
+    """R1 — common PT/EN words must never fuzzy-map to clubs."""
+    if t in _COMMON_WORDS:
+        return True
+    try:
+        from src.conversation.entity_safety import is_entity_stopword
+
+        return bool(is_entity_stopword(t))
+    except Exception:
+        return False
+
+
 def fuzzy_resolve_team(token: str) -> str | None:
     """Resolve typo / slang token to canonical team name."""
     t = _fold(token)
     if not t:
         return None
-    if t in _COMMON_WORDS:
-        return None
+    # Exact slang / typo map first (bota, chape, galo, …) — never blocked by stopwords
     if t in _TYPO_TEAMS:
-        # Exact alias / typo map (includes short aliases like bota, fla)
         return _TYPO_TEAMS[t]
+    if _is_blocked_fuzzy_token(t):
+        return None
     if len(t) < 4:
         return None
     # fuzzy against known keys — avoid matching common words to clubs
@@ -238,9 +250,10 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                 if canon not in teams:
                     teams.append(canon)
 
-        # A vs B / A x B — capture both sides (tight tokens, not prose spans)
+        # A vs B / A x B / A ou B / contra / entre — pair sides (R5)
         vs_m = re.search(
-            r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})\s+(?:x|vs\.?|versus)\s+"
+            r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})\s+"
+            r"(?:x|vs\.?|versus|contra|ou|entre)\s+"
             r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})(?!\w)",
             recovered,
             flags=re.I,
@@ -248,7 +261,7 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
         if vs_m:
             for raw_side in (vs_m.group(1), vs_m.group(2)):
                 side = raw_side.strip(" .,!?")
-                if _fold(side) in _COMMON_WORDS:
+                if _fold(side) in _COMMON_WORDS or _is_blocked_fuzzy_token(_fold(side)):
                     continue
                 canon = fuzzy_resolve_team(side)
                 if not canon and len(side) >= 4:
@@ -256,6 +269,48 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                 if canon and canon not in teams:
                     teams.append(canon)
                     notes.append(f"vs_side:{canon}")
+        else:
+            # Phrase comparisons: "mais chance … A ou B"
+            try:
+                from src.conversation.entity_safety import extract_comparison_pair
+
+                pair = extract_comparison_pair(recovered)
+                if pair:
+                    for side in pair:
+                        if _fold(side) in _COMMON_WORDS or _is_blocked_fuzzy_token(
+                            _fold(side)
+                        ):
+                            continue
+                        canon = fuzzy_resolve_team(side)
+                        if not canon and len(side) >= 3:
+                            canon = side[:1].upper() + side[1:].lower()
+                        if canon and canon not in teams:
+                            teams.append(canon)
+                            notes.append(f"cmp_side:{canon}")
+            except Exception:
+                pass
+
+        # PATCH-001 — drop stopword-fuzzy / ungrounded teams before focus
+        try:
+            from src.conversation.entity_safety import filter_recovery_teams
+
+            _verdict = filter_recovery_teams(original, teams, raw_notes=notes)
+            if _verdict.rejected:
+                notes.append(f"safety_rejected:{','.join(_verdict.rejected)}")
+            _safe_canons = [
+                s.canon
+                for s in _verdict.teams
+                if s.grounded and s.confidence >= 0.55
+            ]
+            if _safe_canons or _verdict.rejected:
+                teams = []
+                for c in _safe_canons:
+                    if c not in teams:
+                        teams.append(c)
+            for s in _verdict.teams:
+                notes.append(f"entity_conf:{s.canon}={s.confidence:.2f}")
+        except Exception as _saf_exc:
+            notes.append(f"entity_safety_skip:{_saf_exc}")
 
         temporal = None
         if re.search(r"\bhoje\b", folded_r):

@@ -116,7 +116,7 @@ def _kw_score(norm: str, phrases: list[tuple[str, float]]) -> float:
 # ---------------------------------------------------------------------------
 
 # Separators accepted in match analysis (include unicode ×)
-_SEP_RE = re.compile(r"\b(x|vs|contra|versus)\b|×", re.IGNORECASE)
+_SEP_RE = re.compile(r"\b(x|vs|contra|versus|ou|entre)\b|×", re.IGNORECASE)
 
 # Prefixes to strip from the LEFT side of the separator to expose the home team.
 # Also strips knowledge-query prefixes so "Explique Arsenal x Chelsea" works.

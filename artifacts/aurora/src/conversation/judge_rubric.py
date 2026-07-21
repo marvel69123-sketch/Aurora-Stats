@@ -124,6 +124,22 @@ def score_turn(
     if ents.get("preliminary_analysis"):
         credibility += 0.3
 
+    # PATCH-001 R4 — entity ∩ user input (central entity must be grounded)
+    try:
+        from src.conversation.entity_safety import judge_entity_overlap
+
+        _ov = judge_entity_overlap(user_message, payload)
+        ents["entity_input_overlap_ok"] = bool(_ov.get("overlap_ok"))
+        ents["entity_input_overlap_missing"] = list(_ov.get("missing") or [])
+        if _ov.get("has_central_entity") and not _ov.get("overlap_ok"):
+            understanding -= 4.5
+            credibility -= 3.0
+            utility -= 2.0
+            continuity -= 2.0
+            ents["entity_grounding_failed"] = True
+    except Exception:
+        pass
+
     if re.search(r"[.!?]\s+\S", summary) and len(summary) > 40:
         naturalness += 0.5
     if summary.strip() in {"?", "…", "...", "."}:
@@ -159,6 +175,9 @@ def score_turn(
         )
         / 6.4
     )
+    # Hard cap: never HIGH/Boa+ when central entity is ungrounded in user text
+    if ents.get("entity_grounding_failed"):
+        overall = min(overall, 4.5)
     scores["overall_score"] = overall
     scores["band"] = classify_band(overall)
     scores["judge_mode"] = "rubric"
