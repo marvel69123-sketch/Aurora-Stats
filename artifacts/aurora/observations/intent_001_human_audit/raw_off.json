@@ -1,0 +1,321 @@
+[
+  {
+    "scenario": {
+      "id": "S1",
+      "name": "compare_then_form_followup",
+      "turns": [
+        "Flamengo ou Palmeiras?",
+        "Quem está melhor?"
+      ]
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "user": "Flamengo ou Palmeiras?",
+        "http": 200,
+        "intent_nl": "analyze_match",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "partial_analysis",
+        "turn_owner": "GA",
+        "home": "Flamengo",
+        "away": "Palmeiras",
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "analyze_match",
+          "date_context": null,
+          "episode_id": "b71caaa3-f55d-4a6f-a56c-1dc2f8dd8d8e",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Assumindo o time **Flamengo Ou Palmeiras** (sem confronto completo).\nCom **dados parciais**…\nEscopo de **time** — sem inventar adversário.\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara ",
+        "response_len": 1708
+      },
+      {
+        "turn": 2,
+        "user": "Quem está melhor?",
+        "http": 200,
+        "intent_nl": "follow_up",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "ownership_stability",
+        "turn_owner": "SPORT",
+        "home": null,
+        "away": null,
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "follow_up",
+          "date_context": null,
+          "episode_id": "b71caaa3-f55d-4a6f-a56c-1dc2f8dd8d8e",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "FOLLOWUP"
+        },
+        "response_prefix": "Mantendo foco Flamengo Ou Palmeiras\n**Sem estatísticas ao vivo confirmadas**…\nEscopo de **time** — sem inventar adversário.\nNo-bet: sinais insuficientes para stake.\n\n?",
+        "response_len": 167
+      }
+    ]
+  },
+  {
+    "scenario": {
+      "id": "S2",
+      "name": "bet_viability",
+      "turns": [
+        "Flamengo x Palmeiras",
+        "Vale aposta?"
+      ]
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "user": "Flamengo x Palmeiras",
+        "http": 200,
+        "intent_nl": "analyze_match",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "partial_analysis",
+        "turn_owner": "GA",
+        "home": "Flamengo",
+        "away": "Palmeiras",
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "analyze_match",
+          "date_context": null,
+          "episode_id": "3014142f-b403-42db-b68c-0e4307837d5f",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto re",
+        "response_len": 1593
+      },
+      {
+        "turn": 2,
+        "user": "Vale aposta?",
+        "http": 200,
+        "intent_nl": "follow_up",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "ownership_stability",
+        "turn_owner": "SPORT",
+        "home": null,
+        "away": null,
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "bet",
+          "last_intent": "follow_up",
+          "date_context": null,
+          "episode_id": "3014142f-b403-42db-b68c-0e4307837d5f",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Assumindo o time **Flamengo** (sem confronto completo).\nEscopo de **time** — sem inventar adversário.\nNo-bet: sinais insuficientes para stake.\n\n?",
+        "response_len": 145
+      }
+    ]
+  },
+  {
+    "scenario": {
+      "id": "S3",
+      "name": "away_home",
+      "turns": [
+        "Flamengo x Palmeiras",
+        "E fora de casa?"
+      ]
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "user": "Flamengo x Palmeiras",
+        "http": 200,
+        "intent_nl": "analyze_match",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "partial_analysis",
+        "turn_owner": "GA",
+        "home": "Flamengo",
+        "away": "Palmeiras",
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "analyze_match",
+          "date_context": null,
+          "episode_id": "240258cf-24f4-47ab-8672-7edddbb90663",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto re",
+        "response_len": 1593
+      },
+      {
+        "turn": 2,
+        "user": "E fora de casa?",
+        "http": 200,
+        "intent_nl": "follow_up",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "ownership_stability",
+        "turn_owner": "SPORT",
+        "home": null,
+        "away": null,
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "follow_up",
+          "date_context": null,
+          "episode_id": "240258cf-24f4-47ab-8672-7edddbb90663",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Mantendo foco Flamengo x Palmeiras\nNo-bet: sinais insuficientes para stake.\n\n?",
+        "response_len": 78
+      }
+    ]
+  },
+  {
+    "scenario": {
+      "id": "S4",
+      "name": "how_they_arrive",
+      "turns": [
+        "Flamengo x Palmeiras",
+        "Como chegam?"
+      ]
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "user": "Flamengo x Palmeiras",
+        "http": 200,
+        "intent_nl": "analyze_match",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "partial_analysis",
+        "turn_owner": "GA",
+        "home": "Flamengo",
+        "away": "Palmeiras",
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "analyze_match",
+          "date_context": null,
+          "episode_id": "2450e1c8-79f4-490d-9ae4-12fa3865cd8e",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n\n**Flamengo x Palmeiras** — leitura preliminar\n\nConfronto re",
+        "response_len": 1593
+      },
+      {
+        "turn": 2,
+        "user": "Como chegam?",
+        "http": 200,
+        "intent_nl": "follow_up",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "ownership_stability",
+        "turn_owner": "SPORT",
+        "home": null,
+        "away": null,
+        "team": "Flamengo",
+        "csl": {
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "topic": "comparison",
+          "last_intent": "follow_up",
+          "date_context": null,
+          "episode_id": "2450e1c8-79f4-490d-9ae4-12fa3865cd8e",
+          "fixture": "Flamengo vs Palmeiras",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Assumindo o time **Flamengo** (sem confronto completo).\nEscopo de **time** — sem inventar adversário.\nNo-bet: sinais insuficientes para stake.\n\n?",
+        "response_len": 145
+      }
+    ]
+  },
+  {
+    "scenario": {
+      "id": "S5",
+      "name": "calendar_inter_today",
+      "turns": [
+        "Inter joga hoje?"
+      ]
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "user": "Inter joga hoje?",
+        "http": 200,
+        "intent_nl": "follow_up",
+        "sport_intent": null,
+        "sport_skill": null,
+        "sport_intent_confidence": null,
+        "dialog_mode": "SPORT",
+        "response_owner": "ownership_stability",
+        "turn_owner": "SPORT",
+        "home": null,
+        "away": null,
+        "team": "Internacional",
+        "csl": {
+          "teams": [
+            "Internacional"
+          ],
+          "topic": "calendar",
+          "last_intent": "follow_up",
+          "date_context": "hoje",
+          "episode_id": "ce592371-ee94-48f2-a5f9-f3ce9822eaf7",
+          "fixture": "contexto do Internacional",
+          "phase": "SLOT_READY"
+        },
+        "response_prefix": "Assumindo o time **Internacional** (sem confronto completo).\nEscopo de **time** — sem inventar adversário.\nNo-bet: sinais insuficientes para stake.\n\nContinuando sobre **contexto do Internacional**. Pode pedir mercados, placar, estatísticas, pressão/xG ou 'e dele?' — mantenho o co",
+        "response_len": 295
+      }
+    ]
+  }
+]
