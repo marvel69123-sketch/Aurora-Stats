@@ -1822,6 +1822,15 @@ async def _copilot_inner(
     except Exception as _csl_exc:
         logger.warning("copilot: CSL skipped (%s)", _csl_exc)
 
+    # ── INTENT-001: Semantic Sports Intent Layer (after CSL) ──
+    # Classifies sport intents and routes follow-ups to specialized skills.
+    try:
+        from src.conversation.sport_intent_layer import apply_sport_intent_resolve
+
+        message = apply_sport_intent_resolve(message, ctx)
+    except Exception as _sil_exc:
+        logger.warning("copilot: sport intent layer skipped (%s)", _sil_exc)
+
     # Per-turn flags (must not leak across turns in the same session)
     try:
         ctx.pop("ownership_stability_block_ga", None)
@@ -2012,153 +2021,202 @@ async def _copilot_inner(
     except Exception as _ev2_exc:
         logger.warning("copilot: entity_resolver_v2 skipped (%s)", _ev2_exc)
 
-    # Phase 8.3-B / 8.4-A.8 — continuity: sim / leitura / placar / mercados…
-    # while window armed after repair/opinion/partial/team_summary.
-    # Resolve + claim BEFORE MasterIntent / GA so short FUs are never stolen.
+    # Phase 8.3-B / 8.4-A.8 — continuity resolve (message rewrite) always.
+    # RESPONSE-SELECTOR-001: when enabled, collect generators → select once
+    # instead of first-wins race. OS / SCG remain as fallback generators.
     try:
         from src.conversation.conversation_continuity import (
             apply_continuity_resolve as _cont_resolve,
-            is_active_sport_followup as _cont_active,
-            try_contextual_short_followup as _cont_fu_early,
         )
 
         message = _cont_resolve(message, ctx)
-        if payload is None and _cont_active(ctx, message):
-            from src.brain import get_brain_meta as _gbm_cont_early
-
-            _early_fu = _cont_fu_early(message, ctx, brain=_gbm_cont_early())
-            if isinstance(_early_fu, dict):
-                payload = _early_fu
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.94
-                skipped_nl = True
-                logger.warning(
-                    "[AUDIT] ContinuityFollowUp: EARLY claim before MasterIntent "
-                    "kind=%s team=%r",
-                    entities.get("continuity_kind"),
-                    entities.get("followup_resolved_team"),
-                )
     except Exception as _cont_exc:
         logger.warning("copilot: continuity resolve skipped (%s)", _cont_exc)
 
-    # Phase 8.4-A.10 — Pronoun Continuity BEFORE GA / fallback
-    # ("e dele?", "e o outro?", "e esse time?" → reuse last fixture/team)
+    _use_response_selector = False
     try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_pronoun
-            from src.conversation.pronoun_continuity import (
-                try_pronoun_continuity as _pronoun_try,
-            )
+        from src.conversation.response_selector import (
+            response_selector_enabled as _rs_enabled,
+            try_select_early_response as _rs_select,
+        )
 
-            _pronoun_payload = _pronoun_try(
-                message, ctx, brain=_gbm_pronoun()
-            )
-            if isinstance(_pronoun_payload, dict):
-                payload = _pronoun_payload
+        _use_response_selector = bool(_rs_enabled())
+        if payload is None and _use_response_selector:
+            from src.brain import get_brain_meta as _gbm_rs
+
+            _rs_payload = _rs_select(message, ctx, brain=_gbm_rs())
+            if isinstance(_rs_payload, dict):
+                payload = _rs_payload
                 intent = str(payload.get("intent") or "follow_up")
                 entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.93
+                routing_confidence = float(
+                    entities.get("response_selector_confidence") or 0.92
+                )
                 skipped_nl = True
                 try:
                     ctx["sport_pipeline_blocked"] = False
+                    if entities.get("response_selector_fallback") or entities.get(
+                        "sport_continuity_guard"
+                    ):
+                        ctx["sport_continuity_block_ga"] = True
                 except Exception:
                     pass
                 logger.warning(
-                    "[AUDIT] PronounContinuity: EARLY claim before MasterIntent "
-                    "value=%s entity=%r fixture=%r",
-                    entities.get("pronoun_value"),
-                    entities.get("pronoun_entity"),
-                    entities.get("pronoun_fixture"),
+                    "[AUDIT] ResponseSelector: EARLY select owner=%s priority=%s "
+                    "fallback=%s",
+                    entities.get("response_selector_owner")
+                    or entities.get("response_owner"),
+                    entities.get("response_selector_priority"),
+                    entities.get("response_selector_fallback"),
                 )
-    except Exception as _pronoun_exc:
-        logger.warning("copilot: pronoun continuity skipped (%s)", _pronoun_exc)
+    except Exception as _rs_exc:
+        logger.warning("copilot: response selector skipped (%s)", _rs_exc)
+        _use_response_selector = False
 
-    # Phase 8.4-A.11 — Advanced Football Continuity BEFORE GA / fallback
-    # (xg? / pressão? / kelly? / edge? after active fixture)
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_adv
-            from src.conversation.advanced_football_continuity import (
-                try_advanced_football_continuity as _adv_try,
+    # Legacy first-wins race (flag off or selector miss with empty pool)
+    if not _use_response_selector:
+        try:
+            from src.conversation.conversation_continuity import (
+                is_active_sport_followup as _cont_active,
+                try_contextual_short_followup as _cont_fu_early,
             )
 
-            _adv_payload = _adv_try(message, ctx, brain=_gbm_adv())
-            if isinstance(_adv_payload, dict):
-                payload = _adv_payload
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.92
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] AdvancedFootball: EARLY claim before MasterIntent "
-                    "term=%s fixture=%r reused=%s",
-                    entities.get("advanced_term"),
-                    entities.get("followup_resolved_fixture")
-                    or entities.get("pronoun_fixture"),
-                    entities.get("advanced_fixture_reused"),
-                )
-    except Exception as _adv_exc:
-        logger.warning("copilot: advanced football continuity skipped (%s)", _adv_exc)
+            if payload is None and _cont_active(ctx, message):
+                from src.brain import get_brain_meta as _gbm_cont_early
 
-    # Phase 8.4-A.18 — Sport Continuity Guard (anchor + short FU → SPORT, no sticky OS)
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_scg
-            from src.conversation.sport_continuity_guard import (
-                try_sport_continuity_claim as _scg_try,
+                _early_fu = _cont_fu_early(message, ctx, brain=_gbm_cont_early())
+                if isinstance(_early_fu, dict):
+                    payload = _early_fu
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.94
+                    skipped_nl = True
+                    logger.warning(
+                        "[AUDIT] ContinuityFollowUp: EARLY claim before MasterIntent "
+                        "kind=%s team=%r",
+                        entities.get("continuity_kind"),
+                        entities.get("followup_resolved_team"),
+                    )
+        except Exception as _cont_exc:
+            logger.warning("copilot: continuity claim skipped (%s)", _cont_exc)
+
+        # Phase 8.4-A.10 — Pronoun Continuity BEFORE GA / fallback
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_pronoun
+                from src.conversation.pronoun_continuity import (
+                    try_pronoun_continuity as _pronoun_try,
+                )
+
+                _pronoun_payload = _pronoun_try(
+                    message, ctx, brain=_gbm_pronoun()
+                )
+                if isinstance(_pronoun_payload, dict):
+                    payload = _pronoun_payload
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.93
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] PronounContinuity: EARLY claim before MasterIntent "
+                        "value=%s entity=%r fixture=%r",
+                        entities.get("pronoun_value"),
+                        entities.get("pronoun_entity"),
+                        entities.get("pronoun_fixture"),
+                    )
+        except Exception as _pronoun_exc:
+            logger.warning("copilot: pronoun continuity skipped (%s)", _pronoun_exc)
+
+        # Phase 8.4-A.11 — Advanced Football Continuity BEFORE GA / fallback
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_adv
+                from src.conversation.advanced_football_continuity import (
+                    try_advanced_football_continuity as _adv_try,
+                )
+
+                _adv_payload = _adv_try(message, ctx, brain=_gbm_adv())
+                if isinstance(_adv_payload, dict):
+                    payload = _adv_payload
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.92
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] AdvancedFootball: EARLY claim before MasterIntent "
+                        "term=%s fixture=%r reused=%s",
+                        entities.get("advanced_term"),
+                        entities.get("followup_resolved_fixture")
+                        or entities.get("pronoun_fixture"),
+                        entities.get("advanced_fixture_reused"),
+                    )
+        except Exception as _adv_exc:
+            logger.warning(
+                "copilot: advanced football continuity skipped (%s)", _adv_exc
             )
 
-            _scg = _scg_try(message, ctx, brain=_gbm_scg())
-            if isinstance(_scg, dict):
-                payload = _scg
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.935
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                    ctx["sport_continuity_block_ga"] = True
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] SportContinuityGuard: EARLY claim owner=%s fixture=%r",
-                    entities.get("response_owner"),
-                    entities.get("followup_resolved_fixture")
-                    or entities.get("sport_anchor_fixture"),
+        # Phase 8.4-A.18 — Sport Continuity Guard
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_scg
+                from src.conversation.sport_continuity_guard import (
+                    try_sport_continuity_claim as _scg_try,
                 )
-    except Exception as _scg_exc:
-        logger.warning("copilot: sport continuity guard skipped (%s)", _scg_exc)
 
-    # Phase 8.4-A.15 — Ownership Stability: lock SPORT + short FU guard BEFORE GA
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_own
-            from src.conversation.ownership_stability import (
-                try_ownership_stability_claim as _own_stab,
-            )
+                _scg = _scg_try(message, ctx, brain=_gbm_scg())
+                if isinstance(_scg, dict):
+                    payload = _scg
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.935
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                        ctx["sport_continuity_block_ga"] = True
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] SportContinuityGuard: EARLY claim owner=%s fixture=%r",
+                        entities.get("response_owner"),
+                        entities.get("followup_resolved_fixture")
+                        or entities.get("sport_anchor_fixture"),
+                    )
+        except Exception as _scg_exc:
+            logger.warning("copilot: sport continuity guard skipped (%s)", _scg_exc)
 
-            _stab = _own_stab(message, ctx, brain=_gbm_own())
-            if isinstance(_stab, dict):
-                payload = _stab
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.91
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] OwnershipStability: EARLY claim guard=%s",
-                    entities.get("ownership_stability_guard"),
+        # Phase 8.4-A.15 — Ownership Stability
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_own
+                from src.conversation.ownership_stability import (
+                    try_ownership_stability_claim as _own_stab,
                 )
-    except Exception as _own_stab_exc:
-        logger.warning("copilot: ownership stability skipped (%s)", _own_stab_exc)
+
+                _stab = _own_stab(message, ctx, brain=_gbm_own())
+                if isinstance(_stab, dict):
+                    payload = _stab
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.91
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] OwnershipStability: EARLY claim guard=%s",
+                        entities.get("ownership_stability_guard"),
+                    )
+        except Exception as _own_stab_exc:
+            logger.warning("copilot: ownership stability skipped (%s)", _own_stab_exc)
 
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
@@ -2195,6 +2253,8 @@ async def _copilot_inner(
                 or e.get("sport_continuity_guard")
                 or e.get("ambiguous_context_guard")
                 or e.get("clarification_mode")
+                or e.get("response_selector")
+                or e.get("sport_intent_authored")
             )
 
         # Continuity / pronoun / advanced / owner-lock claimed → skip GA steal
@@ -4354,6 +4414,8 @@ async def _copilot_inner(
             or _ents_polish.get("continuity_followup")
             or _ents_polish.get("assistant_capabilities")
             or _ents_polish.get("assistant_kind") == "capabilities"
+            or _ents_polish.get("sport_intent_authored")
+            or _ents_polish.get("response_selector_skip_honesty")
         ):
             logger.warning(
                 "[AUDIT] Personality: SKIPPED — preliminary/continuity/capabilities lock"
@@ -4429,6 +4491,8 @@ async def _copilot_inner(
             )
             or _ents_cred.get("assistant_capabilities")
             or _ents_cred.get("assistant_kind") == "capabilities"
+            or _ents_cred.get("sport_intent_authored")
+            or _ents_cred.get("response_selector_skip_honesty")
         ):
             logger.warning(
                 "[AUDIT] CredibilityLayer: SKIPPED text upgrade — "
@@ -4886,6 +4950,15 @@ async def _copilot_inner(
                 )
         except Exception as _csl_note_exc:
             logger.warning("copilot: CSL note skipped (%s)", _csl_note_exc)
+        # INTENT-001 — stamp sport intent / skill on entities
+        try:
+            from src.conversation.sport_intent_layer import (
+                note_sport_intent_on_payload as _sil_note,
+            )
+
+            payload = _sil_note(ctx, payload if isinstance(payload, dict) else None)
+        except Exception as _sil_note_exc:
+            logger.warning("copilot: sport intent note skipped (%s)", _sil_note_exc)
         try:
             from src.conversation.frustration_observability import (
                 note_frustration_observability as _frust_note,
