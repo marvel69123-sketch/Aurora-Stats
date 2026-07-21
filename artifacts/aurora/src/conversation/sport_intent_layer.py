@@ -209,6 +209,75 @@ def _csl_teams(ctx: dict[str, Any] | None) -> list[str]:
     return []
 
 
+def _teams_from_message(message: str) -> list[str]:
+    """Extract A/B sides from an explicit compare/fixture phrase in the message."""
+    text = re.sub(r"^\s*analisar\s+", "", message or "", flags=re.I)
+    m = re.search(
+        r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9._''-]{2,40})"
+        r"\s+(?:ou|x|×|vs\.?|versus|contra)\s+"
+        r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9._''-]{2,40})(?!\w)",
+        text,
+        flags=re.I,
+    )
+    if not m:
+        return []
+    a, b = m.group(1).strip(" .,!?"), m.group(2).strip(" .,!?")
+    if fold(a) == fold(b):
+        return []
+    return [a, b]
+
+
+def _new_fixture_detected(message: str, ctx: dict[str, Any] | None) -> list[str] | None:
+    """
+    Two explicit sides in the message ⇒ treat as fixture mention.
+    Soft/single-entity follow-ups (e.g. 'E o Grêmio?') return None.
+    """
+    sides = _teams_from_message(message)
+    if len(sides) < 2:
+        return None
+    return sides[:2]
+
+
+def _refresh_fixture_entities(ctx: dict[str, Any], sides: list[str]) -> None:
+    """Bind CSL + cheap continuity fixture slots to message sides (force_refresh)."""
+    if len(sides) < 2 or not isinstance(ctx, dict):
+        return
+    label = f"{sides[0]} x {sides[1]}"
+    ctx["ignore_previous_fixture"] = True
+    ctx["sport_intent_new_fixture"] = True
+    ctx["force_refresh_entities"] = True
+    ctx["reset_followup_fixture"] = True
+    try:
+        from src.conversation.conversation_state_layer import get_csl, set_csl
+
+        state = get_csl(ctx)
+        state.teams = list(sides[:4])
+        state.fixture = label
+        set_csl(ctx, state)
+    except Exception:
+        csl = ctx.get("csl") if isinstance(ctx.get("csl"), dict) else {}
+        csl = dict(csl)
+        csl["teams"] = list(sides[:4])
+        csl["fixture"] = label
+        ctx["csl"] = csl
+    # Clear/replace cheap follow-up fixture refs this layer can safely touch
+    for key in ("last_match", "last_fixture"):
+        if key in ctx:
+            ctx[key] = label
+    for mem_key in ("pronoun_continuity", "short_conversation_memory"):
+        mem = ctx.get(mem_key)
+        if isinstance(mem, dict) and "last_fixture" in mem:
+            mem["last_fixture"] = label
+
+
+def _resolve_skill_teams(message: str, ctx: dict[str, Any]) -> list[str]:
+    """Prefer message-derived sides; fall back to CSL only for bare follow-ups."""
+    msg_teams = _teams_from_message(message)
+    if len(msg_teams) >= 2:
+        return msg_teams[:4]
+    return _csl_teams(ctx)
+
+
 def _fixture_label(ctx: dict[str, Any] | None, teams: list[str]) -> str | None:
     if isinstance(ctx, dict):
         csl = ctx.get("csl") if isinstance(ctx.get("csl"), dict) else {}
@@ -225,20 +294,23 @@ def _fixture_label(ctx: dict[str, Any] | None, teams: list[str]) -> str | None:
 
 
 def _skill_compare_strength(message: str, ctx: dict[str, Any]) -> str | None:
-    teams = _csl_teams(ctx)
     msg = (message or "").strip()
+    msg_teams = _teams_from_message(msg)
+    # Explicit A x B / ou / vs already in message — never rewrite with stale CSL
+    if len(msg_teams) >= 2:
+        return None
+    teams = _csl_teams(ctx)
     if len(teams) >= 2 and not re.search(rf"\b{re.escape(teams[0])}\b", msg, re.I):
         return (
             f"Entre {teams[0]} e {teams[1]}, "
             f"quem é mais forte / tem mais chance?"
         )
-    if len(teams) >= 2 and re.search(r"\bou\b|\bx\b|\bvs\b", msg, re.I):
-        return f"analisar {teams[0]} x {teams[1]} (comparativo de forca)"
     return None
 
 
 def _skill_bet_viability(message: str, ctx: dict[str, Any]) -> str | None:
-    fx = _fixture_label(ctx, _csl_teams(ctx))
+    teams = _resolve_skill_teams(message, ctx)
+    fx = _fixture_label(ctx, teams)
     if not fx:
         return None
     if re.search(r"vale\s+a\s+pena|viabilidade|apostar", message or "", re.I):
@@ -247,7 +319,7 @@ def _skill_bet_viability(message: str, ctx: dict[str, Any]) -> str | None:
 
 
 def _skill_calendar_query(message: str, ctx: dict[str, Any]) -> str | None:
-    teams = _csl_teams(ctx)
+    teams = _resolve_skill_teams(message, ctx)
     msg = fold(message)
     team = teams[0] if teams else None
     if not team:
@@ -263,8 +335,8 @@ def _skill_calendar_query(message: str, ctx: dict[str, Any]) -> str | None:
 
 
 def _skill_home_away(message: str, ctx: dict[str, Any]) -> str | None:
-    fx = _fixture_label(ctx, _csl_teams(ctx))
-    teams = _csl_teams(ctx)
+    teams = _resolve_skill_teams(message, ctx)
+    fx = _fixture_label(ctx, teams)
     if fx and re.search(
         r"mando|em\s+casa|fora\s+de\s+casa|fator\s+casa", message or "", re.I
     ):
@@ -275,8 +347,12 @@ def _skill_home_away(message: str, ctx: dict[str, Any]) -> str | None:
 
 
 def _skill_recent_form(message: str, ctx: dict[str, Any]) -> str | None:
-    teams = _csl_teams(ctx)
     msg = (message or "").strip()
+    msg_teams = _teams_from_message(msg)
+    # Explicit fixture in message — never inject stale CSL sides
+    if len(msg_teams) >= 2:
+        return f"forma recente de {msg_teams[0]} e {msg_teams[1]}"
+    teams = _csl_teams(ctx)
     if len(teams) >= 2:
         if not re.search(rf"\b{re.escape(teams[0])}\b", msg, re.I):
             return (
@@ -290,7 +366,8 @@ def _skill_recent_form(message: str, ctx: dict[str, Any]) -> str | None:
 
 
 def _skill_market_question(message: str, ctx: dict[str, Any]) -> str | None:
-    fx = _fixture_label(ctx, _csl_teams(ctx))
+    teams = _resolve_skill_teams(message, ctx)
+    fx = _fixture_label(ctx, teams)
     msg = (message or "").strip()
     # Preserve short FU tokens for follow_up_engine
     if re.match(
@@ -370,7 +447,15 @@ def apply_sport_intent_layer(
 
         result.intent = intent
         result.skill = INTENT_TO_SKILL.get(intent)
-        rewritten = route_to_skill(intent, raw, ctx if isinstance(ctx, dict) else {})
+
+        # SPORT-INTENT-HIJACK-FIX-001: explicit A x B in message must not
+        # reuse stale CSL teams for skill rewrites (even if TB/CSL lag).
+        work_ctx: dict[str, Any] = ctx if isinstance(ctx, dict) else {}
+        sides = _new_fixture_detected(raw, work_ctx)
+        if sides and isinstance(ctx, dict):
+            _refresh_fixture_entities(ctx, sides)
+
+        rewritten = route_to_skill(intent, raw, work_ctx)
         out = raw
         if rewritten and fold(rewritten) != fold(raw):
             out = rewritten
