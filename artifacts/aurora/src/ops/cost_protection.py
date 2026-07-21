@@ -108,8 +108,15 @@ def _today() -> str:
     return date.today().isoformat()
 
 
+def _coerce_user_id(user_id: object | None) -> str:
+    """Normalize user_id; reject FastAPI Query/Param leaks from analyze_fixture."""
+    if isinstance(user_id, str):
+        return user_id.strip() or "anonymous"
+    return "anonymous"
+
+
 def _user_stats_unlocked(user_id: str) -> UserDayStats:
-    uid = (user_id or "anonymous").strip() or "anonymous"
+    uid = _coerce_user_id(user_id)
     day = _today()
     st = _USERS.get(uid)
     if st is None or st.day != day:
@@ -131,7 +138,7 @@ def begin_request(
     """Enter ECPM request scope (copilot / analyze HTTP)."""
     return (
         _active.set(True),
-        _user_id.set((user_id or "anonymous").strip() or "anonymous"),
+        _user_id.set(_coerce_user_id(user_id)),
         _force_refresh.set(bool(force_refresh) and bool(_CONFIG.enabled)),
     )
 

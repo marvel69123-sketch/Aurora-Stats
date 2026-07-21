@@ -555,6 +555,20 @@ async def analyze_fixture(
     from src.core.inference_context import InferenceContext, build_partial_analyze_data
     from src.ops import cost_protection as _ecpm
 
+    # Internal callers (copilot_engine, etc.) invoke this as a plain coroutine.
+    # FastAPI Query()/Param defaults must not leak as runtime values — otherwise
+    # bool(user_id) is truthy and begin_request(...).strip() raises AttributeError.
+    if not isinstance(prefer_live, bool):
+        prefer_live = False
+    if not isinstance(soft, bool):
+        soft = False
+    if fixture_id is not None and not isinstance(fixture_id, int):
+        fixture_id = None
+    if not isinstance(force_refresh, bool):
+        force_refresh = False
+    if user_id is not None and not isinstance(user_id, str):
+        user_id = None
+
     # Protect only when already in ECPM scope (copilot) or explicit user/premium.
     # Cert scripts call this without scope → unrestricted.
     _ecpm_tokens = None
