@@ -149,12 +149,21 @@ def _is_blocked_fuzzy_token(t: str) -> bool:
         return False
 
 
-def fuzzy_resolve_team(token: str) -> str | None:
+def fuzzy_resolve_team(token: str, message: str | None = None) -> str | None:
     """Resolve typo / slang token to canonical team name."""
     t = _fold(token)
     if not t:
         return None
-    # Exact slang / typo map first (bota, chape, galo, …) — never blocked by stopwords
+    # PATCH-002 — sports nicknames / short forms (before stopword block)
+    try:
+        from src.conversation.sports_language import resolve_nickname
+
+        nick = resolve_nickname(token, message)
+        if nick:
+            return nick
+    except Exception:
+        pass
+    # Exact slang / typo map (bota, chape, galo, …) — never blocked by stopwords
     if t in _TYPO_TEAMS:
         return _TYPO_TEAMS[t]
     if _is_blocked_fuzzy_token(t):
@@ -216,17 +225,76 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
     original = message or ""
     try:
         expanded = expand_slang(original)
-        folded = _fold(expanded)
         notes: list[str] = []
         if expanded != original:
             notes.append("slang_expanded")
+
+        # PATCH-002 — sports nicknames (mengão, city, barça, …)
+        # Skip re-expand if SLL already applied at router entry
+        nick_canons: list[str] = []
+        try:
+            _sll_ctx = (ctx or {}).get("sll") if isinstance(ctx, dict) else None
+            if isinstance(_sll_ctx, dict) and _sll_ctx.get("applied"):
+                notes.append("sll_pre_applied")
+                if _sll_ctx.get("normalized_text"):
+                    expanded = str(_sll_ctx["normalized_text"])
+                for a in (_sll_ctx.get("resolved_aliases") or []):
+                    if "→" in str(a):
+                        canon = str(a).split("→", 1)[1].strip()
+                        if canon and canon not in nick_canons:
+                            nick_canons.append(canon)
+                    elif "->" in str(a):
+                        canon = str(a).split("->", 1)[1].strip()
+                        if canon and canon not in nick_canons:
+                            nick_canons.append(canon)
+            else:
+                from src.conversation.sports_language import expand_sports_language
+
+                expanded2, nick_notes = expand_sports_language(expanded)
+                if nick_notes:
+                    notes.extend(nick_notes)
+                    expanded = expanded2
+                    for n in nick_notes:
+                        if n.startswith("nick:") and "->" in n:
+                            canon = n.split("->", 1)[1].strip()
+                            if canon and canon not in nick_canons:
+                                nick_canons.append(canon)
+        except Exception:
+            pass
+
+        folded = _fold(expanded)
 
         # Token-level fuzzy team fix
         tokens = re.findall(r"[A-Za-zÀ-ÿ0-9]+", expanded)
         teams: list[str] = []
         recovered = expanded
+        # Seed intentional nickname expansions first (survive entity-safety grounding)
+        for canon in nick_canons:
+            if canon not in teams:
+                teams.append(canon)
+        nick_fold = {_fold(c) for c in nick_canons}
+        nick_tok_folds: set[str] = set()
+        for n in notes:
+            if n.startswith("nick:") and "->" in n:
+                try:
+                    src = n.split(":", 1)[1].split("->", 1)[0].strip()
+                    nick_tok_folds.add(_fold(src))
+                except ValueError:
+                    pass
+
         for tok in tokens:
-            canon = fuzzy_resolve_team(tok)
+            tf = _fold(tok)
+            # Skip fragments already covered by multi-word nick canons
+            # e.g. City/United after "Manchester City" / "Manchester United"
+            if nick_canons and any(
+                tf in _fold(c) and tf != _fold(c) for c in nick_canons
+            ):
+                continue
+            if tf in nick_tok_folds:
+                # Already expanded via sports_language — do not emit fuzzy: notes
+                # (city/united are stopwords; fuzzy notes would be safety-rejected)
+                continue
+            canon = fuzzy_resolve_team(tok, original)
             if canon and canon not in teams:
                 # Only replace if token looks wrong / alias
                 if _fold(tok) != _fold(canon) and _fold(tok) not in {
@@ -251,25 +319,30 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                     teams.append(canon)
 
         # A vs B / A x B / A ou B / contra / entre — pair sides (R5)
-        vs_m = re.search(
-            r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})\s+"
-            r"(?:x|vs\.?|versus|contra|ou|entre)\s+"
-            r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})(?!\w)",
-            recovered,
-            flags=re.I,
-        )
-        if vs_m:
+        # Skip vs_side when sports_language already resolved a compare pair
+        # (avoids matching "City ou Manchester" after multi-word expansion).
+        vs_m = None
+        if len(nick_canons) < 2:
+            vs_source = original if nick_canons else recovered
+            vs_m = re.search(
+                r"(?<!\w)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})\s+"
+                r"(?:x|vs\.?|versus|contra|ou|entre)\s+"
+                r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]{2,20})(?!\w)",
+                vs_source,
+                flags=re.I,
+            )
+        if vs_m and len(nick_canons) < 2:
             for raw_side in (vs_m.group(1), vs_m.group(2)):
                 side = raw_side.strip(" .,!?")
                 if _fold(side) in _COMMON_WORDS or _is_blocked_fuzzy_token(_fold(side)):
                     continue
-                canon = fuzzy_resolve_team(side)
+                canon = fuzzy_resolve_team(side, original)
                 if not canon and len(side) >= 4:
                     canon = side[:1].upper() + side[1:].lower()
                 if canon and canon not in teams:
                     teams.append(canon)
                     notes.append(f"vs_side:{canon}")
-        else:
+        elif not vs_m and len(nick_canons) < 2:
             # Phrase comparisons: "mais chance … A ou B"
             try:
                 from src.conversation.entity_safety import extract_comparison_pair
@@ -281,7 +354,7 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                             _fold(side)
                         ):
                             continue
-                        canon = fuzzy_resolve_team(side)
+                        canon = fuzzy_resolve_team(side, original)
                         if not canon and len(side) >= 3:
                             canon = side[:1].upper() + side[1:].lower()
                         if canon and canon not in teams:
@@ -294,7 +367,11 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
         try:
             from src.conversation.entity_safety import filter_recovery_teams
 
-            _verdict = filter_recovery_teams(original, teams, raw_notes=notes)
+            # Ground against original + expanded so nick→canon is attributable
+            ground_msg = original
+            if expanded != original:
+                ground_msg = f"{original} {expanded}"
+            _verdict = filter_recovery_teams(ground_msg, teams, raw_notes=notes)
             if _verdict.rejected:
                 notes.append(f"safety_rejected:{','.join(_verdict.rejected)}")
             _safe_canons = [
@@ -302,11 +379,24 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
                 for s in _verdict.teams
                 if s.grounded and s.confidence >= 0.55
             ]
-            if _safe_canons or _verdict.rejected:
-                teams = []
+            if _safe_canons or _verdict.rejected or nick_canons:
+                merged: list[str] = []
+                # Prefer intentional sports-language canons (PATCH-002)
+                for c in nick_canons:
+                    if c not in merged:
+                        merged.append(c)
                 for c in _safe_canons:
-                    if c not in teams:
-                        teams.append(c)
+                    if c in merged:
+                        continue
+                    # Drop raw slang leftovers when nick expansion already filled the pair
+                    if len(nick_canons) >= 2 and _fold(c) not in nick_fold:
+                        if any(_fold(c) == nf for nf in nick_tok_folds):
+                            continue
+                        if len(merged) >= 2:
+                            continue
+                    if c not in merged:
+                        merged.append(c)
+                teams = merged
             for s in _verdict.teams:
                 notes.append(f"entity_conf:{s.canon}={s.confidence:.2f}")
         except Exception as _saf_exc:
@@ -436,6 +526,32 @@ def recover_context(message: str, ctx: dict[str, Any] | None = None) -> Recovery
             conf = 0.78
             recovered = f"o que acha do {teams[0]}"
             notes.append("completed:entity_pivot")
+
+        # PATCH-002 — compare / "mais chance" with 2 clubs → analyzable pair
+        if len(teams) >= 2 and (
+            goal is None
+            or goal in {"match_outlook", "team_opinion"}
+            or re.search(
+                r"\b(?:ou|mais\s+chance|quem\s+ganha|mais\s+forte|melhor)\b",
+                folded_r,
+            )
+        ):
+            try:
+                from src.conversation.sports_language import (
+                    apply_sports_language_to_ctx,
+                    rewrite_compare_for_routing,
+                )
+
+                rw = rewrite_compare_for_routing(original, teams)
+                if rw:
+                    recovered = rw
+                    goal = "calendar_or_fixture"
+                    topic_kind_hint = "fixture"
+                    conf = max(conf, 0.88)
+                    notes.append("completed:sports_lang_compare")
+                    apply_sports_language_to_ctx(original, ctx, teams=teams)
+            except Exception:
+                pass
 
         # Historical / copa
         if re.search(r"\bcopa\b", folded_r) and re.search(r"\b20\d{2}\b", folded_r):

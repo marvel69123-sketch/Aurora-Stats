@@ -30,14 +30,16 @@ _KNOWN_CLUB = re.compile(
     r"flamengo|botafogo|santos|corinthians|palmeiras|sao\s+paulo|são\s+paulo|"
     r"fluminense|gremio|grêmio|internacional|vasco|bahia|mirassol|cruzeiro|"
     r"atletico|atlético|fortaleza|bragantino|cuiaba|cuiabá|"
+    r"mengao|mengão|verdao|verdão|timao|timão|fogao|fogão|fla|flu|galo|chape|"
     r"arsenal|chelsea|liverpool|juventus|manchester|barcelona|real\s+madrid|"
+    r"barca|barça|city|united|bayern|dortmund|psg|milan|juve|"
     r"londrina|sao\s+bernardo|ivai|cabo\s+verde"
     r")\b",
     re.I,
 )
 
 _FIXTURE = re.compile(
-    r"\b[\wÀ-ÿ.''-]{2,}\s+(?:x|vs\.?|versus)\s+[\wÀ-ÿ.''-]{2,}\b",
+    r"\b[\wÀ-ÿ.''-]{2,}\s+(?:x|vs\.?|versus|ou|contra)\s+[\wÀ-ÿ.''-]{2,}\b",
     re.I,
 )
 

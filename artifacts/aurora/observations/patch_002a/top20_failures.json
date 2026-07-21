@@ -1,0 +1,164 @@
+[
+  {
+    "id": "001",
+    "kind": "compare",
+    "question": "Quem tem mais chance amanhã Atlético ou Bahia?",
+    "expected_teams": [
+      "Atletico Mineiro",
+      "Bahia"
+    ],
+    "http": 200,
+    "intent": "follow_up",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Atletico"
+    ],
+    "response_prefix": "No-bet: sinais insuficientes para stake.\n\n?",
+    "class": "OWNER_LOCK",
+    "reason": "early_or_sticky_lock_on_new_question",
+    "success": false
+  },
+  {
+    "id": "021",
+    "kind": "compare",
+    "question": "Quem ganha Atlético ou Cruzeiro?",
+    "expected_teams": [
+      "Atletico Mineiro",
+      "Cruzeiro"
+    ],
+    "http": 200,
+    "intent": "general_chat",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Atletico"
+    ],
+    "response_prefix": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+    "class": "SPORT_REASONING",
+    "reason": "missed_expected_teams_or_task",
+    "success": false
+  },
+  {
+    "id": "026",
+    "kind": "compare",
+    "question": "Inter ou Milan?",
+    "expected_teams": [
+      "Internacional"
+    ],
+    "http": 200,
+    "intent": "analyze_match",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Milan",
+      "Inter Milan",
+      "AC Milan"
+    ],
+    "response_prefix": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n",
+    "class": "SPORT_REASONING",
+    "reason": "missed_expected_teams_or_task",
+    "success": false
+  },
+  {
+    "id": "033",
+    "kind": "compare",
+    "question": "Atlético Mineiro ou Atlético Madrid?",
+    "expected_teams": [
+      "Atletico Mineiro",
+      "Atletico Madrid"
+    ],
+    "http": 200,
+    "intent": "general_chat",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Atletico"
+    ],
+    "response_prefix": "Entendi. Posso te ajudar com isso de forma direta.\n\nSe for sobre futebol, me diga o time ou o confronto. Se for outra coisa, pode perguntar normalmente.",
+    "class": "SPORT_REASONING",
+    "reason": "missed_expected_teams_or_task",
+    "success": false
+  },
+  {
+    "id": "042",
+    "kind": "form",
+    "question": "Quem está em melhor forma no Brasileirão?",
+    "expected_teams": [],
+    "http": 200,
+    "intent": "unknown",
+    "dialog_mode": "SPORT",
+    "central_entities": [],
+    "response_prefix": "Não entendi completamente. Aqui está o que posso fazer por você:\n\n• **Analisar Flamengo x Palmeiras** análise completa de uma partida\n• **Melhores oportunidades ao vivo** partidas em andamento\n• **Revisar banca** seu his",
+    "class": "ENTITY_CORRUPTION",
+    "reason": "ungrounded=['palmeiras', 'flamengo']",
+    "success": false
+  },
+  {
+    "id": "074",
+    "kind": "compare",
+    "question": "inter ou gremio",
+    "expected_teams": [
+      "Internacional",
+      "Gremio"
+    ],
+    "http": 200,
+    "intent": "follow_up",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Internacional"
+    ],
+    "response_prefix": "Assumindo o time **Internacional** (sem confronto completo).\nEscopo de **time** — sem inventar adversário.\nNo-bet: sinais insuficientes para stake.\n\n?",
+    "class": "OWNER_LOCK",
+    "reason": "lock_with_ungrounded=['Internacional']",
+    "success": false
+  },
+  {
+    "id": "093",
+    "kind": "form",
+    "question": "melhor ataque do brasileirão",
+    "expected_teams": [],
+    "http": 200,
+    "intent": "unknown",
+    "dialog_mode": "SPORT",
+    "central_entities": [],
+    "response_prefix": "Não entendi completamente. Aqui está o que posso fazer por você:\n\n• **Analisar Flamengo x Palmeiras** análise completa de uma partida\n• **Melhores oportunidades ao vivo** partidas em andamento\n• **Revisar banca** seu his",
+    "class": "ENTITY_CORRUPTION",
+    "reason": "ungrounded=['palmeiras', 'flamengo']",
+    "success": false
+  },
+  {
+    "id": "099",
+    "kind": "compare",
+    "question": "quem tem mais chance amanha atletico mineiro ou bahia",
+    "expected_teams": [
+      "Atletico Mineiro",
+      "Bahia"
+    ],
+    "http": 200,
+    "intent": "follow_up",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Atletico"
+    ],
+    "response_prefix": "No-bet: sinais insuficientes para stake.\n\n?",
+    "class": "OWNER_LOCK",
+    "reason": "early_or_sticky_lock_on_new_question",
+    "success": false
+  },
+  {
+    "id": "101",
+    "kind": "compare",
+    "question": "mais chance juve ou milan",
+    "expected_teams": [
+      "Juventus"
+    ],
+    "http": 200,
+    "intent": "analyze_match",
+    "dialog_mode": "SPORT",
+    "central_entities": [
+      "Juventus",
+      "AC Milan"
+    ],
+    "response_prefix": "Com **dados parciais**…\nSinais disponíveis: times reconhecidos.\nAinda não tenho: xG, estatísticas da partida, eventos.\nNo-bet: sinais insuficientes para stake.\nPara subir confiança: xG, estatísticas da partida, eventos.\n",
+    "class": "ENTITY_CORRUPTION",
+    "reason": "ungrounded=['Juventus']",
+    "success": false
+  }
+]

@@ -1510,7 +1510,7 @@ def _run_fallback(message: str, intent: str) -> dict:
 
     summary = (
         tip +
-        "• **Analisar Arsenal x Chelsea** — análise completa de uma partida\n"
+        "• **Analisar Flamengo x Palmeiras** — análise completa de uma partida\n"
         "• **Melhores oportunidades ao vivo** — partidas em andamento\n"
         "• **Revisar banca** — seu histórico e desempenho\n"
         "• **O que a Aurora aprendeu hoje?** — resumo de aprendizado\n"
@@ -1802,6 +1802,16 @@ async def _copilot_inner(
         ctx["raw_user_message"] = message
     except Exception:
         pass
+
+    # ── PATCH-002A: Sports Language Layer (BEFORE routing / memory / GA) ──
+    try:
+        from src.conversation.sports_language import apply_sports_language_layer
+
+        _sll = apply_sports_language_layer(message, ctx)
+        if _sll.applied and _sll.normalized_text:
+            message = _sll.normalized_text
+    except Exception as _sll_exc:
+        logger.warning("copilot: SLL skipped (%s)", _sll_exc)
 
     # Per-turn flags (must not leak across turns in the same session)
     try:

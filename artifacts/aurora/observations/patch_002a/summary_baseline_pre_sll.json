@@ -1,0 +1,27 @@
+{
+  "task_id": "AURORA-EVAL-001",
+  "total_questions": 110,
+  "success_count": 93,
+  "failure_count": 17,
+  "success_rate": 84.5,
+  "elapsed_sec": 21.01,
+  "failure_class_counts": {
+    "SPORT_REASONING": 12,
+    "ENTITY_CORRUPTION": 4,
+    "OWNER_LOCK": 1
+  },
+  "failure_pct_of_total": {
+    "SPORT_REASONING": 10.9,
+    "ENTITY_CORRUPTION": 3.6,
+    "OWNER_LOCK": 0.9
+  },
+  "report_buckets_pct_of_total": {
+    "Entity": 3.6,
+    "Continuity": 0.0,
+    "Owner Lock": 0.9,
+    "Reasoning": 10.9,
+    "Unknown": 0.0,
+    "Success": 84.5
+  },
+  "most_damaging_class": "SPORT_REASONING"
+}
