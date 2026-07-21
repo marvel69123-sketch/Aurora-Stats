@@ -1813,6 +1813,15 @@ async def _copilot_inner(
     except Exception as _sll_exc:
         logger.warning("copilot: SLL skipped (%s)", _sll_exc)
 
+    # ── CSL-001: Conversation State Layer façade (after SLL, before routing) ──
+    # Stores slots + may contextualize bare follow-ups. Does not replace engines.
+    try:
+        from src.conversation.conversation_state_layer import apply_csl_resolve
+
+        message = apply_csl_resolve(message, ctx)
+    except Exception as _csl_exc:
+        logger.warning("copilot: CSL skipped (%s)", _csl_exc)
+
     # Per-turn flags (must not leak across turns in the same session)
     try:
         ctx.pop("ownership_stability_block_ga", None)
@@ -4863,6 +4872,20 @@ async def _copilot_inner(
             )
         except Exception as _fcj_note_exc:
             logger.warning("copilot: fiction/jump note skipped (%s)", _fcj_note_exc)
+        # CSL-001 — façade slot update (after sport notes; never touches FROZEN modules)
+        try:
+            from src.conversation.conversation_state_layer import (
+                note_csl_after_response as _csl_note,
+            )
+
+            if not _skip_sport_bootstrap:
+                payload = _csl_note(
+                    ctx,
+                    message,
+                    payload if isinstance(payload, dict) else None,
+                )
+        except Exception as _csl_note_exc:
+            logger.warning("copilot: CSL note skipped (%s)", _csl_note_exc)
         try:
             from src.conversation.frustration_observability import (
                 note_frustration_observability as _frust_note,
