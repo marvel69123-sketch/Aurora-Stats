@@ -1,17 +1,20 @@
 """
-Aurora Follow-Up Engine — Phase 4.
+Aurora Follow-Up Engine — Phase 4 + Phase 5B.
 
 Resolves context-dependent follow-up questions without re-running the full
-analysis pipeline.  Reads the ConversationContext stored in the session and
-generates a focused, conversational Portuguese answer.
+analysis pipeline. Reads ConversationContext and returns a focused PT-BR answer.
+
+Phase 5B additions
+------------------
+  • Patterns: small_bankroll, still_valid, live_update
+  • Conversational preamble ("Estou utilizando o contexto anterior…")
+  • response_metadata explainability (used_previous_analysis, confidence_penalty)
+  • No rigid "Peça uma nova análise" redirects when last_analysis is partial
 
 Public API
 ----------
   is_followup(message: str) -> bool
   resolve(message: str, ctx: dict, brain_meta: dict) -> dict | None
-    Returns None when there is no usable context or the message is not a
-    recognised follow-up phrase.  On success returns a CopilotResponse-
-    compatible payload dict.
 """
 from __future__ import annotations
 
@@ -67,6 +70,24 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     (r"qual\s+(?:o\s+)?stake",                       "how_much_stake"),
     (r"quanto\s+devo\s+colocar",                     "how_much_stake"),
     (r"how\s+much\s+(?:to\s+)?(?:bet|stake)",        "how_much_stake"),
+    # Small bankroll (Phase 5B)
+    (r"e\s+para\s+banca\s+pequena",                  "small_bankroll"),
+    (r"banca\s+pequena",                             "small_bankroll"),
+    (r"stake\s+(?:baixo|conservador|pequeno)",       "small_bankroll"),
+    (r"para\s+banca\s+(?:baixa|pequena|curta)",      "small_bankroll"),
+    # Still valid? (Phase 5B)
+    (r"continua\s+valendo",                          "still_valid"),
+    (r"ainda\s+vale",                                "still_valid"),
+    (r"ainda\s+valendo",                             "still_valid"),
+    (r"segue\s+valendo",                             "still_valid"),
+    (r"mantem\s+(?:a\s+)?recomendacao",              "still_valid"),
+    # Live update from context (Phase 5B) — no full re-analyze
+    (r"como\s+est[a]?\s+agora\s*$",                  "live_update"),
+    (r"(?:^|(?<=\s))e\s+agora\s*$",                  "live_update"),
+    (r"(?:^|(?<=\s))e\s+agora\s*\?",                 "live_update"),
+    (r"atualiza(?:r)?\s+(?:o\s+)?(?:status|jogo)",   "live_update"),
+    (r"atualiza(?:r)?\s+(?:a\s+)?partida",           "live_update"),
+    (r"status\s+atual\s*$",                          "live_update"),
     # Risk
     (r"qual\s+(?:o\s+)?(?:nivel\s+de\s+)?risco",    "what_risk"),
     (r"e\s+(?:o\s+)?risco",                          "what_risk"),
@@ -95,7 +116,58 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     # All markets
     (r"(?:e\s+)?todos\s+(?:os\s+)?mercados?",        "all_markets"),
     (r"melhores?\s+mercados?\s*$",                   "all_markets"),
+    # Phase 8.4-A.8 — bare short follow-ups (continuity / prior analysis)
+    (r"^(?:e\s+)?(?:os\s+)?mercados?\s*$",           "all_markets"),
+    (r"^(?:e\s+)?(?:o\s+)?placar\s*$",               "result_market"),
+    (r"^(?:e\s+)?(?:o\s+)?resultado\s*$",            "result_market"),
+    (r"^(?:e\s+)?(?:o\s+)?favoritos?\s*$",           "who_is_better"),
+    (r"^(?:e\s+)?(?:as\s+)?estatisticas?\s*$",       "explain_more"),
+    (r"^(?:e\s+)?(?:as\s+)?escalacoes?\s*$",         "explain_more"),
 ]
+
+# Soft confidence haircut when reusing prior analysis (no new pipeline)
+_CONTEXT_CONFIDENCE_PENALTY = 0.05
+
+
+def _context_preamble(match: str) -> str:
+    return (
+        f"Estou utilizando o contexto anterior:\n"
+        f"**{match}**.\n\n"
+        f"Com base naquela análise:\n\n"
+    )
+
+
+def _attach_response_metadata(payload: dict, *, followup_type: str) -> dict:
+    meta = {
+        "used_previous_analysis": True,
+        "confidence_penalty": _CONTEXT_CONFIDENCE_PENALTY,
+        "source": "conversation_context",
+        "followup_type": followup_type,
+    }
+    payload["response_metadata"] = meta
+    brain = dict(payload.get("brain") or {})
+    brain["conversation"] = meta
+    payload["brain"] = brain
+    # Soft confidence penalty on reused analysis
+    conf = dict(payload.get("confidence") or {})
+    try:
+        score = float(conf.get("score") or 0.0)
+        conf["score"] = max(0.0, round(score - (_CONTEXT_CONFIDENCE_PENALTY * 10), 2))
+    except (TypeError, ValueError):
+        pass
+    expl = conf.get("explanation") or ""
+    if "contexto anterior" not in expl.lower():
+        conf["explanation"] = (
+            (expl + " · " if expl else "")
+            + "Reutilizado do contexto conversacional (leve redução de confiança)."
+        ).strip(" ·")
+    payload["confidence"] = conf
+    notes = list(payload.get("knowledge_notes") or [])
+    notes.append(
+        "Follow-up resolveu via conversation_context — sem nova busca de fixture/análise completa."
+    )
+    payload["knowledge_notes"] = notes
+    return payload
 
 
 def _detect_followup_type(message: str) -> str | None:
@@ -143,6 +215,46 @@ def _filter_markets(markets: list[dict], keywords: list[str]) -> list[dict]:
     return result
 
 
+def _attach_followup_match_card(payload: dict, la: dict | None, home: str, away: str) -> dict:
+    """Reuse prior match_card (presentation only) when follow-up has fixture context."""
+    card = la.get("match_card") if isinstance(la, dict) else None
+    if isinstance(card, dict) and card.get("home") and card.get("away"):
+        try:
+            from src.communication.match_card import attach_match_card
+            return attach_match_card(payload, card)
+        except Exception:
+            payload["match_card"] = card
+            return payload
+    if home and away:
+        try:
+            from src.communication.match_card import (
+                AURORA_MATCH_VERSION,
+                build_predictability,
+            )
+            is_live = bool(payload.get("is_live"))
+            payload["match_card"] = {
+                "home": {"name": home, "logo": None},
+                "away": {"name": away, "logo": None},
+                "score": None,
+                "competition": None,
+                "venue": None,
+                "status_label": payload.get("status"),
+                "minute": payload.get("minute"),
+                "is_live": is_live,
+                "momentum": None,
+                "predictability": build_predictability(
+                    payload.get("confidence")
+                    if isinstance(payload.get("confidence"), dict)
+                    else None,
+                    is_live=is_live,
+                ),
+            }
+            payload["aurora_version"] = AURORA_MATCH_VERSION
+        except Exception:
+            pass
+    return payload
+
+
 def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match: str, brain: dict) -> dict:
     defaults = {
         "confidence": {"score": 0.0, "label": "insufficient",
@@ -153,7 +265,7 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
                                     "reasoning": "Use a análise completa para recomendação de stake."},
     }
     if la:
-        return {
+        payload = {
             "intent":    intent_name,
             "entities":  {"home": home, "away": away, "followup": True},
             "match":     la.get("match", match),
@@ -173,7 +285,8 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
             "aurora_version": "Copilot v1.0",
             "brain": brain,
         }
-    return {
+        return _attach_followup_match_card(payload, la, home, away)
+    payload = {
         "intent":    intent_name,
         "entities":  {"home": home, "away": away, "followup": True},
         "match":     match,
@@ -187,6 +300,7 @@ def _base_payload(intent_name: str, la: dict | None, home: str, away: str, match
         "aurora_version": "Copilot v1.0",
         "brain": brain,
     }
+    return _attach_followup_match_card(payload, None, home, away)
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +312,9 @@ def _resolve_with_analysis(
     la: dict,
     home: str, away: str, match: str,
     brain: dict,
+    ctx: dict | None = None,
 ) -> dict:
+    ctx = ctx or {}
     p = _base_payload("follow_up", la, home, away, match, brain)
     markets  = la.get("best_markets", [])
     conf_score = (la.get("confidence") or {}).get("score", 0.0)
@@ -234,53 +350,73 @@ def _resolve_with_analysis(
     elif followup_type == "corners_market":
         corner_mkts = _filter_markets(markets, ["corner", "escanteio", "canto"])
         if corner_mkts:
-            summary = f"**Escanteios — {match}:**\n\n" + _market_rows(corner_mkts)
+            summary = _context_preamble(match) + "**Escanteios:**\n\n" + _market_rows(corner_mkts)
             final   = f"Os mercados de escanteios acima têm o maior valor para {match}."
             p["best_markets"] = corner_mkts
         else:
-            summary = (
-                f"A análise de **{match}** não destacou um mercado específico de escanteios.\n\n"
-                "Escanteios têm valor tipicamente em jogos com:\n"
-                "• Equipes ofensivas que cruzam muito\n"
-                "• Placar equilibrado na segunda etapa\n"
-                "• Times que precisam virar o resultado\n\n"
-                f"Peça uma nova análise de {match} para incluir escanteios explicitamente."
+            top_line = (
+                f"**Recomendação principal da análise:** {markets[0].get('market')}\n"
+                if markets else ""
             )
-            final = f"Peça: \"Analisar {match} — escanteios\" para mercado detalhado."
+            summary = (
+                _context_preamble(match)
+                + "A análise anterior não destacou um mercado específico de escanteios "
+                "entre os melhores rankeados.\n\n"
+                "Em geral, escanteios ganham valor quando há equipes ofensivas que cruzam "
+                "muito, placar equilibrado na 2ª etapa ou times precisando virar.\n\n"
+                + top_line
+            )
+            final = f"Sem slice dedicado de escanteios — mantendo o contexto de {match}."
+            if markets:
+                p["best_markets"] = markets[:2]
         p.update({"executive_summary": summary, "final_recommendation": final})
 
     # ── goals market ─────────────────────────────────────────────────────────
     elif followup_type == "goals_market":
         goal_mkts = _filter_markets(markets, ["gol", "goal", "over", "under", "btts", "ambos", "marca"])
         if goal_mkts:
-            summary = f"**Mercados de gols — {match}:**\n\n" + _market_rows(goal_mkts)
+            summary = _context_preamble(match) + "**Mercados de gols:**\n\n" + _market_rows(goal_mkts)
             final   = f"Os mercados de gols acima são os destaques para {match}."
             p["best_markets"] = goal_mkts
         else:
             summary = (
-                f"Nenhum mercado de gols foi destacado para **{match}**.\n\n"
-                "Isso geralmente indica que a partida não apresenta valor claro "
-                "nos mercados Over/Under ou BTTS com base nos dados disponíveis."
+                _context_preamble(match)
+                + "Nenhum mercado de gols (Over/Under/BTTS) apareceu no topo do ranking "
+                "da análise anterior.\n\n"
+                + (
+                    f"O destaque daquela análise foi **{markets[0].get('market')}** "
+                    f"({markets[0].get('probability', 0):.0f}%)."
+                    if markets else
+                    "Isso costuma indicar ausência de valor claro em gols com os dados disponíveis."
+                )
             )
-            final = "Análise não indica valor claro em mercados de gols para esta partida."
+            final = f"Contexto de {match} reutilizado — sem ranking forte em gols."
+            if markets:
+                p["best_markets"] = markets[:2]
         p.update({"executive_summary": summary, "final_recommendation": final})
 
     # ── cards market ─────────────────────────────────────────────────────────
     elif followup_type == "cards_market":
         card_mkts = _filter_markets(markets, ["cart", "card", "amarelo", "vermelho", "falta", "foul"])
         if card_mkts:
-            summary = f"**Mercados de cartões — {match}:**\n\n" + _market_rows(card_mkts)
+            summary = _context_preamble(match) + "**Mercados de cartões:**\n\n" + _market_rows(card_mkts)
             final   = "Mercados de cartões com maior valor para esta partida."
             p["best_markets"] = card_mkts
         else:
             summary = (
-                f"Nenhum mercado de cartões foi destacado para **{match}**.\n\n"
-                "Cartões têm valor em jogos com árbitro rigoroso, rivalidade intensa "
-                "ou partidas com muito a perder (rebaixamento, título)."
+                _context_preamble(match)
+                + "Nenhum mercado de cartões foi destacado no ranking anterior.\n\n"
+                "Cartões tendem a ter valor com árbitro rigoroso, rivalidade intensa "
+                "ou jogos com muito a perder."
+                + (
+                    f"\n\nDestaque da análise: **{markets[0].get('market')}**."
+                    if markets else ""
+                )
             )
-            final = "Sem dados suficientes para recomendar mercado de cartões nesta análise."
+            final = f"Contexto de {match} mantido — sem ranking forte em cartões."
+            if markets:
+                p["best_markets"] = markets[:2]
         p.update({"executive_summary": summary, "final_recommendation": final})
-
     # ── result market ────────────────────────────────────────────────────────
     elif followup_type == "result_market":
         res_mkts = _filter_markets(markets, ["vitoria", "vitória", "empate", "result", "1x2", "win", "ganha"])
@@ -395,33 +531,150 @@ def _resolve_with_analysis(
     elif followup_type == "is_live":
         is_live = la.get("is_live", False)
         minute  = la.get("minute")
+        live_at = ctx.get("last_live_at") or la.get("updated_at") or ctx.get("updated_at")
         if is_live:
             summary = (
-                f"✅ **{match} estava ao vivo** quando foi analisado!\n\n"
-                f"Minuto da análise: **{minute or '?'}**.\n\n"
-                f"Peça uma nova análise para dados atualizados: \"Analisar {match}\""
+                _context_preamble(match)
+                + f"**{match}** estava **ao vivo** no momento da análise.\n\n"
+                f"Minuto registrado: **{minute if minute is not None else '?'}**.\n"
+                + (f"Snapshot em: {live_at}\n" if live_at else "")
+                + "\nNão reexecutei a busca ao vivo — este é o estado da análise anterior."
             )
-            final = f"{match} ao vivo — peça nova análise para dados do minuto atual."
+            final = f"{match} — estado ao vivo reutilizado do contexto."
         else:
             summary = (
-                f"❌ **{match} não estava ao vivo** quando foi analisado.\n\n"
-                "Foram utilizados dados de pré-jogo: estatísticas da temporada, "
-                "confrontos diretos e probabilidades baseadas em modelos.\n\n"
-                "Veja jogos ao vivo: **\"Melhores oportunidades ao vivo\"**"
+                _context_preamble(match)
+                + f"**{match}** não estava ao vivo na análise anterior "
+                "(dados de pré-jogo / pós-jogo).\n\n"
+                "Mantive o contexto da partida sem abrir um novo pipeline."
             )
-            final = "Análise pré-jogo. Para ao vivo: \"Melhores oportunidades ao vivo\"."
+            final = "Análise pré-jogo no contexto — sem nova busca ao vivo."
+        p.update({
+            "executive_summary": summary,
+            "final_recommendation": final,
+            "is_live": bool(is_live),
+            "minute": minute,
+        })
+
+    # ── small bankroll (Phase 5B) ────────────────────────────────────────────
+    elif followup_type == "small_bankroll":
+        br = la.get("bankroll_recommendation", {}) or {}
+        pct = float(br.get("recommended_stake_pct") or 0.0)
+        no_bet = bool(br.get("no_bet", True))
+        reason = br.get("reasoning") or ""
+        examples = br.get("examples") or {}
+        # Conservative haircut for small bank: ~half of recommended, cap low
+        small_pct = 0.0 if no_bet else min(pct * 0.5, 1.0)
+        top = markets[0] if markets else None
+        summary = _context_preamble(match) + "**Orientação para banca pequena:**\n\n"
+        if no_bet or pct <= 0:
+            summary += (
+                "A análise anterior **não recomendava aposta** (ou stake zero).\n"
+                f"Motivo: {reason or 'risco/retorno desfavorável'}\n\n"
+                "Para banca pequena, o padrão é ainda mais conservador: "
+                "**não forçar entrada** só para 'estar no jogo'."
+            )
+            final = "Banca pequena — priorize preservar capital; sem entrada forçada."
+        else:
+            summary += (
+                f"Stake sugerido na análise: **{pct:.2f}%** da banca.\n"
+                f"Para banca pequena, use cerca de **{small_pct:.2f}%** "
+                "(metade, com teto baixo).\n\n"
+            )
+            if top:
+                summary += (
+                    f"Mercado de referência: **{top.get('market')}** "
+                    f"({top.get('probability', 0):.0f}%).\n"
+                )
+            if examples:
+                summary += "\nExemplos da análise anterior:\n"
+                for k, v in list(examples.items())[:3]:
+                    summary += f"• {k}: {v}\n"
+            final = (
+                f"Banca pequena em {match}: stake reduzido (~{small_pct:.2f}%), "
+                "sem reabrir análise completa."
+            )
+            p["best_markets"] = markets[:2] if markets else []
+        p["bankroll_recommendation"] = {
+            **br,
+            "recommended_stake_pct": small_pct,
+            "reasoning": (
+                f"Ajuste conversacional para banca pequena sobre {match}. "
+                + (reason or "")
+            ).strip(),
+        }
         p.update({"executive_summary": summary, "final_recommendation": final})
+
+    # ── still valid? (Phase 5B) ──────────────────────────────────────────────
+    elif followup_type == "still_valid":
+        final_r = la.get("final_recommendation") or ""
+        conf = (la.get("confidence") or {}).get("score")
+        top = markets[0] if markets else None
+        is_live = bool(la.get("is_live"))
+        updated = ctx.get("updated_at") or ""
+        summary = (
+            _context_preamble(match)
+            + "**A recomendação anterior continua como referência**, "
+            "com leve redução de confiança por reuso (sem nova coleta de dados).\n\n"
+        )
+        if top:
+            summary += (
+                f"Mercado principal: **{top.get('market')}** "
+                f"({top.get('probability', 0):.0f}%).\n"
+            )
+        if conf is not None:
+            summary += f"Confiança na análise: **{conf}**/10.\n"
+        if is_live:
+            summary += (
+                f"A partida estava ao vivo (minuto {la.get('minute', '?')}) — "
+                "o cenário pode ter mudado desde então.\n"
+            )
+        if updated:
+            summary += f"\nContexto atualizado em: {updated}."
+        if final_r:
+            summary += f"\n\n_{final_r}_"
+        final = f"Mantendo a leitura de {match} a partir do contexto anterior."
+        p["best_markets"] = markets[:3] if markets else []
+        p.update({"executive_summary": summary, "final_recommendation": final or final_r})
+
+    # ── live update from context only (Phase 5B) ─────────────────────────────
+    elif followup_type == "live_update":
+        is_live = bool(la.get("is_live") or ctx.get("last_is_live"))
+        minute = la.get("minute") if la.get("minute") is not None else ctx.get("last_minute")
+        live_at = ctx.get("last_live_at") or ctx.get("updated_at")
+        status = la.get("status") or ""
+        summary = (
+            _context_preamble(match)
+            + "**Status a partir do contexto (sem nova busca ao vivo):**\n\n"
+            f"• Ao vivo na análise: **{'sim' if is_live else 'não'}**\n"
+            f"• Minuto registrado: **{minute if minute is not None else 'n/d'}**\n"
+            f"• Status: **{status or 'n/d'}**\n"
+            + (f"• Snapshot: {live_at}\n" if live_at else "")
+            + "\nPara economizar processamento, não reabri a Live Fixture Search. "
+            "Se precisar de minuto fresco, diga o placar ou peça a análise completa "
+            f"de {match} novamente."
+        )
+        final = f"Status de {match} reutilizado do contexto conversacional."
+        p.update({
+            "executive_summary": summary,
+            "final_recommendation": final,
+            "is_live": is_live,
+            "minute": minute,
+            "status": status or None,
+            "best_markets": markets[:2] if markets else [],
+        })
 
     # ── positive factors ─────────────────────────────────────────────────────
     elif followup_type == "positive_factors":
         if pos:
             summary = (
-                f"**Fatores positivos para {match}:**\n\n"
+                _context_preamble(match)
+                + "**Fatores positivos:**\n\n"
                 + "\n".join(f"✅ {x}" for x in pos)
             )
             final = f"{len(pos)} fator(es) positivo(s) identificado(s) para {match}."
         else:
-            summary = f"Nenhum fator positivo significativo identificado para **{match}**."
+            summary = _context_preamble(match) + "Nenhum fator positivo significativo na análise anterior."
             final   = "Fatores positivos não detectados nesta análise."
         p.update({"executive_summary": summary, "final_recommendation": final})
 
@@ -429,12 +682,13 @@ def _resolve_with_analysis(
     elif followup_type == "negative_factors":
         if neg:
             summary = (
-                f"**Fatores negativos/riscos para {match}:**\n\n"
+                _context_preamble(match)
+                + "**Fatores negativos/riscos:**\n\n"
                 + "\n".join(f"⚠️ {x}" for x in neg)
             )
             final = f"{len(neg)} risco(s) identificado(s) — considere-os antes de apostar."
         else:
-            summary = f"Nenhum fator negativo significativo para **{match}** — sinal favorável."
+            summary = _context_preamble(match) + "Nenhum fator negativo significativo na análise anterior."
             final   = "Análise favorável — sem fatores negativos detectados."
         p.update({"executive_summary": summary, "final_recommendation": final})
 
@@ -443,58 +697,75 @@ def _resolve_with_analysis(
         exec_s  = la.get("executive_summary", "")
         final_r = la.get("final_recommendation", "")
         top_mkt = markets[0] if markets else None
-        summary = f"**Resumo da análise — {match}:**\n\n{exec_s}"
+        summary = _context_preamble(match) + f"**Resumo:**\n\n{exec_s}"
         if top_mkt and followup_type == "repeat":
             summary += (
                 f"\n\n**Recomendação principal:** {top_mkt.get('market','?')} "
                 f"({top_mkt.get('probability',0):.0f}%)"
             )
         elif followup_type == "all_markets" and markets:
-            summary = f"**Todos os mercados rankeados — {match}:**\n\n" + _market_rows(markets)
+            summary = _context_preamble(match) + "**Todos os mercados rankeados:**\n\n" + _market_rows(markets)
         p["best_markets"] = markets
         p.update({
             "executive_summary":  summary,
             "final_recommendation": final_r or f"Análise completa de {match} acima.",
         })
 
-    return p
-
+    return _attach_response_metadata(p, followup_type=followup_type)
 
 def _no_analysis_response(match: str, followup_type: str, brain: dict) -> dict:
-    """Helpful redirect when context exists but no stored analysis."""
+    """Context exists but detailed analysis blob missing — stay conversational."""
     _topic = {
         "corners_market": "escanteios",
         "goals_market":   "gols",
         "cards_market":   "cartões",
         "how_much_stake": "stake",
         "what_risk":      "risco",
+        "small_bankroll": "banca pequena",
+        "still_valid":    "validade da recomendação",
+        "live_update":    "status ao vivo",
     }
     topic = _topic.get(followup_type, "detalhes")
     summary = (
-        f"Lembro que você perguntou sobre **{match}**, mas a análise detalhada "
-        f"não está disponível nesta sessão.\n\n"
-        f"Para obter informações sobre **{topic}**, peça uma análise:\n\n"
-        f"> **\"Analisar {match}\"**"
+        f"Estou utilizando o contexto anterior:\n**{match}**.\n\n"
+        f"Lembro da partida, mas o detalhamento de **{topic}** não ficou "
+        f"armazenado nesta sessão (análise parcial ou sessão migrada).\n\n"
+        f"Podemos seguir falando sobre {match}, ou você pode pedir uma "
+        f"análise completa se quiser dados frescos."
     )
-    return {
+    home = ""
+    away = ""
+    if " x " in match:
+        parts = match.split(" x ", 1)
+        home, away = parts[0].strip(), parts[1].strip()
+    payload = {
         "intent": "follow_up",
-        "entities": {"followup_type": followup_type},
+        "entities": {"followup_type": followup_type, "followup": True},
         "match": match,
         "status": None, "is_live": False, "minute": None,
         "executive_summary": summary,
         "best_markets": [],
-        "confidence": {"score": 0.0, "label": "insufficient",
-                       "explanation": "Análise anterior não disponível.", "data_sources": []},
+        "confidence": {
+            "score": 2.0, "label": "weak",
+            "explanation": "Contexto de partida sem blob de análise completo.",
+            "data_sources": ["conversation_context"],
+        },
         "risk": {"level": "Unknown", "flags": [], "invalidation_conditions": []},
-        "bankroll_recommendation": {"recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-                                    "examples": {}, "no_bet": True,
-                                    "reasoning": "Analise a partida primeiro."},
+        "bankroll_recommendation": {
+            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+            "examples": {}, "no_bet": True,
+            "reasoning": "Análise detalhada ausente no contexto.",
+        },
         "positive_factors": [], "negative_factors": [],
         "historical_references": [], "knowledge_notes": [],
-        "final_recommendation": f"Peça: \"Analisar {match}\" para análise completa.",
+        "final_recommendation": (
+            f"Mantendo o contexto de {match} — análise detalhada incompleta nesta sessão."
+        ),
         "aurora_version": "Copilot v1.0",
         "brain": brain,
     }
+    payload = _attach_followup_match_card(payload, None, home, away)
+    return _attach_response_metadata(payload, followup_type=followup_type)
 
 
 # ---------------------------------------------------------------------------
@@ -503,27 +774,13 @@ def _no_analysis_response(match: str, followup_type: str, brain: dict) -> dict:
 
 def resolve(message: str, ctx: dict, brain_meta: dict) -> dict | None:
     """
-    Resolve a follow-up question using conversation context.
-
-    Parameters
-    ----------
-    message : str
-        Raw user message.
-    ctx : dict
-        ConversationContext dict from chat_db.get_conversation_context().
-        Expected keys: last_home, last_away, last_match, last_analysis.
-    brain_meta : dict
-        Output of src.brain.get_brain_meta().
-
-    Returns
-    -------
-    dict
-        CopilotResponse-compatible payload dict, or None when the message is
-        not a follow-up or there is no context to reference.
+    Resolve a follow-up question using conversation context (no full re-analyze).
     """
     home  = ctx.get("last_home", "")
     away  = ctx.get("last_away", "")
-    match = ctx.get("last_match") or (f"{home} x {away}" if home else "")
+    match = ctx.get("last_match") or ctx.get("last_fixture") or (
+        f"{home} x {away}" if home else ""
+    )
 
     if not match:
         return None
@@ -534,15 +791,16 @@ def resolve(message: str, ctx: dict, brain_meta: dict) -> dict | None:
         return None
 
     la = ctx.get("last_analysis")
-    has_analysis = la is not None
+    has_analysis = isinstance(la, dict) and bool(la)
     logger.warning(
         "[AUDIT] resolve: followup_type=%r | match=%r | home=%r | away=%r"
-        " | has_last_analysis=%s → selected_engine=%s",
+        " | has_last_analysis=%s",
         followup_type, match, home, away, has_analysis,
-        "_resolve_with_analysis" if has_analysis else "_no_analysis_response",
     )
     logger.info("FollowUpEngine.resolve: type=%s  match=%r", followup_type, match)
 
-    if la:
-        return _resolve_with_analysis(followup_type, la, home, away, match, brain_meta)
+    if has_analysis:
+        return _resolve_with_analysis(
+            followup_type, la, home, away, match, brain_meta, ctx=ctx,
+        )
     return _no_analysis_response(match, followup_type, brain_meta)
