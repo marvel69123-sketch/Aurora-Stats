@@ -1,0 +1,202 @@
+{
+  "poc": "LANGGRAPH-STATE-POC-001",
+  "phase": 2,
+  "mode": "shadow",
+  "generated_at": "2026-07-21T05:48:54.258964+00:00",
+  "flags": {
+    "ENABLE_LANGGRAPH_STATE": "0 (forced unset)",
+    "ENABLE_LANGGRAPH_STATE_SHADOW": "1 (harness only)"
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "label": "seed",
+      "message": "Flamengo x Palmeiras",
+      "result": {
+        "old": {
+          "fixture": "Flamengo x Palmeiras",
+          "episode": "ep-flamengo",
+          "intent": "fixture_compare",
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ]
+        },
+        "new": {
+          "fixture": "Flamengo x Palmeiras",
+          "episode": "ep-flamengo",
+          "intent": "fixture_compare",
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ],
+          "boundary_reason": "same_fixture_restated",
+          "turn_route": "apply_subject",
+          "decision_reason": "same_fixture_restated"
+        },
+        "divergent": true,
+        "fields": {
+          "boundary_reason": {
+            "legacy": null,
+            "sts": "same_fixture_restated"
+          }
+        },
+        "contamination_locus": null,
+        "message": "Flamengo x Palmeiras",
+        "shadow_only": true,
+        "production_write_enabled": false
+      }
+    },
+    {
+      "turn": 2,
+      "label": "switch_with_lagging_old",
+      "message": "Liverpool x Chelsea",
+      "result": {
+        "old": {
+          "fixture": "Flamengo x Palmeiras",
+          "episode": "ep-flamengo",
+          "intent": "fixture_compare",
+          "teams": [
+            "Flamengo",
+            "Palmeiras"
+          ]
+        },
+        "new": {
+          "fixture": "Liverpool x Chelsea",
+          "episode": "a2a4e10e-40d6-4c19-9314-a03465900346",
+          "intent": "fixture_compare",
+          "teams": [
+            "Liverpool",
+            "Chelsea"
+          ],
+          "boundary_reason": "new_fixture",
+          "turn_route": "apply_boundary",
+          "decision_reason": "new_fixture"
+        },
+        "divergent": true,
+        "fields": {
+          "episode_id": {
+            "legacy": "ep-flamengo",
+            "sts": "a2a4e10e-40d6-4c19-9314-a03465900346"
+          },
+          "fixture": {
+            "legacy": "Flamengo x Palmeiras",
+            "sts": "Liverpool x Chelsea"
+          },
+          "teams": {
+            "legacy": [
+              "Flamengo",
+              "Palmeiras"
+            ],
+            "sts": [
+              "Liverpool",
+              "Chelsea"
+            ]
+          },
+          "subject": {
+            "legacy": "Flamengo x Palmeiras",
+            "sts": "Liverpool x Chelsea"
+          },
+          "boundary_reason": {
+            "legacy": null,
+            "sts": "new_fixture"
+          }
+        },
+        "contamination_locus": "before_langgraph",
+        "message": "Liverpool x Chelsea",
+        "shadow_only": true,
+        "production_write_enabled": false
+      }
+    },
+    {
+      "turn": 3,
+      "label": "soft_fu_after_clean_adopt",
+      "message": "Quem está melhor?",
+      "result": {
+        "old": {
+          "fixture": "Liverpool x Chelsea",
+          "episode": "a2a4e10e-40d6-4c19-9314-a03465900346",
+          "intent": "fixture_compare",
+          "teams": [
+            "Liverpool",
+            "Chelsea"
+          ]
+        },
+        "new": {
+          "fixture": "Liverpool x Chelsea",
+          "episode": "a2a4e10e-40d6-4c19-9314-a03465900346",
+          "intent": "followup_compare",
+          "teams": [
+            "Liverpool",
+            "Chelsea"
+          ],
+          "boundary_reason": "soft_followup_same_episode",
+          "turn_route": "keep_followup",
+          "decision_reason": "soft_followup_same_episode"
+        },
+        "divergent": true,
+        "fields": {
+          "boundary_reason": {
+            "legacy": null,
+            "sts": "soft_followup_same_episode"
+          }
+        },
+        "contamination_locus": null,
+        "message": "Quem está melhor?",
+        "shadow_only": true,
+        "production_write_enabled": false
+      }
+    }
+  ],
+  "sticky_soft_fu": {
+    "old": {
+      "fixture": "Flamengo x Palmeiras",
+      "episode": "ep-flamengo",
+      "intent": "fixture_compare",
+      "teams": [
+        "Flamengo",
+        "Palmeiras"
+      ]
+    },
+    "new": {
+      "fixture": "Flamengo x Palmeiras",
+      "episode": "ep-flamengo",
+      "intent": "followup_compare",
+      "teams": [
+        "Flamengo",
+        "Palmeiras"
+      ],
+      "boundary_reason": "soft_followup_same_episode",
+      "turn_route": "keep_followup",
+      "decision_reason": "soft_followup_same_episode"
+    },
+    "divergent": true,
+    "fields": {
+      "boundary_reason": {
+        "legacy": null,
+        "sts": "soft_followup_same_episode"
+      }
+    },
+    "contamination_locus": null,
+    "message": "Quem está melhor?",
+    "shadow_only": true,
+    "production_write_enabled": false
+  },
+  "contamination_finding": {
+    "critical_scenario": "Flamengo×Palmeiras → Liverpool×Chelsea → Quem está melhor?",
+    "primary_contamination_locus": "before_langgraph",
+    "locus_code": 1,
+    "explanation": "On T2 (Liverpool×Chelsea) with lagging multi-writer ctx still holding Flamengo×Palmeiras, OLD is wrong vs the user message while NEW (isolated LangGraph STS) correctly becomes Liverpool×Chelsea. Contamination locus is therefore (1) before_langgraph — legacy subject lag / sticky bleed entering the turn. Inside state layer (2) does not mis-classify this turn. After state commit (3) is N/A for Phase 2 live ctx (shadow never writes back). T3 soft FU with correct prior keeps Liverpool.",
+    "t2_new_fixture": "Liverpool x Chelsea",
+    "t3_new_fixture": "Liverpool x Chelsea",
+    "t3_ok": true,
+    "production_write_enabled": false,
+    "shadow_enabled": true
+  },
+  "notes": [
+    "T1 [seed] msg='Flamengo x Palmeiras' old.fx='Flamengo x Palmeiras' new.fx='Flamengo x Palmeiras' locus=None",
+    "T2 [switch_with_lagging_old] msg='Liverpool x Chelsea' old.fx='Flamengo x Palmeiras' new.fx='Liverpool x Chelsea' locus='before_langgraph'",
+    "T3 [soft_fu_after_clean_adopt] msg='Quem está melhor?' old.fx='Liverpool x Chelsea' new.fx='Liverpool x Chelsea' locus=None",
+    "Contaminated soft-FU (OLD still Flamengo after intended Liverpool switch never landed in ctx): new.fx='Flamengo x Palmeiras' locus=None. Soft keep preserves contaminated OLD → healing requires correct prior (locus on switch turn = before_langgraph)."
+  ]
+}

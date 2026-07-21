@@ -1841,6 +1841,17 @@ async def _copilot_inner(
     except Exception as _sil_exc:
         logger.warning("copilot: sport intent layer skipped (%s)", _sil_exc)
 
+    # LANGGRAPH-STATE-POC-001 Phase 2 — SHADOW MODE only (log-only OLD vs NEW).
+    # Gated by ENABLE_LANGGRAPH_STATE_SHADOW (default OFF). Independent of
+    # ENABLE_LANGGRAPH_STATE (production write path stays OFF). Fail-open;
+    # must not change message, payload, response, or live ctx subject writers.
+    try:
+        from src.conversation.langgraph_state_adapter import maybe_shadow_compare
+
+        maybe_shadow_compare(message, ctx)
+    except Exception as _lg_shadow_exc:
+        logger.warning("copilot: langgraph shadow skipped (%s)", _lg_shadow_exc)
+
     # Per-turn flags (must not leak across turns in the same session).
     # Do NOT pop episode_boundary / subject_guard — set earlier this turn by V2.
     try:
