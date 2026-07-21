@@ -1,0 +1,55 @@
+﻿diff --git a/artifacts/aurora/src/ops/cost_protection.py b/artifacts/aurora/src/ops/cost_protection.py
+index 4f73658..71cc1b6 100644
+--- a/artifacts/aurora/src/ops/cost_protection.py
++++ b/artifacts/aurora/src/ops/cost_protection.py
+@@ -108,8 +108,15 @@ def _today() -> str:
+     return date.today().isoformat()
+ 
+ 
++def _coerce_user_id(user_id: object | None) -> str:
++    """Normalize user_id; reject FastAPI Query/Param leaks from analyze_fixture."""
++    if isinstance(user_id, str):
++        return user_id.strip() or "anonymous"
++    return "anonymous"
++
++
+ def _user_stats_unlocked(user_id: str) -> UserDayStats:
+-    uid = (user_id or "anonymous").strip() or "anonymous"
++    uid = _coerce_user_id(user_id)
+     day = _today()
+     st = _USERS.get(uid)
+     if st is None or st.day != day:
+@@ -131,7 +138,7 @@ def begin_request(
+     """Enter ECPM request scope (copilot / analyze HTTP)."""
+     return (
+         _active.set(True),
+-        _user_id.set((user_id or "anonymous").strip() or "anonymous"),
++        _user_id.set(_coerce_user_id(user_id)),
+         _force_refresh.set(bool(force_refresh) and bool(_CONFIG.enabled)),
+     )
+ 
+diff --git a/artifacts/aurora/src/routers/analyze.py b/artifacts/aurora/src/routers/analyze.py
+index 36f6ef0..fc251b5 100644
+--- a/artifacts/aurora/src/routers/analyze.py
++++ b/artifacts/aurora/src/routers/analyze.py
+@@ -555,6 +555,20 @@ async def analyze_fixture(
+     from src.core.inference_context import InferenceContext, build_partial_analyze_data
+     from src.ops import cost_protection as _ecpm
+ 
++    # Internal callers (copilot_engine, etc.) invoke this as a plain coroutine.
++    # FastAPI Query()/Param defaults must not leak as runtime values ÔÇö otherwise
++    # bool(user_id) is truthy and begin_request(...).strip() raises AttributeError.
++    if not isinstance(prefer_live, bool):
++        prefer_live = False
++    if not isinstance(soft, bool):
++        soft = False
++    if fixture_id is not None and not isinstance(fixture_id, int):
++        fixture_id = None
++    if not isinstance(force_refresh, bool):
++        force_refresh = False
++    if user_id is not None and not isinstance(user_id, str):
++        user_id = None
++
+     # Protect only when already in ECPM scope (copilot) or explicit user/premium.
+     # Cert scripts call this without scope ÔåÆ unrestricted.
+     _ecpm_tokens = None

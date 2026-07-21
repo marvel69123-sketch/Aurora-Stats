@@ -1,0 +1,36 @@
+﻿artifacts\aurora\_smoke_out.txt
+artifacts\aurora\roadmap\_p3a6_after_cert_run.log
+artifacts\aurora\roadmap\_p3b1_stdout.txt
+artifacts\aurora\roadmap\p3a4_diagnosis_run.log
+artifacts\aurora\smoke-err.log
+artifacts\aurora\smoke-out.log
+artifacts\aurora\uvicorn-err.log
+artifacts\aurora\uvicorn-err2.log
+artifacts\aurora\uvicorn-out.log
+artifacts\aurora\uvicorn-out2.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_84a20_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_84a21_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_84a22_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_p1b_final_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_p1b_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\aep_discovery\discovery_p25b_stderr.log
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase78\run_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase79a\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase79b\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase79c\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase79d\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase79e\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase82a\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase82c\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase82d\02_ROUTER_ORDER.md
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase82e\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase83a\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase83b\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a1\smoke_local_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a2\probe_stdout.json
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a3\_uvicorn_err.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a3\_uvicorn_out.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a4\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a5\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a7\smoke_stdout.txt
+C:\Users\Caio henrique\Documents\aurora 3\Aurora-Stats\artifacts\aurora\observations\phase84a8\smoke_out.txt

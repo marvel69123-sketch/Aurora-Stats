@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-07-20T23:41:00+00:00",
+  "production": {
+    "reachable": false,
+    "healthz": {
+      "primary_host": "https://aurora-stats.marvel69123-sketch.replit.app/aurora/healthz",
+      "local_probe": "TLS/connection closed",
+      "webfetch": "HTTP 500 (no app JSON exception body)",
+      "published_backend_commit": null
+    },
+    "startup_logs": "unavailable_from_this_environment",
+    "classification": "fatal_ops"
+  },
+  "local_sot": {
+    "commit": "b984c48",
+    "healthz": {"status_code": 200, "status": "ok", "backend_commit": "b984c48"}
+  },
+  "errors": [
+    {
+      "id": "E1_QUERY_STRIP",
+      "class": "fatal",
+      "message": "AttributeError: 'Query' object has no attribute 'strip'",
+      "logger": "src.core.copilot_engine",
+      "path": "dispatch -> _handle_analyze -> analyze_fixture -> cost_protection.begin_request",
+      "trigger": "internal await analyze_fixture(home=..., away=...) leaves FastAPI Query defaults; bool(user_id) truthy",
+      "pre_fix_repro": true,
+      "post_fix_repro": false,
+      "user_visible": "A Aurora encontrou um erro ao processar sua solicitação: 'Query' object has no attribute 'strip'",
+      "related_to_p25s": "exposed more often when sport asks route to analyze_match; root bug is pre-existing ECPM/Query leak"
+    },
+    {
+      "id": "E2_FIXTURE_404_NO_KEY",
+      "class": "degradation",
+      "message": "HTTPException 404: No team found matching 'Flamengo' (API_FOOTBALL_KEY not configured)",
+      "logger": "src.core.copilot_engine / src.routers.analyze",
+      "path": "analyze_fixture -> _find_fixture",
+      "post_fix_repro": true,
+      "note": "expected without provider key; not the Query crash"
+    },
+    {
+      "id": "E3_API_RATELIMIT",
+      "class": "degradation",
+      "message": "API-Football rateLimit / HTTP 429",
+      "count_approx": 979,
+      "sources": ["roadmap/p3a4_diagnosis_run.log", "roadmap/_p3a6_after_cert_run.log"]
+    },
+    {
+      "id": "E4_LOCAL_UVICORN",
+      "class": "harmless",
+      "message": "OSError WinError 10022 / CancelledError",
+      "source": "uvicorn-err2.log"
+    },
+    {
+      "id": "E5_SMOKE_SCRIPT",
+      "class": "harmless",
+      "message": "NameError: test3_calendar_followup is not defined",
+      "source": "_smoke_out.txt"
+    }
+  ],
+  "tracebacks": [
+    {
+      "id": "T1",
+      "summary": "AttributeError Query.strip in begin_request (pre-fix)",
+      "class": "fatal"
+    },
+    {
+      "id": "T2",
+      "summary": "HTTPException 404 team not found without API key (post-fix)",
+      "class": "degradation"
+    }
+  ]
+}

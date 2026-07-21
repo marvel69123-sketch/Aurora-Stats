@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-07-20T23:41:00+00:00",
+  "scope": {
+    "namespaces": ["src.conversation.*", "src.routers.*", "aurora.pipeline_trace"],
+    "corpus": "local observations/roadmap smoke + live TestClient; production logs unavailable",
+    "note": "production Replit logs not accessible from this environment"
+  },
+  "warning_loop_detected": true,
+  "warning_loop_kind": "audit_spam_not_retry_storm",
+  "items": [
+    {
+      "pattern": "turn_ownership [OWNER_AFTER] owner=SPORT locked=True",
+      "count_observed": 54,
+      "namespace": "src.conversation / pipeline_trace",
+      "class": "harmless",
+      "reason": "intentional WARNING-level ownership audit; repeats per turn, not a retry loop"
+    },
+    {
+      "pattern": "pipeline_trace [OWNER_AFTER] owner=SPORT locked=True intent=follow_up",
+      "count_observed": 36,
+      "namespace": "aurora.pipeline_trace",
+      "class": "harmless",
+      "reason": "ownership audit mirror"
+    },
+    {
+      "pattern": "turn_ownership [FINAL_SOURCE] owner=SPORT locked=True",
+      "count_observed": 24,
+      "namespace": "src.conversation",
+      "class": "harmless",
+      "reason": "final ownership stamp audit"
+    },
+    {
+      "pattern": "copilot_unified_router ContextReinforcement fx=0.00 mkt=0.00",
+      "count_observed": 21,
+      "namespace": "src.routers",
+      "class": "harmless",
+      "reason": "low reinforcement observability; not a failure"
+    },
+    {
+      "pattern": "ThinkingDelay SKIPPED / ResponseReview skipped / IntelFallback owned",
+      "count_observed": 15,
+      "namespace": "src.conversation / src.routers",
+      "class": "harmless",
+      "reason": "ownership guards working as designed"
+    },
+    {
+      "pattern": "natural_conversation fixtures fetch fail-open: API_FOOTBALL_KEY not configured",
+      "count_observed": 4,
+      "namespace": "src.conversation",
+      "class": "degradation",
+      "reason": "missing provider key; fail-open thin sport response"
+    },
+    {
+      "pattern": "WebSynthesis mode=light status=fallback_no_web",
+      "count_observed": 1,
+      "namespace": "src.routers / synthesis",
+      "class": "degradation",
+      "reason": "web intel unavailable"
+    },
+    {
+      "pattern": "pipeline_trace [FALLBACK] intelligence_fallback / FINAL_RESPONSE fallback=True",
+      "count_observed": "hist",
+      "namespace": "aurora.pipeline_trace",
+      "class": "degradation",
+      "reason": "historical smoke turns fell back; monitor after P2.5-S analyze force"
+    },
+    {
+      "pattern": "[AUDIT] copilot dispatch: missing home/away — Inference V2 degraded path",
+      "count_observed": "code_path",
+      "namespace": "src.routers.copilot_unified_router",
+      "class": "degradation",
+      "reason": "P2.5-S can force analyze_match without home/away enrichment"
+    },
+    {
+      "pattern": "API-Football rateLimit / status=429",
+      "count_observed": 979,
+      "namespace": "provider (roadmap logs)",
+      "class": "degradation",
+      "reason": "external quota; sport data freshness impaired"
+    }
+  ],
+  "error_from_requested_namespaces": 0,
+  "p25s_sport_mode": {
+    "recursion": "absent",
+    "repeated_routing": "possible_redundant_gates",
+    "fixture_misses": "present",
+    "excessive_fallback": "present_on_analyze_force_without_entities"
+  }
+}

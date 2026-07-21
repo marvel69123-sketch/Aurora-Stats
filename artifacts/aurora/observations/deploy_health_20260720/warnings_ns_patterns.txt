@@ -1,0 +1,85 @@
+﻿
+Count Name                                                                                           
+----- ----                                                                                           
+   54 WARNING [src.conversation.turn_ownership] [OWNER_AFTER] owner=SPORT locked=True                
+   36 WARNING [aurora.pipeline_trace] [OWNER_AFTER] owner=SPORT locked=True intent=follow_up         
+   24 WARNING [src.conversation.turn_ownership] [FINAL_SOURCE] owner=SPORT locked=True               
+   21 WARNING [src.routers.copilot_unified_router] [AUDIT] ContextReinforcement: fx=0.00 mkt=0.00    
+   18 WARNING [aurora.pipeline_trace] [OWNER_AFTER] owner=GA locked=True intent=small_talk           
+   18 WARNING [src.conversation.turn_ownership] [OWNER_AFTER] owner=GA locked=True intent=small_talk 
+   18 WARNING [src.conversation.turn_ownership] [OWNER_BEFORE] owner=SPORT locked=True               
+   18 WARNING [aurora.pipeline_trace] [OWNER_AFTER] owner=SPORT locked=True                          
+   15 WARNING [src.routers.copilot_unified_router] [AUDIT] ThinkingDelay: SKIPPED ÔÇö                
+   15 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: ResponseReview skipped ÔÇö     
+   14 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: CIL skipped ÔÇö turn owned     
+   14 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: IntelFallback skipped ÔÇö owned
+   14 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: legacy SmallTalk skipped ÔÇö   
+   14 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: Reasoner skipped ÔÇö turn owned
+   12 WARNING [aurora.pipeline_trace] [OWNER] stage=after_late_nrf owner=SPORT locked=True           
+   12 WARNING [src.conversation.turn_ownership] [AUDIT] Ownership: owner=SPORT locked=True           
+   12 WARNING [aurora.pipeline_trace] [OWNER] stage=mark_owner owner=SPORT locked=True               
+   12 WARNING [src.routers.copilot_unified_router] [AUDIT] Forensics84a4 FINAL: path=True            
+   12 WARNING [aurora.pipeline_trace] [OWNER_BEFORE] owner=SPORT locked=True intent=follow_up        
+   12 WARNING [aurora.pipeline_trace] [FINAL_SOURCE] owner=SPORT locked=True intent=follow_up        
+   12 WARNING [src.conversation.turn_ownership] [OWNER_LOCK] owner=SPORT locked=True                 
+   12 WARNING [aurora.pipeline_trace] [OWNER] stage=before_late_nrf owner=SPORT locked=True          
+   12 WARNING [aurora.pipeline_trace] [ROUTE_REASON] intent=SPORT_QUERY reason=sport_signal          
+   12 WARNING [src.conversation.master_intent_router] [AUDIT] MasterIntent: intent=SPORT_QUERY       
+   12 WARNING [aurora.pipeline_trace] [RECOVERY] entered=True sport_ok=True                          
+   12 WARNING [aurora.pipeline_trace] [INTENT] intent=SPORT_QUERY sport_ok=True allow_sport=True     
+   12 WARNING [src.conversation.master_intent_router] [ROUTE_REASON] intent=SPORT_QUERY              
+   12 WARNING [src.conversation.master_intent_router] [INTENT_AFTER] intent=SPORT_QUERY              
+   12 WARNING [aurora.pipeline_trace] [INTENT_AFTER] intent=SPORT_QUERY confidence=0.9 sport_ok=True 
+   12 WARNING [aurora.pipeline_trace] [NRF_OUTPUT] action=skipped_owned owner=SPORT locked=True      
+   11 WARNING [src.conversation.web_intelligence] [AUDIT] WebInfluence: summary_used=False           
+   11 WARNING [src.routers.copilot_unified_router] [AUDIT] CredibilityLayer: mode=SOCIAL             
+   11 WARNING [src.routers.copilot_unified_router] [AUDIT] PredictionMemory: saved                   
+   10 WARNING [src.routers.copilot_unified_router] [AUDIT] LLM skipped ÔÇö                           
+   10 WARNING [src.routers.copilot_unified_router] [AUDIT] CUE: goal=UNKNOWN social=[] temporal=None 
+   10 WARNING [src.routers.copilot_unified_router] [AUDIT] Forensics84a4 FINAL: path=None            
+    9 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: Natural skipped ÔÇö turn       
+    9 WARNING [src.routers.copilot_unified_router] [AUDIT] Ownership: HPL skipped ÔÇö turn already   
+    9 WARNING [src.routers.copilot_unified_router] [AUDIT] follow-up gate:                           
+    8 WARNING [src.routers.copilot_unified_router] [AUDIT] EmotionalPresence: SKIPPED ÔÇö            
+    7 WARNING [src.routers.copilot_unified_router] [AUDIT] Personality: SKIPPED ÔÇö                  
+    7 WARNING [src.routers.copilot_unified_router] [AUDIT] Forensics84a4 NATURAL: path=True          
+    7 WARNING [src.routers.copilot_unified_router] [AUDIT] NaturalConversation: kind=team_opinion    
+    7 WARNING [src.conversation.human_inference] [AUDIT] HumanInference: intent=general_team_talk    
+    6 WARNING [aurora.pipeline_trace] [PAYLOAD_BEFORE] stage=late_nrf intent=follow_up owner=SPORT   
+    6 WARNING [aurora.pipeline_trace] [PAYLOAD_AFTER] stage=late_nrf intent=follow_up owner=SPORT    
+    6 WARNING [aurora.pipeline_trace] [FINAL_SOURCE] owner=GA locked=True intent=small_talk          
+    6 WARNING [aurora.pipeline_trace] [PAYLOAD_AFTER] stage=late_nrf intent=small_talk owner=SPORT   
+    6 WARNING [aurora.pipeline_trace] [FINAL_RESPONSE] intent=follow_up engine=SPORT fallback=False  
+    6 WARNING [src.conversation.turn_ownership] [FINAL_SOURCE] owner=GA locked=True                  
+    6 WARNING [aurora.pipeline_trace] [INTENT] sport_ok=True                                         
+    6 WARNING [src.conversation.short_conversation_memory] [AUDIT] ShortMemory: pronoun follow-up    
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] follow-up gate: nl_intent='follow_up' |   
+    6 WARNING [src.conversation.conversation_continuity] [AUDIT] ContinuityFollowUp: BEFORE_FALLBACK 
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] ContinuityFollowUp: skipped repair/GA/HCE 
+    6 WARNING [aurora.pipeline_trace] [OWNER_LOCK] owner=SPORT locked=True intent=follow_up          
+    6 WARNING [src.conversation.web_intelligence] [AUDIT] NeedWeb: decision=none                     
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] ContinuityFollowUp: MasterIntent/GA       
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] ContinuityFollowUp: EARLY claim before    
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] CredibilityLayer: mode=FOLLOW_UP          
+    6 WARNING [aurora.pipeline_trace] [FINAL_RESPONSE] intent=small_talk engine=SPORT fallback=False 
+    6 WARNING [aurora.pipeline_trace] [ENTITIES] intent=follow_up owner=SPORT locked=True            
+    6 WARNING [aurora.pipeline_trace] [PLANNER] sport_ok=True skipped_nl=True owner=SPORT locked=True
+    6 WARNING [aurora.pipeline_trace] [FINAL_SOURCE] owner=SPORT locked=True intent=small_talk       
+    6 WARNING [aurora.pipeline_trace] [OWNER_AFTER] owner=HCE locked=True intent=conversation_repair 
+    6 WARNING [src.conversation.turn_ownership] [OWNER_AFTER] owner=HCE locked=True                  
+    6 WARNING [src.conversation.natural_conversation] natural_conversation fixtures fetch fail-open: 
+    6 WARNING [aurora.pipeline_trace] [PAYLOAD_BEFORE] stage=late_nrf intent=small_talk owner=SPORT  
+    6 WARNING [src.routers.analyze] fixture_lookup teams_search failed query='spain' status=500      
+    6 WARNING [src.routers.copilot_unified_router] [AUDIT] ConversationIntelligenceLayer:            
+    6 WARNING [src.conversation.conversation_continuity] [AUDIT] Continuity: ARMED mode=opinion      
+    6 WARNING [src.routers.analyze] fixture_lookup teams_search failed query='argentina' status=500  
+    6 WARNING [src.conversation.turn_ownership] [OWNER_BEFORE] owner=none locked=False               
+    6 WARNING [src.conversation.conversation_focus] [AUDIT] ConversationFocus: kind=opinion          
+    6 WARNING [src.conversation.context_recovery] [AUDIT] ContextRecovery: keep_original conf=0.88   
+    6 WARNING [src.conversation.match_opinion_renderer] [AUDIT] MatchOpinionRenderer:                
+    6 WARNING [src.conversation.web_intelligence] [AUDIT] WebSynthesis: mode=light                   
+    6 WARNING [aurora.pipeline_trace] [OWNER_LOCK] owner=SPORT locked=True                           
+    6 WARNING [aurora.pipeline_trace] [OWNER_BEFORE] owner=SPORT locked=True                         
+    6 WARNING [aurora.pipeline_trace] [FINAL_SOURCE] owner=SPORT locked=True                         
+
+

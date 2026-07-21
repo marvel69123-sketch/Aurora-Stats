@@ -1,0 +1,305 @@
+﻿(most recent call last):
+fetch failed id=1490331 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490332 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490333 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490334 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490335 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490336 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490337 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490338 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490339 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490340 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490341 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1490344 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1493003 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1493015 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1550900 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1550901 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1550902 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1550903 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1550904 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1556543 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1556545 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1593519 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1593520 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1593522 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+fetch failed id=1593523 status=429 detail=API-Football error: {"get": "","parameters": [],"errors":
+h2h failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit": "Too many requests.
+live_sweep failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit": "Too many
+serving stale cache signal=events err=429: API-Football error: {"get": "","parameters": [],"errors":
+serving stale cache signal=injuries err=429: API-Football error: {"get": "","parameters": [],"errors":
+serving stale cache signal=lineups err=429: API-Football error: {"get": "","parameters": [],"errors":
+serving stale cache signal=odds err=429: API-Football error: {"get": "","parameters": [],"errors":
+serving stale cache signal=statistics err=429: API-Football error: {"get": "","parameters": [],"errors":
+serving stale cache signal=status err=429: API-Football error: {"get": "","parameters": [],"errors":
+team_fixtures id=2278 failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit":
+team_fixtures id=34 failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit":
+team_fixtures id=40 failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit":
+team_fixtures id=50 failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit":
+team_fixtures id=52 failed: API-Football error: {"get": "","parameters": [],"errors": {"rateLimit":
+teams_search failed query='aarhus' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Anderlecht' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Ararat Armenia' status=429 detail=API-Football error: {"get":
+teams_search failed query='ararat' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='araratarmenia' status=429 detail=API-Football error: {"get":
+teams_search failed query='ararat-armenia' status=429 detail=API-Football error: {"get":
+teams_search failed query='argentinos jrs' status=429 detail=API-Football error: {"get":
+teams_search failed query='argentinos' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='argentinosjrs' status=429 detail=API-Football error: {"get":
+teams_search failed query='argentinos-jrs' status=429 detail=API-Football error: {"get":
+teams_search failed query='athletico pr' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='athletico' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='athleticopr' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Athletico-PR' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='atlanta' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Atlanta United Fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='atlantaunitedfc' status=429 detail=API-Football error: {"get":
+teams_search failed query='atlanta-united-fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='Austria' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Belgrano Cordoba' status=429 detail=API-Football error: {"get":
+teams_search failed query='belgrano' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='belgranocordoba' status=429 detail=API-Football error: {"get":
+teams_search failed query='belgrano-cordoba' status=429 detail=API-Football error: {"get":
+teams_search failed query='besiktas' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='celje' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cf montreal' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cfmontreal' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cf-montreal' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='chapecoense sc' status=429 detail=API-Football error: {"get":
+teams_search failed query='chapecoense' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='chapecoensesc' status=429 detail=API-Football error: {"get":
+teams_search failed query='chapecoense-sc' status=429 detail=API-Football error: {"get":
+teams_search failed query='Charlotte' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Chicago Fire' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='chicago' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='chicagofire' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='chicago-fire' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='club america' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='club' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='clubamerica' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='club-america' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='clubqueretaro' status=429 detail=API-Football error: {"get":
+teams_search failed query='colorado rapids' status=429 detail=API-Football error: {"get":
+teams_search failed query='colorado' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='coloradorapids' status=429 detail=API-Football error: {"get":
+teams_search failed query='colorado-rapids' status=429 detail=API-Football error: {"get":
+teams_search failed query='columbus crew' status=429 detail=API-Football error: {"get":
+teams_search failed query='columbus' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='columbus-crew' status=429 detail=API-Football error: {"get":
+teams_search failed query='columbuscrew' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Cruz Azul' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cruz' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cruzazul' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cruz-azul' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cska sofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cska' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cskasofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='cska-sofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Dc United' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dcunited' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dc-united' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dinamo' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dinamo zagreb' status=429 detail=API-Football error: {"get":
+teams_search failed query='dinamo-zagreb' status=429 detail=API-Football error: {"get":
+teams_search failed query='dinamozagreb' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Dynamo Kyiv' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dynamo' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dynamokyiv' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='dynamo-kyiv' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='egnatia rrogozhine' status=429 detail=API-Football error: {"get":
+teams_search failed query='egnatia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='egnatiarrogozhine' status=429 detail=API-Football error: {"get":
+teams_search failed query='egnatia-rrogozhine' status=429 detail=API-Football error: {"get":
+teams_search failed query='Fc Cincinnati' status=429 detail=API-Football error: {"get":
+teams_search failed query='fc midtjylland' status=429 detail=API-Football error: {"get":
+teams_search failed query='fc st gallen' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Fc St. Gallen' status=429 detail=API-Football error: {"get":
+teams_search failed query='Fc Thun' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fc-cincinnati' status=429 detail=API-Football error: {"get":
+teams_search failed query='fccincinnati' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fcmidtjylland' status=429 detail=API-Football error: {"get":
+teams_search failed query='fc-midtjylland' status=429 detail=API-Football error: {"get":
+teams_search failed query='fcstgallen' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fc-st-gallen' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fcthun' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fc-thun' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='fenerbahce' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='ferencvarosi' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Ferencvarosi Tc' status=429 detail=API-Football error: {"get":
+teams_search failed query='ferencvarositc' status=429 detail=API-Football error: {"get":
+teams_search failed query='ferencvarosi-tc' status=429 detail=API-Football error: {"get":
+teams_search failed query='Fk Crvena Zvezda' status=429 detail=API-Football error: {"get":
+teams_search failed query='fkcrvenazvezda' status=429 detail=API-Football error: {"get":
+teams_search failed query='fk-crvena-zvezda' status=429 detail=API-Football error: {"get":
+teams_search failed query='fulham' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='gornik' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='gornik zabrze' status=429 detail=API-Football error: {"get":
+teams_search failed query='gornik-zabrze' status=429 detail=API-Football error: {"get":
+teams_search failed query='gornikzabrze' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='gremio' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Guadalajara Chivas' status=429 detail=API-Football error: {"get":
+teams_search failed query='guadalajara' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='guadalajarachivas' status=429 detail=API-Football error: {"get":
+teams_search failed query='guadalajara-chivas' status=429 detail=API-Football error: {"get":
+teams_search failed query='hammarby ff' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hammarby' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hammarbyff' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hammarby-ff' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Hapoel Beer Sheva' status=429 detail=API-Football error: {"get":
+teams_search failed query='hapoel' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hapoelbeersheva' status=429 detail=API-Football error: {"get":
+teams_search failed query='hapoel-beer-sheva' status=429 detail=API-Football error: {"get":
+teams_search failed query='heart of midlothian' status=429 detail=API-Football error: {"get":
+teams_search failed query='heart' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='heartofmidlothian' status=429 detail=API-Football error: {"get":
+teams_search failed query='heart-of-midlothian' status=429 detail=API-Football error: {"get":
+teams_search failed query='Hnk Hajduk Split' status=429 detail=API-Football error: {"get":
+teams_search failed query='hnk' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hnkhajduksplit' status=429 detail=API-Football error: {"get":
+teams_search failed query='hnk-hajduk-split' status=429 detail=API-Football error: {"get":
+teams_search failed query='Houston Dynamo' status=429 detail=API-Football error: {"get":
+teams_search failed query='houston' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='houstondynamo' status=429 detail=API-Football error: {"get":
+teams_search failed query='houston-dynamo' status=429 detail=API-Football error: {"get":
+teams_search failed query='Hradec Kralove' status=429 detail=API-Football error: {"get":
+teams_search failed query='hradec' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='hradeckralove' status=429 detail=API-Football error: {"get":
+teams_search failed query='hradec-kralove' status=429 detail=API-Football error: {"get":
+teams_search failed query='inter milan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='inter' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='intermilan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='inter-milan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Kairat Almaty' status=429 detail=API-Football error: {"get":
+teams_search failed query='kairat' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='kairat-almaty' status=429 detail=API-Football error: {"get":
+teams_search failed query='kairatalmaty' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='kauno' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Kauno Zalgiris' status=429 detail=API-Football error: {"get":
+teams_search failed query='kaunozalgiris' status=429 detail=API-Football error: {"get":
+teams_search failed query='kauno-zalgiris' status=429 detail=API-Football error: {"get":
+teams_search failed query='Ki Klaksvik' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='kiklaksvik' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='ki-klaksvik' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Kups' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Larne' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Lech Poznan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='lech' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='lechpoznan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='lech-poznan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Levski Sofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='levski' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='levskisofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='levski-sofia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='lincoln red imps fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='lincoln' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='lincolnredimpsfc' status=429 detail=API-Football error: {"get":
+teams_search failed query='lincoln-red-imps-fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='maccabi' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Maccabi Tel Aviv' status=429 detail=API-Football error: {"get":
+teams_search failed query='maccabitelaviv' status=429 detail=API-Football error: {"get":
+teams_search failed query='maccabi-tel-aviv' status=429 detail=API-Football error: {"get":
+teams_search failed query='minnesota' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Minnesota United Fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='minnesotaunitedfc' status=429 detail=API-Football error: {"get":
+teams_search failed query='minnesota-united-fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='Mjallby Aif' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='mjallby' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='mjallbyaif' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='mjallby-aif' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Monterrey' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Nashville Sc' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='nashvillesc' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='nashville-sc' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='new england revolution' status=429 detail=API-Football error: {"get":
+teams_search failed query='new' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='New York City Fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='new york red bulls' status=429 detail=API-Football error: {"get":
+teams_search failed query='newenglandrevolution' status=429 detail=API-Football error: {"get":
+teams_search failed query='new-england-revolution' status=429 detail=API-Football error: {"get":
+teams_search failed query='newyorkcityfc' status=429 detail=API-Football error: {"get":
+teams_search failed query='new-york-city-fc' status=429 detail=API-Football error: {"get":
+teams_search failed query='newyorkredbulls' status=429 detail=API-Football error: {"get":
+teams_search failed query='new-york-red-bulls' status=429 detail=API-Football error: {"get":
+teams_search failed query='Omonia Nicosia' status=429 detail=API-Football error: {"get":
+teams_search failed query='omonia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='omonianicosia' status=429 detail=API-Football error: {"get":
+teams_search failed query='omonia-nicosia' status=429 detail=API-Football error: {"get":
+teams_search failed query='orlandocitysc' status=429 detail=API-Football error: {"get":
+teams_search failed query='Pafos' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Paok' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='philadelphia' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Philadelphia Union' status=429 detail=API-Football error: {"get":
+teams_search failed query='philadelphiaunion' status=429 detail=API-Football error: {"get":
+teams_search failed query='philadelphia-union' status=429 detail=API-Football error: {"get":
+teams_search failed query='porto' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Puebla' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='qarabag' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='rosario central' status=429 detail=API-Football error: {"get":
+teams_search failed query='rosario' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='rosariocentral' status=429 detail=API-Football error: {"get":
+teams_search failed query='rosario-central' status=429 detail=API-Football error: {"get":
+teams_search failed query='sabah fa' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sabah' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sabahfa' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sabah-fa' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Saburtalo' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='San Diego' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='san jose earthquakes' status=429 detail=API-Football error: {"get":
+teams_search failed query='san' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sandiego' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='san-diego' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sanjoseearthquakes' status=429 detail=API-Football error: {"get":
+teams_search failed query='san-jose-earthquakes' status=429 detail=API-Football error: {"get":
+teams_search failed query='santos laguna' status=429 detail=API-Football error: {"get":
+teams_search failed query='santos' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='santos-laguna' status=429 detail=API-Football error: {"get":
+teams_search failed query='santoslaguna' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sarmiento junin' status=429 detail=API-Football error: {"get":
+teams_search failed query='sarmiento' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sarmientojunin' status=429 detail=API-Football error: {"get":
+teams_search failed query='sarmiento-junin' status=429 detail=API-Football error: {"get":
+teams_search failed query='seattle sounders' status=429 detail=API-Football error: {"get":
+teams_search failed query='seattle' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='seattlesounders' status=429 detail=API-Football error: {"get":
+teams_search failed query='seattle-sounders' status=429 detail=API-Football error: {"get":
+teams_search failed query='Shamrock Rovers' status=429 detail=API-Football error: {"get":
+teams_search failed query='shamrock' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='shamrockrovers' status=429 detail=API-Football error: {"get":
+teams_search failed query='shamrock-rovers' status=429 detail=API-Football error: {"get":
+teams_search failed query='sheriff' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Sheriff Tiraspol' status=429 detail=API-Football error: {"get":
+teams_search failed query='sherifftiraspol' status=429 detail=API-Football error: {"get":
+teams_search failed query='sheriff-tiraspol' status=429 detail=API-Football error: {"get":
+teams_search failed query='Slovan Bratislava' status=429 detail=API-Football error: {"get":
+teams_search failed query='slovan' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='slovanbratislava' status=429 detail=API-Football error: {"get":
+teams_search failed query='slovan-bratislava' status=429 detail=API-Football error: {"get":
+teams_search failed query='sporting kansas city' status=429 detail=API-Football error: {"get":
+teams_search failed query='sporting' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sportingkansascity' status=429 detail=API-Football error: {"get":
+teams_search failed query='sporting-kansas-city' status=429 detail=API-Football error: {"get":
+teams_search failed query='sturm graz' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sturm' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sturmgraz' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='sturm-graz' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='toluca' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='tromso' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='twente' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='u n a m pumas' status=429 detail=API-Football error: {"get":
+teams_search failed query='U.n.a.m. Pumas' status=429 detail=API-Football error: {"get":
+teams_search failed query='u-n-a-m-pumas' status=429 detail=API-Football error: {"get":
+teams_search failed query='unampumas' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Universitario de Deportes' status=429 detail=API-Football error: {"get":
+teams_search failed query='universitario' status=429 detail=API-Football error: {"get":
+teams_search failed query='universitariodedeportes' status=429 detail=API-Football error: {"get":
+teams_search failed query='universitario-de-deportes' status=429 detail=API-Football error: {"get":
+teams_search failed query='vancouver' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='Vancouver Whitecaps' status=429 detail=API-Football error: {"get":
+teams_search failed query='vancouverwhitecaps' status=429 detail=API-Football error: {"get":
+teams_search failed query='vancouver-whitecaps' status=429 detail=API-Football error: {"get":
+teams_search failed query='Vikingur Reykjavik' status=429 detail=API-Football error: {"get":
+teams_search failed query='vikingur' status=429 detail=API-Football error: {"get": "","parameters":
+teams_search failed query='vikingurreykjavik' status=429 detail=API-Football error: {"get":
+teams_search failed query='vikingur-reykjavik' status=429 detail=API-Football error: {"get":
+teams_search failed query='vitoria' status=429 detail=API-Football error: {"get": "","parameters":
+Traceback (most recent call last):
