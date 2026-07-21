@@ -1813,7 +1813,17 @@ async def _copilot_inner(
     except Exception as _sll_exc:
         logger.warning("copilot: SLL skipped (%s)", _sll_exc)
 
-    # ── CSL-001: Conversation State Layer façade (after SLL, before routing) ──
+    # TOPIC-BOUNDARY-002 — Episode boundary V2 BEFORE CSL / sport-intent rewrite.
+    # Uses raw (post-SLL) message so subject rotation beats fixture reuse.
+    # Flag OFF by default. Does not redesign boundary rules — only order + cleanup.
+    try:
+        from src.conversation.topic_boundary_v2 import apply_topic_boundary_v2
+
+        apply_topic_boundary_v2(message, ctx)
+    except Exception as _tbv2_exc:
+        logger.warning("copilot: topic boundary v2 skipped (%s)", _tbv2_exc)
+
+    # ── CSL-001: Conversation State Layer façade (after SLL + boundary) ──
     # Stores slots + may contextualize bare follow-ups. Does not replace engines.
     try:
         from src.conversation.conversation_state_layer import apply_csl_resolve
@@ -1831,7 +1841,8 @@ async def _copilot_inner(
     except Exception as _sil_exc:
         logger.warning("copilot: sport intent layer skipped (%s)", _sil_exc)
 
-    # Per-turn flags (must not leak across turns in the same session)
+    # Per-turn flags (must not leak across turns in the same session).
+    # Do NOT pop episode_boundary / subject_guard — set earlier this turn by V2.
     try:
         ctx.pop("ownership_stability_block_ga", None)
         ctx.pop("sport_continuity_block_ga", None)
@@ -3180,7 +3191,7 @@ async def _copilot_inner(
             routing_confidence = 0.95
             skipped_nl = True
             logger.warning("[AUDIT] ConversationIntel: CONTEXT RESET message=%r", message)
-        elif payload is None and _ci_is_topic_switch(message):
+        elif payload is None and _ci_is_topic_switch(message, ctx):
             # New A x B — drop pending clarify; active fixture replaced on analyze save
             if ctx.get("ci_pending"):
                 ctx.pop("ci_pending", None)

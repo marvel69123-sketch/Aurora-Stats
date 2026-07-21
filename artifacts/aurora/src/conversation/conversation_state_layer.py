@@ -394,6 +394,23 @@ def apply_csl_resolve(message: str, ctx: dict[str, Any] | None = None) -> str:
         state.contextualized_text = None
         state.skipped_reason = None
 
+        # TOPIC-BOUNDARY-002: after new episode, do not re-merge legacy sticky teams
+        if ctx.get("episode_boundary") or ctx.get("block_hydrate_legacy"):
+            guard = ctx.get("csl_subject_guard")
+            if isinstance(guard, dict):
+                g_teams = [
+                    str(t).strip()
+                    for t in (guard.get("teams") or [])
+                    if isinstance(t, str) and t.strip()
+                ]
+                if g_teams:
+                    state.teams = g_teams[:4]
+                g_fx = guard.get("fixture")
+                if isinstance(g_fx, str) and g_fx.strip():
+                    state.fixture = g_fx.strip()
+                elif len(state.teams) >= 2:
+                    state.fixture = f"{state.teams[0]} x {state.teams[1]}"
+
         sll = ctx.get("sll") if isinstance(ctx.get("sll"), dict) else None
         is_compare = bool(
             (sll and sll.get("is_compare")) or _COMPARE_SEP.search(raw)
@@ -415,12 +432,15 @@ def apply_csl_resolve(message: str, ctx: dict[str, Any] | None = None) -> str:
                 state.topic = state.topic or "comparison"
                 state.last_intent = "fixture_compare"
                 state.phase = "COMPARE"
-        elif is_compare and len(state.teams) < 2:
+        elif is_compare and (
+            len(state.teams) < 2 or ctx.get("episode_boundary")
+        ):
+            # TOPIC-BOUNDARY-002: on new episode, replace subject even if slots filled
             sides = _teams_from_compare_message(raw)
             if len(sides) >= 2:
                 state.teams = sides[:4]
                 state.fixture = f"{sides[0]} x {sides[1]}"
-                state.topic = state.topic or "comparison"
+                state.topic = "comparison"
                 state.last_intent = state.last_intent or "fixture_compare"
                 state.phase = "COMPARE"
 
@@ -483,7 +503,49 @@ def note_csl_after_response(
         if isinstance(team, str) and team.strip() and team.strip() not in refreshed:
             if len(refreshed) < 2:
                 refreshed.append(team.strip())
-        if len(refreshed) >= 2:
+
+        # TOPIC-BOUNDARY-002: block re-bleed of prior fixture after episode reset
+        guard = ctx.get("csl_subject_guard")
+        block_subject = False
+        if (
+            isinstance(guard, dict)
+            and guard.get("episode_id")
+            and state.episode_id
+            and str(guard.get("episode_id")) == str(state.episode_id)
+        ):
+            g_teams = {
+                fold(str(t))
+                for t in (guard.get("teams") or [])
+                if isinstance(t, str) and fold(str(t))
+            }
+            if g_teams and refreshed:
+                r_fold = {fold(t) for t in refreshed if fold(t)}
+                if r_fold and r_fold.isdisjoint(g_teams):
+                    block_subject = True
+            if not block_subject and isinstance(payload, dict):
+                match_probe = payload.get("match")
+                g_fx = guard.get("fixture")
+                if (
+                    isinstance(match_probe, str)
+                    and match_probe.strip()
+                    and isinstance(g_fx, str)
+                    and g_fx.strip()
+                    and fold(match_probe) != fold(g_fx)
+                    and g_teams
+                    and not any(fold(t) in fold(match_probe) for t in g_teams)
+                ):
+                    block_subject = True
+
+        if block_subject:
+            ctx["note_csl_blocked"] = True
+            logger.warning(
+                "[AUDIT] note_csl_blocked episode=%s guard_teams=%s payload=%s",
+                str(state.episode_id)[:8],
+                list(guard.get("teams") or []) if isinstance(guard, dict) else [],
+                refreshed,
+            )
+            # Keep guarded subject; still allow intent/date stamps below
+        elif len(refreshed) >= 2:
             state.teams = refreshed[:4]
             state.fixture = f"{refreshed[0]} x {refreshed[1]}"
         elif refreshed and not state.teams:
@@ -492,7 +554,7 @@ def note_csl_after_response(
         match = None
         if isinstance(payload, dict):
             match = payload.get("match")
-        if isinstance(match, str) and match.strip():
+        if not block_subject and isinstance(match, str) and match.strip():
             state.fixture = match.strip()
         elif not state.fixture:
             state.fixture = _fixture_from_ctx(ctx)

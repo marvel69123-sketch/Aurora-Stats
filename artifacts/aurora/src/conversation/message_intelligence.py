@@ -625,8 +625,24 @@ def is_cancel_reset(message: str) -> bool:
     return bool(_CANCEL_RESET_RE.match(_fold(message or "")))
 
 
-def is_topic_switch(message: str) -> bool:
-    """Explicit new A x B — leave prior fixture / pending behind."""
+def is_topic_switch(message: str, ctx: dict[str, Any] | None = None) -> bool:
+    """
+    Explicit new A x B — leave prior fixture / pending behind.
+
+    When ENABLE_TOPIC_BOUNDARY_V2 is on and ctx is provided, defers to
+    episode-boundary detection (low entity overlap / new fixture) so soft
+    restatements of the same fixture do not hard-clear continuity.
+    """
+    try:
+        from src.conversation.topic_boundary_v2 import (
+            is_topic_switch_v2,
+            topic_boundary_v2_enabled,
+        )
+
+        if topic_boundary_v2_enabled():
+            return is_topic_switch_v2(message, ctx)
+    except Exception:
+        pass
     return bool(_TOPIC_SWITCH_RE.search(message or ""))
 
 
