@@ -1,0 +1,15 @@
+{
+  "base_flags": {
+    "ENABLE_RESPONSE_SELECTOR": "1",
+    "ENABLE_SPORT_INTENTS": "1",
+    "ENABLE_CSL": "1",
+    "ENABLE_SPORTS_LANGUAGE_LAYER": "1"
+  },
+  "toggled_layers": [
+    "ENABLE_SPORT_NLG",
+    "ENABLE_TOPIC_BOUNDARY_V2",
+    "ENABLE_ENTITY_EDGE"
+  ],
+  "runtime": "local TestClient · partial data / no API-Football key expected",
+  "branch_hint": "feat/aurora-response-selector-001"
+}

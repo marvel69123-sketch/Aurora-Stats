@@ -1,0 +1,160 @@
+{
+  "flag_matrix": {
+    "off": {
+      "ENABLE_RESPONSE_SELECTOR": "1",
+      "ENABLE_SPORT_INTENTS": "1",
+      "ENABLE_CSL": "1",
+      "ENABLE_SPORTS_LANGUAGE_LAYER": "1",
+      "ENABLE_ENTITY_EDGE": "0"
+    },
+    "on": {
+      "ENABLE_RESPONSE_SELECTOR": "1",
+      "ENABLE_SPORT_INTENTS": "1",
+      "ENABLE_CSL": "1",
+      "ENABLE_SPORTS_LANGUAGE_LAYER": "1",
+      "ENABLE_ENTITY_EDGE": "1"
+    }
+  },
+  "probes": [
+    {
+      "flag": "1",
+      "raw": "Barcelona",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": "Barcelona",
+      "edge_source": "edge_default",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "Barcelona SC",
+      "message": null,
+      "normalize": "Barcelona SC",
+      "edge_canonical": "Barcelona SC",
+      "edge_source": "edge_explicit",
+      "fuzzy_hit": "Barcelona SC",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "barcelona",
+      "message": "barcelona na laliga contra o real madrid",
+      "normalize": "Barcelona",
+      "edge_canonical": "Barcelona",
+      "edge_source": "edge_league",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "barcelona",
+      "message": "jogo do barcelona no equador guayaquil liga pro",
+      "normalize": "Barcelona SC",
+      "edge_canonical": "Barcelona SC",
+      "edge_source": "edge_league",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "Real Madrid",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": "Real Madrid",
+      "edge_source": "edge_explicit",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "Atletico Madrid",
+      "message": null,
+      "normalize": "Atletico Madrid",
+      "edge_canonical": "Atletico Madrid",
+      "edge_source": "edge_explicit",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "atletico",
+      "message": "atletico na laliga contra barcelona",
+      "normalize": "Atletico Madrid",
+      "edge_canonical": "Atletico Madrid",
+      "edge_source": "edge_league",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "atletico",
+      "message": "atletico ou bahia no brasileirao",
+      "normalize": "Atletico Mineiro",
+      "edge_canonical": "Atletico Mineiro",
+      "edge_source": "edge_league",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "barca",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": "Barcelona",
+      "edge_source": "alias",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "real",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": "Real Madrid",
+      "edge_source": "alias",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "1",
+      "raw": "atm",
+      "message": null,
+      "normalize": "Atletico Madrid",
+      "edge_canonical": "Atletico Madrid",
+      "edge_source": "alias",
+      "fuzzy_hit": null,
+      "fuzzy_score": 0.0
+    },
+    {
+      "flag": "1",
+      "raw": "barcelna",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "miss",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 0.941
+    },
+    {
+      "flag": "1",
+      "raw": "real madrd",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": null,
+      "edge_source": "miss",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 0.952
+    },
+    {
+      "flag": "1",
+      "raw": "chance",
+      "message": null,
+      "normalize": "Chance",
+      "edge_canonical": null,
+      "edge_source": "stopword",
+      "fuzzy_hit": null,
+      "fuzzy_score": 0.667
+    }
+  ]
+}

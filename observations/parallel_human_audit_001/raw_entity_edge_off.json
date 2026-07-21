@@ -1,0 +1,160 @@
+{
+  "flag_matrix": {
+    "off": {
+      "ENABLE_RESPONSE_SELECTOR": "1",
+      "ENABLE_SPORT_INTENTS": "1",
+      "ENABLE_CSL": "1",
+      "ENABLE_SPORTS_LANGUAGE_LAYER": "1",
+      "ENABLE_ENTITY_EDGE": "0"
+    },
+    "on": {
+      "ENABLE_RESPONSE_SELECTOR": "1",
+      "ENABLE_SPORT_INTENTS": "1",
+      "ENABLE_CSL": "1",
+      "ENABLE_SPORTS_LANGUAGE_LAYER": "1",
+      "ENABLE_ENTITY_EDGE": "1"
+    }
+  },
+  "probes": [
+    {
+      "flag": "0",
+      "raw": "Barcelona",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "Barcelona SC",
+      "message": null,
+      "normalize": "Barcelona SC",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona SC",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "barcelona",
+      "message": "barcelona na laliga contra o real madrid",
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "barcelona",
+      "message": "jogo do barcelona no equador guayaquil liga pro",
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "Real Madrid",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "Atletico Madrid",
+      "message": null,
+      "normalize": "Atletico Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "atletico",
+      "message": "atletico na laliga contra barcelona",
+      "normalize": "Atletico Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "atletico",
+      "message": "atletico ou bahia no brasileirao",
+      "normalize": "Atletico Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Atletico Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "barca",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "real",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 1.0
+    },
+    {
+      "flag": "0",
+      "raw": "atm",
+      "message": null,
+      "normalize": "Atletico Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": null,
+      "fuzzy_score": 0.0
+    },
+    {
+      "flag": "0",
+      "raw": "barcelna",
+      "message": null,
+      "normalize": "Barcelona",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Barcelona",
+      "fuzzy_score": 0.941
+    },
+    {
+      "flag": "0",
+      "raw": "real madrd",
+      "message": null,
+      "normalize": "Real Madrid",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": "Real Madrid",
+      "fuzzy_score": 0.952
+    },
+    {
+      "flag": "0",
+      "raw": "chance",
+      "message": null,
+      "normalize": "Chance",
+      "edge_canonical": null,
+      "edge_source": "disabled",
+      "fuzzy_hit": null,
+      "fuzzy_score": 0.667
+    }
+  ]
+}

@@ -588,14 +588,22 @@ def collect_early_candidates(
 ) -> list[ResponseCandidate]:
     """Run generators; fail-open per generator."""
     out: list[ResponseCandidate] = []
-    generators = (
-        ("sport_intent_skill", lambda: generate_sport_intent_skill(message, ctx)),
-        ("continuity", lambda: generate_continuity(message, ctx, brain=brain)),
-        ("pronoun", lambda: generate_pronoun(message, ctx, brain=brain)),
-        ("advanced", lambda: generate_advanced(message, ctx, brain=brain)),
-        ("scg", lambda: generate_sport_continuity_guard(message, ctx, brain=brain)),
-        ("ownership", lambda: generate_ownership_stability(message, ctx, brain=brain)),
-    )
+    # TOPIC-BOUNDARY-001 — after a new episode, skip sticky continuity generators
+    # so prior-sport soft holds cannot re-claim. Skill path remains eligible.
+    _new_episode = bool(isinstance(ctx, dict) and ctx.get("episode_boundary"))
+    if _new_episode:
+        generators = (
+            ("sport_intent_skill", lambda: generate_sport_intent_skill(message, ctx)),
+        )
+    else:
+        generators = (
+            ("sport_intent_skill", lambda: generate_sport_intent_skill(message, ctx)),
+            ("continuity", lambda: generate_continuity(message, ctx, brain=brain)),
+            ("pronoun", lambda: generate_pronoun(message, ctx, brain=brain)),
+            ("advanced", lambda: generate_advanced(message, ctx, brain=brain)),
+            ("scg", lambda: generate_sport_continuity_guard(message, ctx, brain=brain)),
+            ("ownership", lambda: generate_ownership_stability(message, ctx, brain=brain)),
+        )
     for name, gen in generators:
         try:
             cand = gen()
