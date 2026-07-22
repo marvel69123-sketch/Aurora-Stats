@@ -71,6 +71,7 @@ def _run_startup() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("AURORA BUILD TEST 1f033c2")
     logger.info("Aurora lifespan startup begin cwd=%s", os.getcwd())
     _run_startup()
     logger.info("Aurora lifespan startup complete")
