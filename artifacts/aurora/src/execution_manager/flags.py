@@ -103,6 +103,15 @@ def any_thin_pipeline_enabled() -> bool:
     return any(pipeline_enabled(f) for f in _THIN_PIPELINE_FLAGS.values())
 
 
+def live_pipeline_extraction_enabled() -> bool:
+    """
+    Stage 2 shim gate: True only when ENABLE_EM_PIPELINE_LIVE is ON.
+
+    Defaults OFF. Does not arm analyze / live_team. Master/PGR untouched.
+    """
+    return pipeline_enabled("ENABLE_EM_PIPELINE_LIVE")
+
+
 def any_pipeline_enabled() -> bool:
     return any(_flag_truthy(f) for f in EM_PIPELINE_FLAGS)
 
@@ -280,11 +289,14 @@ def em_flag_snapshot() -> dict[str, Any]:
         "illegal_violations": collect_illegal_em_combinations(),
         "phase3_shadow_observe_only": True,
         "phase3_shadow_default_off": not shadow_enabled(),
-        # Phase 4 Stage 1 (E1 thin) capability exists; defaults remain OFF.
+        # Phase 4 Stage 1 (E1 thin) + Stage 2 (E2 live) capability; defaults OFF.
         "phase4_extraction_not_started": False,
         "phase4_stage1_thin_reports": True,
-        "phase4_stage2_not_started": True,
+        "phase4_stage2_not_started": False,
+        "phase4_stage2_live": True,
         "phase4_thin_defaults_off": not any_thin_pipeline_enabled(),
+        "phase4_live_defaults_off": not live_pipeline_extraction_enabled(),
+        "phase4_stage3_not_started": True,
         "phase5_activation_not_started": True,
     }
 

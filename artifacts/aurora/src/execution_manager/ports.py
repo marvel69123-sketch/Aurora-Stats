@@ -2,11 +2,13 @@
 EM outbound ports (Spec §4.5) — protocols + inert stub adapters.
 
 Phase 2: stubs do NOT call production Tool Use / engines / cost_protection
-begin_request. Production adapters land in later phases behind flags.
+begin_request. Phase 4 Stage 1/2: production read/feed/engine adapters behind
+DEFAULT OFF pipeline flags. Never CM write. Never begin_request.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -142,6 +144,74 @@ class ProductionDbReadPort:
 
     def memory_recall(self, session_id: str = "") -> dict[str, Any]:
         return {"session_id": session_id}
+
+
+@dataclass
+class PrefetchedLiveFeed:
+    """
+    Phase 4 Stage 2 — inject an already-fetched live feed (async shim prefetch).
+
+    Preferred under a running event loop; avoids nested asyncio.run.
+    """
+
+    response: dict[str, Any] = field(default_factory=lambda: {"matches": []})
+
+    def fetch(self, *, force_refresh: bool = False) -> dict[str, Any]:
+        out = dict(self.response)
+        out.setdefault("force_refresh", force_refresh)
+        return out
+
+
+@dataclass
+class ProductionFetchLiveFeedPort:
+    """
+    Phase 4 Stage 2 — FetchLiveFeed adapter (Tool Use live list port).
+
+    Sync bridge to `routers.live._build_live_response`. When already inside a
+    running event loop, callers must use PrefetchedLiveFeed instead.
+    """
+
+    def fetch(self, *, force_refresh: bool = False) -> dict[str, Any]:
+        from src.routers.live import _build_live_response
+
+        coro = _build_live_response()
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            out = asyncio.run(coro)
+            if isinstance(out, dict):
+                out = dict(out)
+                out["force_refresh"] = force_refresh
+                return out
+            return {"matches": [], "force_refresh": force_refresh}
+        raise RuntimeError(
+            "ProductionFetchLiveFeedPort.fetch cannot block under a running "
+            "event loop — use PrefetchedLiveFeed from the async Router shim"
+        )
+
+
+@dataclass
+class ProductionLiveEnginePort:
+    """
+    Phase 4 Stage 2 — consume-only Frozen live intelligence adapter.
+
+    Invokes `build_live_payload` only. Never attach_match_card. Never CM write.
+    """
+
+    def run(self, name: str, scratch: dict[str, Any]) -> dict[str, Any]:
+        if name != "live_intelligence":
+            return {"engine": name, "error": "unknown_engine"}
+        from src.brain import get_brain_meta
+        from src.core.live_intelligence_engine import build_live_payload
+
+        feed = scratch.get("feed") or {}
+        if isinstance(feed, list):
+            fixtures = list(feed)
+        elif isinstance(feed, dict):
+            fixtures = list(feed.get("matches") or feed.get("fixtures") or [])
+        else:
+            fixtures = []
+        return build_live_payload(fixtures, get_brain_meta())
 
 
 @dataclass

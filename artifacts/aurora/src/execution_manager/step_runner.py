@@ -3,7 +3,10 @@ Step Runner core + ExecutionManager façade.
 
 Phase 3: shadow_compare is observe-only dual-run vs a provided legacy payload.
 Phase 4 Stage 1: thin report pipelines are real handlers; Router shims gate
-them behind DEFAULT OFF flags. Production primary path remains legacy when OFF.
+them behind DEFAULT OFF flags.
+Phase 4 Stage 2: live pipeline is a real handler; Router async shim gates
+it behind ENABLE_EM_PIPELINE_LIVE (DEFAULT OFF).
+Production primary path remains legacy when flags OFF.
 """
 
 from __future__ import annotations
@@ -50,7 +53,7 @@ class ExecutionManager:
     """
     Spec §4.1 conceptual API.
 
-    `run` executes EM pipelines (thin = Phase 4 Stage 1; others may still stub).
+    `run` executes EM pipelines (thin = Stage 1; live = Stage 2; others may stub).
     `shadow_compare` observes EM vs a legacy payload — never replaces primary.
     """
 

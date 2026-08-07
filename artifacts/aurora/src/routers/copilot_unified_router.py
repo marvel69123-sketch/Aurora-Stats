@@ -71,7 +71,7 @@ def _em_thin_or_legacy(
     Mission 033 Phase 4 Stage 1 — Progressive Extraction E1 (thin reports).
 
     DEFAULT OFF → legacy `_run_bankroll` / `_run_learning` / `_run_knowledge`.
-    Flag ON → EM thin path; fail-open fallback to legacy. Live/analyze/live_team
+    Flag ON → EM thin path; fail-open fallback to legacy. Analyze/live_team
     are NOT gated here. Shadow observe remains separate and operational.
     """
     from src.execution_manager.router_shim import em_thin_or_legacy
@@ -82,6 +82,85 @@ def _em_thin_or_legacy(
         entities=entities,
         session_id=session_id,
     )
+
+
+def _attach_live_match_card(payload: dict, fixtures: list) -> dict:
+    """
+    Router-only post-processing for live payloads (Plan §7.3).
+
+    Never called from EM package — match card stays outside Execution Manager.
+    """
+    try:
+        from src.communication import (
+            attach_match_card,
+            build_match_card_from_live_fixture,
+        )
+
+        ents = payload.get("entities") or {}
+        hn = str(ents.get("live_home") or "").strip().lower()
+        an = str(ents.get("live_away") or "").strip().lower()
+        top_fx = None
+        for fx in fixtures or []:
+            fh = str(((fx.get("home") or {}).get("name") or "")).strip().lower()
+            fa = str(((fx.get("away") or {}).get("name") or "")).strip().lower()
+            if hn and an and fh == hn and fa == an:
+                top_fx = fx
+                break
+        if top_fx is None and fixtures:
+            top_fx = fixtures[0]
+        if top_fx:
+            card = build_match_card_from_live_fixture(
+                top_fx,
+                confidence=payload.get("confidence")
+                if isinstance(payload.get("confidence"), dict)
+                else None,
+            )
+            payload = attach_match_card(payload, card)
+            if card:
+                payload["match"] = f"{card['home']['name']} x {card['away']['name']}"
+                payload["minute"] = card.get("minute")
+                payload["status"] = card.get("status_label") or payload.get("status")
+    except Exception as _mc_exc:
+        logger.warning("copilot: live match_card skipped (%s)", _mc_exc)
+    return payload
+
+
+async def _em_live_or_legacy(
+    *,
+    entities: dict | None = None,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 034 Phase 4 Stage 2 — Progressive Extraction E2 (live).
+
+    DEFAULT OFF → legacy `_run_live`.
+    Flag ON → EM live path; fail-open fallback to legacy.
+    Match card attached here (Router), never inside EM.
+    Analyze / live_team are NOT gated here.
+    """
+    from src.execution_manager.flags import live_pipeline_extraction_enabled
+
+    if not live_pipeline_extraction_enabled():
+        return await _run_live()
+
+    try:
+        from src.execution_manager.router_shim import em_live_or_legacy
+
+        payload = await em_live_or_legacy(
+            _run_live,
+            entities=dict(entities or {}) if entities else None,
+            session_id=session_id or "",
+        )
+        # When EM path succeeded, shim may stash fixtures for Router card attach.
+        fixtures = []
+        if isinstance(payload, dict) and "_em_live_fixtures" in payload:
+            fixtures = list(payload.pop("_em_live_fixtures") or [])
+            return _attach_live_match_card(payload, fixtures)
+        # Legacy fallback already attached card inside _run_live.
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM live shim failed (%s) — fallback legacy", exc)
+        return await _run_live()
 
 
 # ---------------------------------------------------------------------------
@@ -1026,7 +1105,7 @@ async def _run_analyze(
 
 
 async def _run_live() -> dict:
-    """Live opportunities — powered by Live Intelligence Engine v1.0."""
+    """Live opportunities — powered by Live Intelligence Engine v1.0 (legacy body retained)."""
     from src.brain import get_brain_meta
     from src.core.live_intelligence_engine import build_live_payload
     from src.routers.live import _build_live_response
@@ -1034,38 +1113,7 @@ async def _run_live() -> dict:
     live     = await _build_live_response()
     fixtures = live.get("matches", [])   # processed format from live.py
     payload  = build_live_payload(fixtures, get_brain_meta())
-    try:
-        from src.communication import (
-            attach_match_card,
-            build_match_card_from_live_fixture,
-        )
-        ents = payload.get("entities") or {}
-        hn = str(ents.get("live_home") or "").strip().lower()
-        an = str(ents.get("live_away") or "").strip().lower()
-        top_fx = None
-        for fx in fixtures:
-            fh = str(((fx.get("home") or {}).get("name") or "")).strip().lower()
-            fa = str(((fx.get("away") or {}).get("name") or "")).strip().lower()
-            if hn and an and fh == hn and fa == an:
-                top_fx = fx
-                break
-        if top_fx is None and fixtures:
-            top_fx = fixtures[0]
-        if top_fx:
-            card = build_match_card_from_live_fixture(
-                top_fx,
-                confidence=payload.get("confidence")
-                if isinstance(payload.get("confidence"), dict)
-                else None,
-            )
-            payload = attach_match_card(payload, card)
-            if card:
-                payload["match"] = f"{card['home']['name']} x {card['away']['name']}"
-                payload["minute"] = card.get("minute")
-                payload["status"] = card.get("status_label") or payload.get("status")
-    except Exception as _mc_exc:
-        logger.warning("copilot: live match_card skipped (%s)", _mc_exc)
-    return payload
+    return _attach_live_match_card(payload, fixtures)
 
 
 def _run_bankroll() -> dict:
@@ -4123,7 +4171,10 @@ async def _copilot_inner(
                     " preserve_context=%s",
                     ctx.get("last_match"), ctx.get("last_intent"), _preserve_context,
                 )
-                payload = await _run_live()
+                payload = await _em_live_or_legacy(
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
                 if not _preserve_context:
                     _live_ents = payload.get("entities", {})
                     _hn = _live_ents.get("live_home", "")

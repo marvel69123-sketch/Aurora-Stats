@@ -110,11 +110,14 @@ def test_flags_default_off_snapshot():
     assert snap["EM_ACTIVATION_PCT"] == 0.0
     assert snap["phase3_shadow_observe_only"] is True
     assert snap["phase3_shadow_default_off"] is True
-    # Phase 4 Stage 1 capability exists; thin pipeline defaults remain OFF.
+    # Phase 4 Stage 1+2 capability exists; thin/live pipeline defaults remain OFF.
     assert snap["phase4_extraction_not_started"] is False
     assert snap["phase4_stage1_thin_reports"] is True
-    assert snap["phase4_stage2_not_started"] is True
+    assert snap["phase4_stage2_not_started"] is False
+    assert snap["phase4_stage2_live"] is True
     assert snap["phase4_thin_defaults_off"] is True
+    assert snap["phase4_live_defaults_off"] is True
+    assert snap["phase4_stage3_not_started"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 
@@ -342,7 +345,9 @@ def test_live_and_thin_stubs():
     em = ExecutionManager()
     live = em.run(_req(pipeline="live", run_id="live-1"))
     assert live.status == ExecutionStatus.COMPLETED
-    assert live.payload["stub"] is True
+    assert live.payload.get("intent") == "live_opportunities"
+    assert live.diagnostics.get("phase4_stage2") is True
+    assert live.diagnostics.get("stub") is False
     # Phase 4 Stage 1: thin pipelines are real handlers (not stub payloads).
     expected_intent = {
         "bankroll": "bankroll_review",
@@ -433,16 +438,16 @@ def test_em_package_forbids_cm_matchcard_begin_request():
 
 def test_router_shadow_hook_is_observe_only_not_sole_path():
     """
-    Phase 3 shadow remains observe-only. Phase 4 Stage 1 adds thin shims only.
-    Live/analyze/live_team must NOT be sole-pathed. Legacy bodies remain.
+    Phase 3 shadow remains observe-only. Phase 4 Stage 1/2 add thin+live shims.
+    Analyze/live_team must NOT be sole-pathed. Legacy bodies remain.
     """
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "_observe_em_shadow" in text
     assert "maybe_em_shadow_observe" in text
     assert "ENABLE_EXECUTION_MANAGER_SHADOW" in text
     assert "_em_thin_or_legacy" in text
-    # Stage 1 thin only — live/analyze/live_team pipeline flags absent from Router
-    assert "ENABLE_EM_PIPELINE_LIVE" not in text
+    assert "_em_live_or_legacy" in text
+    # Stage 2 live wired; analyze/live_team pipeline flags absent from Router
     assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
     assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
     # Must not assign shadow result onto production payload

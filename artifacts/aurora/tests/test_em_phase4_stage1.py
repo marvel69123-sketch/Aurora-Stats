@@ -125,8 +125,10 @@ def test_stage1_flags_default_off():
     assert thin_pipeline_extraction_enabled("analyze") is False
     snap = em_flag_snapshot()
     assert snap["phase4_stage1_thin_reports"] is True
-    assert snap["phase4_stage2_not_started"] is True
+    assert snap["phase4_stage2_not_started"] is False
+    assert snap["phase4_stage2_live"] is True
     assert snap["phase4_thin_defaults_off"] is True
+    assert snap["phase4_live_defaults_off"] is True
     assert snap["phase5_activation_not_started"] is True
 
 
@@ -267,14 +269,13 @@ def test_router_shim_fail_open_fallback_to_legacy():
 
 
 def test_other_pipelines_not_gated_by_stage1():
-    """live / analyze / live_team extraction flags must remain OFF and ungated."""
+    """analyze / live_team extraction flags must remain OFF and ungated by Stage 1."""
     _clear_em_flags()
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
-    assert "ENABLE_EM_PIPELINE_LIVE" not in text
     assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
     assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
-    # live/analyze still called directly (no Stage 1 shim wrapper for them)
-    assert "payload = await _run_live()" in text or "await _run_live()" in text
+    # Stage 1 thin shim retained; Stage 2 live shim coexists
+    assert "_em_thin_or_legacy" in text
     assert "await _run_analyze" in text
 
 
