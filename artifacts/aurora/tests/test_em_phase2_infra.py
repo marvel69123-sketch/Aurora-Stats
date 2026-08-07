@@ -108,7 +108,9 @@ def test_flags_default_off_snapshot():
     assert snap["shadow_enabled"] is False
     assert snap["sole_path_master_enabled"] is False
     assert snap["EM_ACTIVATION_PCT"] == 0.0
-    assert snap["phase3_shadow_not_started"] is True
+    assert snap["phase3_shadow_observe_only"] is True
+    assert snap["phase3_shadow_default_off"] is True
+    assert snap["phase4_extraction_not_started"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 
@@ -366,12 +368,24 @@ def test_budget_denied_fails():
     assert result.payload["error"] == "budget_denied"
 
 
-def test_shadow_compare_stub_not_wired():
+def test_shadow_compare_wired_observe_only():
+    """Phase 3: shadow_compare is wired for observe; never primary replacement."""
     _clear_em_flags()
     em = ExecutionManager()
-    meta = em.shadow_compare(_req(run_id="shadow-1"))
-    assert meta["wired"] is False
-    assert meta["stub"] is True
+    legacy = {
+        "intent": "analyze_match",
+        "fixture_quality": "INVALID",
+        "status": "blocked",
+        "entities": {"entity_invalid": True, "markets_blocked": True, "home": "Fake", "away": "No"},
+        "best_markets": [],
+        "fixture_id": 0,
+    }
+    meta = em.shadow_compare(_req(run_id="shadow-1"), legacy_payload=legacy)
+    assert meta["wired"] is True
+    assert meta["shadow_only"] is True
+    assert meta["primary_replaced"] is False
+    assert meta["cm_eligibility"] == "NO"
+    assert meta["stub"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -385,14 +399,9 @@ def test_em_package_forbids_cm_matchcard_begin_request():
     for path in EM_PKG.rglob("*.py"):
         text = path.read_text(encoding="utf-8", errors="replace")
         for token in FORBIDDEN_EM_TOKENS:
-            # Allow mentioning in comments/docstrings that forbid the call —
-            # scan AST string constants used as calls would be heavier; use
-            # import / call-name heuristic: reject bare identifier usage as call.
             if f"{token}(" in text or f"import {token}" in text:
                 offenders.append(f"{path.name}:{token}")
-            # Also reject from-import of these symbols
             if f" {token}" in text and "import" in text:
-                # narrow: parse imports
                 try:
                     tree = ast.parse(text)
                 except SyntaxError:
@@ -410,15 +419,23 @@ def test_em_package_forbids_cm_matchcard_begin_request():
     assert offenders == []
 
 
-def test_router_does_not_import_or_invoke_em():
-    """Regression: mega-router user path unchanged — no EM import/invoke."""
+def test_router_shadow_hook_is_observe_only_not_sole_path():
+    """
+    Phase 3: Router may call EM shadow observe helper, but must NOT:
+    - extract `_run_*` bodies
+    - enable sole-path / pipeline flags in code defaults
+    - replace production returns with EM results
+    """
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
-    assert "execution_manager" not in text
-    assert "ExecutionManager" not in text
-    assert "StepRunner" not in text
-    assert "ENABLE_EXECUTION_MANAGER" not in text
+    assert "_observe_em_shadow" in text
+    assert "maybe_em_shadow_observe" in text
+    assert "ENABLE_EXECUTION_MANAGER_SHADOW" in text
     assert "ENABLE_EM_PIPELINE_" not in text
-    # Legacy bodies still present
+    assert 'os.environ.get("ENABLE_EXECUTION_MANAGER")' not in text
+    assert "ExecutionManager().run" not in text
+    # Must not assign shadow result onto production payload
+    assert "payload = maybe_em_shadow_observe" not in text
+    assert "payload = _observe_em_shadow" not in text
     for needle in (
         "async def _run_analyze",
         "async def _run_live",

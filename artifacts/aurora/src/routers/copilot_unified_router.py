@@ -33,6 +33,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _observe_em_shadow(
+    intent: str | None,
+    payload: dict | None,
+    *,
+    session_id: str = "",
+    entities: dict | None = None,
+) -> None:
+    """
+    Mission 032 Phase 3 — Execution Manager Shadow (observe-only).
+
+    Gated by ENABLE_EXECUTION_MANAGER_SHADOW (default OFF). Fail-open.
+    Must NOT mutate payload, ctx, memory, or the user-facing response (REGRA 23).
+    Must NOT replace legacy `_run_*` results. Must NOT write CM.
+    """
+    try:
+        from src.execution_manager.shadow import maybe_em_shadow_observe
+
+        maybe_em_shadow_observe(
+            legacy_payload=payload if isinstance(payload, dict) else None,
+            intent=intent,
+            session_id=session_id or "",
+            entities=dict(entities or {}) if entities else None,
+        )
+    except Exception as _em_shadow_exc:
+        logger.warning("copilot: EM shadow observe skipped (%s)", _em_shadow_exc)
+
+
 # ---------------------------------------------------------------------------
 # Request model
 # ---------------------------------------------------------------------------
@@ -4377,6 +4404,16 @@ async def _copilot_inner(
                 "aurora_version": "Copilot v1.0",
                 "brain": {**brain, "inference": _octx.explainability()},
             }
+
+    # Mission 032 Phase 3 — EM Shadow observe-only (post legacy `_run_*` / wrap).
+    # Primary remains legacy. Flag DEFAULT OFF. Fail-open. No CM write / no
+    # response replacement (REGRA 23 Zero User Impact).
+    _observe_em_shadow(
+        intent,
+        payload if isinstance(payload, dict) else None,
+        session_id=session_id,
+        entities=entities if isinstance(entities, dict) else None,
+    )
 
     # ── LLM Conversational Layer (Phases 1–9) ────────────────────────────
     # Called ONLY when the LLM router decides it adds value.

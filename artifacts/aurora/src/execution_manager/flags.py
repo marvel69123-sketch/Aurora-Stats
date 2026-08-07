@@ -254,7 +254,8 @@ def em_flag_snapshot() -> dict[str, Any]:
         "any_pgr_armed": any_pgr_armed(),
         "em_flags_all_off": em_flags_all_off(),
         "illegal_violations": collect_illegal_em_combinations(),
-        "phase3_shadow_not_started": True,
+        "phase3_shadow_observe_only": True,
+        "phase3_shadow_default_off": not shadow_enabled(),
         "phase4_extraction_not_started": True,
         "phase5_activation_not_started": True,
     }

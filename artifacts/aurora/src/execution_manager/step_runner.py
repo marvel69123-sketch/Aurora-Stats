@@ -1,12 +1,16 @@
 """
-Step Runner core + ExecutionManager façade (Phase 2 scaffolding).
+Step Runner core + ExecutionManager façade.
 
-NOT wired into copilot_unified_router. Call only from tests / future Shadow.
+Phase 3: shadow_compare is observe-only dual-run vs a provided legacy payload.
+Production primary path remains legacy `_run_*` until Phase 4+.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.execution_manager.contracts import (
+    ExecutionMode,
     ExecutionRequest,
     ExecutionResult,
     ExecutionStatus,
@@ -43,23 +47,113 @@ class ExecutionManager:
     """
     Spec §4.1 conceptual API.
 
-    shadow_compare is a Phase 2 stub returning a placeholder — dual-run wiring
-    is Phase 3 and must NOT be called from the Router yet.
+    `run` executes EM pipelines (stubs in Phase 2/3).
+    `shadow_compare` observes EM vs a legacy payload — never replaces primary.
     """
 
     def __init__(self, ports: PortBundle | None = None) -> None:
         self._runner = StepRunner(ports=ports)
+        self.ports = self._runner.ports
 
     def run(self, request: ExecutionRequest) -> ExecutionResult:
         return self._runner.run(request)
 
-    def shadow_compare(self, request: ExecutionRequest) -> dict:
-        """Observe-only stub — Phase 3 will implement real dual-run compare."""
-        emit("em.shadow.diff", run_id=request.run_id, stub=True, wired=False)
-        return {
-            "run_id": request.run_id,
-            "stub": True,
-            "wired": False,
-            "phase": 2,
-            "message": "shadow_compare scaffolding only — dual-run not armed",
-        }
+    def shadow_compare(
+        self,
+        request: ExecutionRequest,
+        *,
+        legacy_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Observe-only dual-run (Phase 3).
+
+        When legacy_payload is provided, compare Appendix A keys vs EM shadow run.
+        When omitted, still run EM in shadow mode and return a wired observe meta
+        (parity deferred — no legacy peer). Never writes CM. Never replaces primary.
+        """
+        from src.execution_manager.shadow import (
+            ShadowCompareResult,
+            project_em_result,
+            shadow_compare as _shadow_compare,
+        )
+
+        # Force shadow mode on the request copy semantics via flags on a new request.
+        shadow_req = ExecutionRequest(
+            run_id=request.run_id,
+            pipeline_id=request.pipeline_id,
+            session_id=request.session_id,
+            mode=ExecutionMode.SHADOW,
+            entities=dict(request.entities or {}),
+            flags=dict(request.flags or {}),
+            budget_token=request.budget_token,
+            read_projections=request.read_projections,
+            timeout_ms=request.timeout_ms,
+            trace_parent=request.trace_parent,
+        )
+        pipeline_id = str(shadow_req.normalized_pipeline_id().value)
+
+        if legacy_payload is None:
+            # No legacy peer — still exercise EM path for harness; report wired.
+            try:
+                em_result = self.run(shadow_req)
+                meta = ShadowCompareResult(
+                    run_id=shadow_req.run_id,
+                    pipeline_id=pipeline_id,
+                    parity=False,
+                    soft_noise_diffs=[
+                        {
+                            "key": "legacy_payload",
+                            "legacy": None,
+                            "em": "present",
+                            "class": "no_legacy_peer",
+                        }
+                    ],
+                    cm_eligibility="NO",
+                    shadow_only=True,
+                    primary_replaced=False,
+                    wired=True,
+                    stub=False,
+                    em_result=em_result,
+                    em_projection=project_em_result(em_result),
+                )
+                emit(
+                    "em.shadow.diff",
+                    run_id=shadow_req.run_id,
+                    pipeline_id=pipeline_id,
+                    wired=True,
+                    no_legacy_peer=True,
+                    cm_eligibility="NO",
+                    shadow_only=True,
+                )
+                return meta.as_dict()
+            except Exception as exc:
+                emit(
+                    "em.shadow.diff",
+                    run_id=shadow_req.run_id,
+                    fail_open=True,
+                    shadow_error=str(exc),
+                    cm_eligibility="NO",
+                )
+                return ShadowCompareResult(
+                    run_id=shadow_req.run_id,
+                    pipeline_id=pipeline_id,
+                    parity=False,
+                    shadow_error=f"{type(exc).__name__}: {exc}",
+                    fail_open=True,
+                    cm_eligibility="NO",
+                    shadow_only=True,
+                    primary_replaced=False,
+                    wired=True,
+                ).as_dict()
+
+        result = _shadow_compare(
+            pipeline_id=pipeline_id,
+            legacy_payload=legacy_payload,
+            session_id=shadow_req.session_id,
+            entities=shadow_req.entities,
+            flags=shadow_req.flags,
+            run_id=shadow_req.run_id,
+            ports=self.ports,
+            em=self,
+        )
+        return result.as_dict()
