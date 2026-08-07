@@ -37,8 +37,8 @@ Elevação L2/L3: NÃO — docs-only Plan; no product delta; no Master/Blueprint
 | Mission | 028 IMPLEMENTATION_PLANNING — EM Implementation Plan |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(implementation): add Execution Manager Implementation Plan` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `aaf8b5064337bb6453c2dae279eef2b298708409` |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`b0bfbd3..aaf8b50`) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Spec / ADR / Master / Blueprint / SSOT | **UNTOUCHED** |
 | Readiness / Implementation code | **NOT STARTED** |
