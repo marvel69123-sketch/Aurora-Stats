@@ -53,9 +53,10 @@ docs/architecture/
 | ADR index | [`adr/README.md`](./adr/README.md) | Pointer policy; Spec-embedded ADRs remain authoritative until extracted |
 | Specifications index | [`specifications/README.md`](./specifications/README.md) | Links to Spec packages under `observations/` (no wholesale copy) |
 | Reviews (CDR) index | [`reviews/README.md`](./reviews/README.md) | Links to CDR packages |
-| Governance index | [`governance/README.md`](./governance/README.md) | AARs, matrices, SSOT policy, waiver template |
+| Governance index | [`governance/README.md`](./governance/README.md) | AARs, matrices, SSOT policy, waiver template, Dual Reporting (Rule 29) |
 | SSOT Policy | [`governance/SSOT_POLICY.md`](./governance/SSOT_POLICY.md) | Versioning, approval, freeze-while-NOT-APPROVED, traceability |
 | Substitution Waiver Template | [`governance/SUBSTITUTION_WAIVER_TEMPLATE.md`](./governance/SUBSTITUTION_WAIVER_TEMPLATE.md) | Time-boxed waiver form (prefer master coverage; do not use to bypass Spec residuals) |
+| Dual Reporting Policy (REGRA Nº 29) | [`governance/DUAL_REPORTING_POLICY.md`](./governance/DUAL_REPORTING_POLICY.md) | AEL: every mission ends with Engineering + Product Owner reports |
 
 ---
 
