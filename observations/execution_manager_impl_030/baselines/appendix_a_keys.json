@@ -1,0 +1,24 @@
+{
+  "source": "SPEC_EXECUTION_MANAGER_v1.1 Appendix A (CDR-M-004)",
+  "plan_ref": "execution_manager_impl_plan_028 Phase 1 Prep — golden baselines",
+  "sot": "artifacts/aurora/",
+  "captured": "2026-08-07",
+  "mandatory_compare_keys": {
+    "identity": ["pipeline_id", "status", "abort_reason"],
+    "integrity": ["fixture_quality", "entity_invalid", "markets_blocked"],
+    "markets": ["best_markets"],
+    "engine_order": ["step_traces[].step_id"],
+    "soft_skip": ["A2_skip_reason_when_soft_skip"],
+    "fixture": ["fixture_id"]
+  },
+  "noise_allowlist_deferred": [
+    "timestamps",
+    "drs_stamp_churn",
+    "non_semantic_narrative_whitespace"
+  ],
+  "notes": [
+    "pipeline_id / abort_reason / step_traces are EM Result fields (Infra+); legacy unified payloads today use intent + fixture_quality + best_markets + fixture_id.",
+    "Prep baseline maps Appendix A to current SoT keys; Infra contracts freeze the EM Result shape.",
+    "Do not drop mandatory Appendix A keys when extending noise allowlist."
+  ]
+}

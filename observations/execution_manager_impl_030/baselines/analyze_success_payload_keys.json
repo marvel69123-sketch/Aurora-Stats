@@ -1,0 +1,58 @@
+{
+  "sot_function": "artifacts/aurora/src/routers/copilot_unified_router.py::_run_analyze",
+  "line_span_approx": "437-974",
+  "captured": "2026-08-07",
+  "top_level_keys_success": [
+    "intent",
+    "entities",
+    "match",
+    "status",
+    "is_live",
+    "minute",
+    "fixture_id",
+    "_partial",
+    "_audit",
+    "fixture_status",
+    "fixture_found",
+    "fixture_quality",
+    "executive_summary",
+    "best_markets",
+    "confidence",
+    "risk",
+    "bankroll_recommendation",
+    "positive_factors",
+    "negative_factors",
+    "historical_references",
+    "knowledge_notes",
+    "final_recommendation",
+    "aurora_version",
+    "brain"
+  ],
+  "appendix_a_mapping": {
+    "identity_proxy_today": ["intent", "status"],
+    "integrity": ["fixture_quality", "entities.entity_invalid"],
+    "markets": ["best_markets"],
+    "fixture": ["fixture_id", "fixture_found"],
+    "engine_order_today": [
+      "methodology_engine.run",
+      "learning_engine.run",
+      "confidence_engine.run",
+      "market_engine.run",
+      "methodology_v1.run",
+      "decision_center.run",
+      "memory_db.recall_context + knowledge_engine.consult",
+      "intelligence_engine.generate"
+    ],
+    "soft_skip_marker": "VALID_LOCATED debug when fixture_located_early skips INVALID early abort (~L515-521)"
+  },
+  "fixture_quality_closed_set_plan_3_2": [
+    "VALID",
+    "PARTIAL",
+    "INVALID",
+    "VALID_LOCATED"
+  ],
+  "sot_typed_literal_today": ["VALID", "PARTIAL", "INVALID"],
+  "valid_located_note": "VALID_LOCATED appears as soft-skip rescue culture/debug marker in router logs; typed FixtureQuality Literal today is VALID|PARTIAL|INVALID. Plan §3.2 closed set includes VALID_LOCATED for EM Result/compare.",
+  "router_only_post_em": ["attach_match_card (may add match_card on success path ~L962-971)"],
+  "cm_out_of_em": ["_save_analysis_context called from _copilot_inner after analyze — never EM"]
+}

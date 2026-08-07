@@ -1,0 +1,66 @@
+{
+  "plan_hygiene": "CDR2-M-001 CLOSED — HARD-ABORT → ExecutionResult.status=Completed + blocked/INVALID payload ≡ today's blocked_integrity_payload; abort_reason=integrity_invalid_hard_abort; A2 step_traces failed/terminal for observability",
+  "sot_function": "artifacts/aurora/src/core/fixture_integrity.py::blocked_integrity_payload",
+  "caller_sites_unified": [
+    "copilot_unified_router._run_analyze early abort (~L527)",
+    "copilot_unified_router._copilot_inner analyze post-integrity (~L3873)",
+    "copilot_unified_router live_team_analysis pre-blocked (~L3981)",
+    "copilot_unified_router soft-404 blocked path (~L4180)"
+  ],
+  "http_contract": "Successful response with blocked/INVALID payload (not transport failure)",
+  "top_level_keys": [
+    "intent",
+    "entities",
+    "match",
+    "status",
+    "is_live",
+    "minute",
+    "fixture_status",
+    "fixture_quality",
+    "fixture_found",
+    "_audit",
+    "executive_summary",
+    "best_markets",
+    "confidence",
+    "risk",
+    "bankroll_recommendation",
+    "positive_factors",
+    "negative_factors",
+    "historical_references",
+    "knowledge_notes",
+    "final_recommendation",
+    "aurora_version",
+    "brain",
+    "match_card",
+    "response_metadata"
+  ],
+  "entities_keys": [
+    "home",
+    "away",
+    "fixture_status",
+    "fixture_quality",
+    "fixture_found",
+    "entity_invalid",
+    "markets_blocked",
+    "market_generation_enabled",
+    "entity_match_score"
+  ],
+  "hard_abort_invariants": {
+    "intent": "analyze_match",
+    "fixture_found": false,
+    "entity_invalid": true,
+    "markets_blocked": true,
+    "market_generation_enabled": false,
+    "best_markets": [],
+    "match_card": null,
+    "fixture_quality": "INVALID",
+    "bankroll_recommendation.no_bet": true,
+    "response_metadata.header_blocked": true
+  },
+  "em_mapping_prep": {
+    "ExecutionResult.status": "Completed",
+    "abort_reason": "integrity_invalid_hard_abort",
+    "A2_step_trace": "failed_or_terminal_gate",
+    "payload_shape": "≡ blocked_integrity_payload keys above"
+  }
+}

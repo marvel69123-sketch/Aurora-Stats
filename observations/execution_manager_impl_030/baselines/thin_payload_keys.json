@@ -1,0 +1,100 @@
+{
+  "captured": "2026-08-07",
+  "sot": "artifacts/aurora/src/routers/copilot_unified_router.py",
+  "pipelines": {
+    "bankroll": {
+      "function": "_run_bankroll",
+      "intent": "bankroll_review",
+      "line_span_approx": "1020-1102",
+      "top_level_keys": [
+        "intent",
+        "entities",
+        "match",
+        "status",
+        "is_live",
+        "minute",
+        "executive_summary",
+        "best_markets",
+        "confidence",
+        "risk",
+        "bankroll_recommendation",
+        "positive_factors",
+        "negative_factors",
+        "historical_references",
+        "knowledge_notes",
+        "final_recommendation",
+        "aurora_version",
+        "brain"
+      ],
+      "entities_keys": [
+        "total_predictions",
+        "wins",
+        "losses",
+        "pending",
+        "accuracy_pct",
+        "roi_pct"
+      ],
+      "data_port": "learning_db.get_learning_stats"
+    },
+    "learning": {
+      "function": "_run_learning",
+      "intent": "learning_recap",
+      "line_span_approx": "1105-1182",
+      "top_level_keys": [
+        "intent",
+        "entities",
+        "match",
+        "status",
+        "is_live",
+        "minute",
+        "executive_summary",
+        "best_markets",
+        "confidence",
+        "risk",
+        "bankroll_recommendation",
+        "positive_factors",
+        "negative_factors",
+        "historical_references",
+        "knowledge_notes",
+        "final_recommendation",
+        "aurora_version",
+        "brain"
+      ],
+      "entities_keys": [
+        "total_predictions",
+        "wins",
+        "losses",
+        "accuracy_pct"
+      ],
+      "data_port": "learning_db.get_learning_stats"
+    },
+    "knowledge": {
+      "function": "_run_knowledge",
+      "intent": "knowledge_search",
+      "line_span_approx": "1185-1236",
+      "top_level_keys": [
+        "intent",
+        "entities",
+        "match",
+        "status",
+        "is_live",
+        "minute",
+        "executive_summary",
+        "best_markets",
+        "confidence",
+        "risk",
+        "bankroll_recommendation",
+        "positive_factors",
+        "negative_factors",
+        "historical_references",
+        "knowledge_notes",
+        "final_recommendation",
+        "aurora_version",
+        "brain"
+      ],
+      "entities_keys": ["query"],
+      "data_port": "knowledge_db.search_knowledge_items"
+    }
+  },
+  "extraction_wave": "E1 (Plan §7.2) — Phase 4 only; Prep inventory only"
+}

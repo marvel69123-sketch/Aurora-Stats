@@ -1,0 +1,36 @@
+{
+  "sot_function": "artifacts/aurora/src/routers/copilot_unified_router.py::_run_live",
+  "engine": "artifacts/aurora/src/core/live_intelligence_engine.py::build_live_payload",
+  "line_span_approx": "977-1017",
+  "captured": "2026-08-07",
+  "top_level_keys": [
+    "intent",
+    "entities",
+    "match",
+    "status",
+    "is_live",
+    "minute",
+    "executive_summary",
+    "best_markets",
+    "confidence",
+    "risk",
+    "bankroll_recommendation",
+    "positive_factors",
+    "negative_factors",
+    "historical_references",
+    "knowledge_notes",
+    "final_recommendation",
+    "aurora_version",
+    "brain"
+  ],
+  "intent": "live_opportunities",
+  "entities_keys_populated": ["live_count", "top_opportunity", "live_home", "live_away"],
+  "entities_keys_empty": ["live_count"],
+  "appendix_a_mapping": {
+    "identity_proxy_today": ["intent", "status"],
+    "markets": ["best_markets"],
+    "fixture": ["entities.live_home", "entities.live_away", "match (after optional card)"]
+  },
+  "router_only_post_em": ["attach_match_card"],
+  "tool_use_port_target": "FetchLiveFeed via routers/live._build_live_response"
+}
