@@ -85,8 +85,8 @@ Elevação L2/L3: NÃO — one extraction wave only; defaults OFF; dual path;
 | Mission | 035 CONTROLLED_IMPLEMENTATION — Phase 4 Progressive Extraction Stage 3 Analyze ONLY |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete Phase 4 Progressive Extraction Stage 3 Analyze` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `c603a66fb812b778201aab7b3b849915ebfc9f31` (`c603a66`) |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` |
 | Scope | E3 analyze extraction + Router async shim + DEFAULT OFF flag + soft-analyze preservation + tests + completion |
 | Product primary path (defaults) | **UNCHANGED** — legacy `_run_analyze` when `ENABLE_EM_PIPELINE_ANALYZE` OFF |
 | Spec / Plan / Master / Blueprint / SSOT | **UNTOUCHED** |
