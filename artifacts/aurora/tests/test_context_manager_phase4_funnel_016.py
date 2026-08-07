@@ -132,14 +132,20 @@ def test_phase4_defaults_off_zero_pct():
 
 
 def test_phase4_higher_pct_blocked_without_po_unlock():
+    """pct=5 without PGR-02 remains fail-closed (PGR-02 is the independent 5% gate)."""
     _clear_flags()
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "5"
     try:
         assert get_configured_funnel_pct() == 5
-        assert get_funnel_pct() == 0  # fail-closed
+        assert get_funnel_pct() == 0  # fail-closed without PGR-02
         assert funnel_stage_name() == "OFF_0"
-        metrics = funnel_metrics_snapshot()
-        assert metrics["funnel_blocked_high_stage"] >= 1
+        # Either funnel high-stage metric or PGR-02 missing-flag metric may bump
+        from src.conversation.progressive_gate_review import pgr_metrics_snapshot
+
+        assert (
+            funnel_metrics_snapshot()["funnel_blocked_high_stage"] >= 1
+            or pgr_metrics_snapshot()["pgr02_blocked_missing_flag"] >= 1
+        )
     finally:
         _clear_flags()
 
