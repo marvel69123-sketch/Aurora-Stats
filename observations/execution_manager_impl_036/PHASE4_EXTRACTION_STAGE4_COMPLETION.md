@@ -80,8 +80,8 @@ Elevação L2/L3: NÃO — one extraction wave only; defaults OFF; dual path;
 | Mission | 036 CONTROLLED_IMPLEMENTATION — Phase 4 Progressive Extraction Stage 4 ONLY |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete Phase 4 Progressive Extraction Stage 4` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `70efa3833c6c7ce41eca7772d379a053c9614575` (`70efa38`) |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` |
 | Scope | E4 live_team_analyze extraction + Router async shim + DEFAULT OFF flag + tests + completion |
 | Product primary path (defaults) | **UNCHANGED** — legacy `_run_live_team_analysis` when `ENABLE_EM_PIPELINE_LIVE_TEAM` OFF |
 | Spec / Plan / Master / Blueprint / SSOT | **UNTOUCHED** |
@@ -241,6 +241,6 @@ Authorize **Phase 5 Progressive Activation** starting at **PGR-01 (1% only)** �
 | Field | Value |
 |-------|-------|
 | Branch | `feat/aurora-response-selector-001` |
-| Commit | *(pending)* |
-| Hash | *(pending)* |
-| Push | *(pending)* |
+| Commit | `feat(execution-manager): complete Phase 4 Progressive Extraction Stage 4` |
+| Hash | `70efa3833c6c7ce41eca7772d379a053c9614575` (`70efa38`) |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` |
