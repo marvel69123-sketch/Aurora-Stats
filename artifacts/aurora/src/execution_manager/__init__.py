@@ -1,11 +1,11 @@
 """
 Execution Manager — Phase 2/3 scaffolding + Phase 4 Progressive Extraction
-+ Phase 5 Progressive Activation PGR-01 (1%) + PGR-02 (5%).
++ Phase 5 Progressive Activation PGR-01 (1%) + PGR-02 (5%) + PGR-03 (10%).
 
 Contracts, Step Runner, ports, flag controller, Shadow Mode (observe-only),
 thin-report (E1), live (E2), analyze (E3), and live_team_analyze (E4)
-progressive extraction behind DEFAULT OFF flags. PGR-01/PGR-02 independent
-gates for 1%/5% sole-path canary (DEFAULT OFF; PGR-03+ locked).
+progressive extraction behind DEFAULT OFF flags. PGR-01/PGR-02/PGR-03 independent
+gates for 1%/5%/10% sole-path canary (DEFAULT OFF; PGR-04+ locked).
 """
 
 from __future__ import annotations
@@ -46,14 +46,19 @@ from src.execution_manager.progressive_gate import (
     PGR01_STAGE,
     PGR02_PCT,
     PGR02_STAGE,
+    PGR03_PCT,
+    PGR03_STAGE,
     em_pgr_flag_snapshot,
     get_effective_em_activation_pct,
     pgr01_enable_flag,
     pgr02_enable_flag,
+    pgr03_enable_flag,
     require_em_pgr01,
     require_em_pgr02,
+    require_em_pgr03,
     rollback_em_pgr01_to_off,
     rollback_em_pgr02_to_off,
+    rollback_em_pgr03_to_off,
 )
 from src.execution_manager.router_shim import (
     em_analyze_from_fixture,
@@ -90,6 +95,8 @@ __all__ = [
     "PGR01_STAGE",
     "PGR02_PCT",
     "PGR02_STAGE",
+    "PGR03_PCT",
+    "PGR03_STAGE",
     "PipelineId",
     "ShadowCompareResult",
     "StepRunner",
@@ -115,12 +122,15 @@ __all__ = [
     "maybe_em_shadow_observe",
     "pgr01_enable_flag",
     "pgr02_enable_flag",
+    "pgr03_enable_flag",
     "pipeline_enabled",
     "require_em_pgr01",
     "require_em_pgr02",
+    "require_em_pgr03",
     "rollback_em_all_off",
     "rollback_em_pgr01_to_off",
     "rollback_em_pgr02_to_off",
+    "rollback_em_pgr03_to_off",
     "rollback_em_shadow_off",
     "rollback_em_sole_path_off",
     "shadow_compare",

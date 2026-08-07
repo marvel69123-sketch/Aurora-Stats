@@ -118,24 +118,27 @@ def test_pgr02_defaults_off_not_armed():
     assert snap["effective_pct"] == 0
     assert snap["higher_gates_locked"] is True
     assert snap["pgr02_not_started"] is False
-    assert snap["pgr03_not_started"] is True
+    assert snap["pgr03_not_started"] is False
+    assert snap["pgr04_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["rollback_possible"] is True
     assert PGR02_PCT == 5
     assert PGR02_STAGE == "EM_STAGE2_SOLE_PATH_5PCT"
-    assert AUTHORIZED_HIGHEST_GATE == "PGR-02"
-    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 5
+    assert AUTHORIZED_HIGHEST_GATE == "PGR-03"
+    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 10
     assert len(EM_PGR_LADDER) == 6
     assert EM_PGR_LADDER[0]["authorized_this_mission"] is True
     assert EM_PGR_LADDER[1]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[2]["authorized_this_mission"] is False
+    assert EM_PGR_LADDER[2]["authorized_this_mission"] is True
+    assert EM_PGR_LADDER[3]["authorized_this_mission"] is False
     flag_snap = em_flag_snapshot()
     assert flag_snap["phase5_pgr02"] is True
     assert flag_snap["phase5_pgr02_defaults_off"] is True
     assert flag_snap["phase5_pgr02_not_started"] is False
-    assert flag_snap["phase5_pgr03_not_started"] is True
-    assert flag_snap["phase5_authorized_highest_gate"] == "PGR-02"
-    assert flag_snap["phase5_authorized_max_pct"] == 5
+    assert flag_snap["phase5_pgr03_not_started"] is False
+    assert flag_snap["phase5_pgr04_not_started"] is True
+    assert flag_snap["phase5_authorized_highest_gate"] == "PGR-03"
+    assert flag_snap["phase5_authorized_max_pct"] == 10
     assert flag_snap["progressive_gate_review"]["pgr02_enable"] is False
 
 
@@ -172,7 +175,8 @@ def test_pgr02_five_pct_path_when_enabled():
         snap = em_pgr_flag_snapshot()
         assert snap["effective_pct"] == 5
         assert snap["active_gate"] == "PGR-02"
-        assert snap["pgr03_not_started"] is True
+        assert snap["pgr03_not_started"] is False
+        assert snap["pgr04_not_started"] is True
         assert snap["auto_advance"] is False
     finally:
         _clear_em_flags()
@@ -246,11 +250,12 @@ def test_phase4_extraction_without_activation_posture_still_full():
 
 
 # ---------------------------------------------------------------------------
-# Higher pct / PGR-03 locked / PGR-01 still available
+# Higher pct / PGR-04 locked / PGR-01 still available
 # ---------------------------------------------------------------------------
 
 
-def test_pgr02_pct_above_5_fail_closed():
+def test_pgr02_pct_above_5_without_pgr03_fail_closed():
+    """pct=10 with only PGR-02 stays OFF (independent PGR-03 gate)."""
     _clear_em_flags()
     os.environ["ENABLE_EM_PGR_02"] = "1"
     os.environ["EM_ACTIVATION_PCT"] = "10"
@@ -261,7 +266,7 @@ def test_pgr02_pct_above_5_fail_closed():
         assert get_configured_em_activation_pct() == 10
         assert get_effective_em_activation_pct() == 0
         assert em_pipeline_may_route(True, "s") is False
-        assert em_pgr_metrics_snapshot()["em_activation_blocked_high_pct"] >= 1
+        assert em_pgr_metrics_snapshot()["em_pgr03_blocked_missing_flag"] >= 1
     finally:
         _clear_em_flags()
 
@@ -272,29 +277,30 @@ def test_pgr02_hundred_pct_not_unlocked():
     os.environ["EM_ACTIVATION_PCT"] = "100"
     try:
         assert get_effective_em_activation_pct() == 0
+        assert em_pgr_metrics_snapshot()["em_activation_blocked_high_pct"] >= 1
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_not_unlocked_when_flag_set():
-    """PGR-03 flag armed during PGR-02 mission → higher gate blocked."""
+def test_pgr04_not_unlocked_when_flag_set():
+    """PGR-04 flag armed during PGR-03 plateau → higher gate blocked."""
     _clear_em_flags()
     _arm_pgr02()
-    os.environ["ENABLE_EM_PGR_03"] = "1"
+    os.environ["ENABLE_EM_PGR_04"] = "1"
     try:
         assert higher_em_pgr_gate_attempted() is True
         assert get_effective_em_activation_pct() == 0
         assert require_em_pgr02() is False
-        assert em_pgr_flag_snapshot()["pgr03_not_started"] is True
+        assert em_pgr_flag_snapshot()["pgr04_not_started"] is True
         assert em_pgr_metrics_snapshot()["em_pgr_higher_gate_blocked"] >= 1
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_enable_alone_does_not_unlock_10pct():
+def test_pgr04_enable_alone_does_not_unlock_25pct():
     _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_03"] = "1"
-    os.environ["EM_ACTIVATION_PCT"] = "10"
+    os.environ["ENABLE_EM_PGR_04"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "25"
     os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
     try:
         assert get_effective_em_activation_pct() == 0
@@ -378,7 +384,8 @@ def test_no_auto_advance_and_runbook():
     try:
         snap = em_flag_snapshot()
         assert snap["auto_advance"] is False
-        assert snap["phase5_pgr03_not_started"] is True
+        assert snap["phase5_pgr03_not_started"] is False
+        assert snap["phase5_pgr04_not_started"] is True
         assert snap["EM_ACTIVATION_PCT_EFFECTIVE"] == 5
         runbook = operator_enable_em_pgr02_instructions()
         assert "ENABLE_EM_PGR_02=1" in runbook
