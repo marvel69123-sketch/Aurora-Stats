@@ -240,8 +240,8 @@ Formulas and `run`/`generate`/`consult`/`build_live_payload` inside:
 | Mission | 021 SURFACE_EXTRACTION — Future Execution Manager |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(research): add Execution Surface Map` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `fc92ae55bf4666b99e7b7d6bbae70a109fb0b6a9` (body); evidence stamp in follow-up |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`caf175f..fc92ae5`) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Deliverables | `observations/execution_surface_021/EXECUTION_SURFACE_MAP.md`, `EXECUTION_SURFACE_REPORT.md` |
 
