@@ -30,6 +30,45 @@ ARCHITECTURAL DECISION REQUIRED: NONE
 MIRROR DRIFT: OPEN (known risk — P4 NO-GO later)
 ```
 
+```text
+AUDIT BUDGET
+
+Nível escolhido:
+LEVEL 1
+
+Arquivos novos:
+9
+
+Arquivos modificados:
+4
+
+Dependências diretas:
+5
+
+Arquivos reaproveitados:
+4
+
+Auditorias reaproveitadas:
+
+• CDR3
+• AAR-003
+• Plano 014
+• Fase anterior
+
+Auditoria Global:
+
+PROIBIDA
+```
+
+**AUDIT BUDGET path evidence (LEVEL 1 — no global audit):**
+
+| Count | Paths |
+|-------|--------|
+| X=9 novos | `artifacts/aurora/src/conversation/episode_transition.py`; `migration_flag_controller.py`; `minimal_commit_orchestrator.py`; `serial_lease.py`; `sts_checkpoint.py`; `sts_commit_gate.py`; `thread_identity.py`; `artifacts/aurora/tests/test_context_manager_phase2_infra_016.py`; `observations/aurora_context_manager_impl_016/PHASE2_INFRA_COMPLETION.md` |
+| Y=4 modificados | `artifacts/aurora/src/conversation/sport_topic_state.py`; `langgraph_state_graph.py`; `langgraph_state_adapter.py`; `artifacts/aurora/tests/test_langgraph_state_poc_001.py` |
+| Z=5 deps diretas inspecionadas | `sport_topic_state.py`; `langgraph_state_graph.py`; `langgraph_state_adapter.py`; `topic_boundary_v2.py`; `artifacts/aurora/src/routers/copilot_unified_router.py` (caller `maybe_shadow_compare`) |
+| N=4 auditorias reaproveitadas | `observations/aurora_context_manager_cdr3_013/CDR3.md`; `observations/aurora_context_manager_aar_003/AAR-003.md`; `observations/aurora_context_manager_impl_plan_014/IMPLEMENTATION_PLAN.md`; `observations/aurora_context_manager_impl_016/PHASE1_PREP_COMPLETION.md` |
+
 ---
 
 ## 2. Alterações realizadas
