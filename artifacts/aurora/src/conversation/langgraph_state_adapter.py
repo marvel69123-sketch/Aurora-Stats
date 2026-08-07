@@ -5,13 +5,15 @@ Phase 1:
   - shadow_from_ctx: build STS from CSL / last_* / SRF (read-only, no writes)
   - compare_shadow: divergence dict for logs
 
-Phase 2 (SHADOW MODE):
+Phase 2 / Mission 016 Phase 3 SHADOW MODE:
   - ENABLE_LANGGRAPH_STATE_SHADOW (default OFF) — log-only compare
-  - maybe_shadow_compare: capture OLD from ctx, run LangGraph on isolated copy → NEW,
-    log structured AUDIT line + contamination_locus. Never writes live ctx / CSL.
+  - maybe_shadow_compare (Path A): capture OLD from ctx, run isolated NEW, log only
+  - ingress_order_shadow_compare (Path B): post-SLL pre-CSL observe-only; Appendix B ready
+  - Never writes live ctx / CSL / production memory. Never alters Aurora decisions.
   - Shadow ≠ ENABLE_LANGGRAPH_STATE (production write path stays OFF by default)
 
 Does NOT become the sole writer. Does NOT route responses through LangGraph.
+REGRA 23: zero user impact while Shadow Mode is active.
 """
 
 from __future__ import annotations
@@ -38,7 +40,47 @@ __all__ = [
     "maybe_shadow_compare",
     "ingress_order_shadow_compare",
     "infer_contamination_locus",
+    "teams_norm",
+    "expected_ingress_teams",
 ]
+
+
+def teams_norm(teams: Any) -> list[str]:
+    """Lowercased stripped team labels for compare."""
+    if not isinstance(teams, (list, tuple)):
+        return []
+    return [str(x).strip().lower() for x in teams if isinstance(x, str) and x.strip()]
+
+
+def expected_ingress_teams(
+    message: str,
+    sll_clubs: list[str] | None = None,
+) -> list[str]:
+    """
+    Expected post-boundary subject teams at Path B ingress (message / SLL clubs).
+    Used for Appendix B IO-S3 — NOT OLD vs NEW lag.
+    """
+    if sll_clubs:
+        return [c for c in sll_clubs if isinstance(c, str) and c.strip()]
+    try:
+        from src.conversation.topic_boundary_v2 import (
+            current_message_entities,
+            extract_fixture_phrase,
+        )
+
+        clubs = current_message_entities(message or "", None)
+        if clubs:
+            return list(clubs)
+        fx = extract_fixture_phrase(message or "")
+        if fx:
+            # Fixture phrase already parsed into entities above when possible;
+            # fall back to splitting on x/X when entities empty.
+            parts = [p.strip() for p in fx.replace("×", " x ").split(" x ") if p.strip()]
+            if len(parts) >= 2:
+                return parts[:2]
+    except Exception:
+        pass
+    return []
 
 
 def legacy_intent(ctx: dict[str, Any] | None) -> str | None:
@@ -377,18 +419,21 @@ def ingress_order_shadow_compare(
     *,
     sll_clubs: list[str] | None = None,
     force: bool = False,
+    expected_teams: list[str] | None = None,
 ) -> dict[str, Any] | None:
     """
-    Path B — P2 ingress-order experiment design (Spec §9.2 / Appendix B).
+    Path B — P2 ingress-order experiment (Spec §9.2 / Appendix B).
 
-    Intended locus: post-SLL **pre-CSL**. Scaffolding for Mission 016 Migration
-    phase; does NOT activate Appendix B harness grading here.
+    Locus: post-SLL **pre-CSL**. Observe-only; never mutates live ctx / CSL /
+    production memory; never alters message, payload, or user-facing response.
 
-    Gate: ENABLE_LANGGRAPH_STATE_SHADOW (or force for unit tests).
-    Fail-open; never mutates live ctx / CSL. Production write stays OFF.
+    Gate: ENABLE_LANGGRAPH_STATE_SHADOW (or force for unit/harness tests).
+    Fail-open. Production write stays OFF. Sole Writer stays OFF.
 
-    Router wiring of Path B is deferred to Migration/Integration — Phase 2
-    only provides the hook API + metrics shape.
+    Appendix B divergence classes (IO-S3/IO-S4):
+      - subject_teams_mismatch: NEW teams ≠ expected ingress subject (not OLD lag)
+      - soft_fu_on_contaminated_prior: soft keep that preserves contaminated OLD
+        while NEW wrongly diverges from a stated expected subject
     """
     if not force and not langgraph_state_shadow_enabled():
         return None
@@ -403,6 +448,11 @@ def ingress_order_shadow_compare(
         # Prefer explicit SLL clubs when provided (ingress-order contract).
         clubs = list(sll_clubs) if sll_clubs is not None else current_message_entities(
             message or "", None
+        )
+        expected = (
+            list(expected_teams)
+            if expected_teams is not None
+            else expected_ingress_teams(message or "", clubs)
         )
 
         # OLD at ingress: prefer raw last_*/SRF without assuming CSL already wrote.
@@ -421,15 +471,50 @@ def ingress_order_shadow_compare(
         locus = infer_contamination_locus(message or "", old_snap, new_snap)
         diff = compare_shadow(old_snap, new_sts)
 
-        # Divergence classes for Appendix B grading (Migration harness).
+        # Appendix B classes — IO-S3 uses NEW vs expected, not OLD vs NEW lag.
         divergence_classes: list[str] = []
-        if diff.get("divergent") and "teams" in (diff.get("fields") or {}):
-            divergence_classes.append("subject_teams_mismatch")
+        is_switch_turn = route == "apply_boundary" or reason in {
+            "new_fixture",
+            "new_fixture_no_prior_label",
+            "low_entity_overlap",
+            "seed_subject",
+        }
+        new_teams = teams_norm(new_snap.get("teams"))
+        exp_teams = teams_norm(expected)
+        if is_switch_turn and exp_teams:
+            # Pass if every expected label appears in NEW (order-insensitive;
+            # single-team Inter partial may seed one club).
+            if not all(any(e in n or n in e for n in new_teams) for e in exp_teams):
+                # Also accept exact set equality after fold.
+                if set(exp_teams) != set(new_teams):
+                    # Soft match: require at least one expected club in NEW for
+                    # multi-club; for single expected require membership.
+                    if len(exp_teams) == 1:
+                        if not any(exp_teams[0] in n or n in exp_teams[0] for n in new_teams):
+                            divergence_classes.append("subject_teams_mismatch")
+                    else:
+                        overlap = set(exp_teams) & set(new_teams)
+                        if len(overlap) < min(2, len(exp_teams)):
+                            divergence_classes.append("subject_teams_mismatch")
+
+        soft_reasons = {"soft_followup_same_episode", "soft_team_in_episode", "no_current_entities"}
         soft_contaminated = (
-            locus == "before_langgraph"
-            and reason in {"soft_followup_same_episode", "soft_team_in_episode"}
+            reason in soft_reasons
+            and route == "keep_followup"
+            and locus == "before_langgraph"
             and bool(diff.get("divergent"))
         )
+        # Explicit fail class when soft keep retains OLD while expected ingress
+        # subject (from prior switch evidence) differs — harness may pass expected.
+        if (
+            reason in soft_reasons
+            and route == "keep_followup"
+            and exp_teams
+            and new_teams
+            and set(exp_teams) != set(new_teams)
+            and not all(any(e in n or n in e for n in new_teams) for e in exp_teams)
+        ):
+            soft_contaminated = True
         if soft_contaminated:
             divergence_classes.append("soft_fu_on_contaminated_prior")
 
@@ -437,6 +522,8 @@ def ingress_order_shadow_compare(
             "shadow_path": "B_ingress_order",
             "locus_design": "post_sll_pre_csl",
             "sll_clubs": clubs,
+            "expected_teams": expected,
+            "is_switch_turn": bool(is_switch_turn),
             "old": {
                 "fixture": old_snap.get("fixture"),
                 "episode": old_snap.get("episode_id"),
@@ -459,13 +546,16 @@ def ingress_order_shadow_compare(
             "message": message or "",
             "shadow_only": True,
             "production_write_enabled": langgraph_state_enabled(),
-            "appendix_b_ready": False,  # harness grading = Migration phase
+            "appendix_b_ready": True,
         }
         logger.info(
-            "[AUDIT] INGRESS_ORDER_SHADOW path=B divergent=%s locus=%s classes=%s",
+            "[AUDIT] INGRESS_ORDER_SHADOW path=B divergent=%s locus=%s classes=%s "
+            "switch=%s write=%s",
             result["divergent"],
             locus,
             divergence_classes,
+            is_switch_turn,
+            result["production_write_enabled"],
         )
         return result
     except Exception as exc:

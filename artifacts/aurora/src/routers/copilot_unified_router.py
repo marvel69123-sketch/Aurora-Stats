@@ -1804,6 +1804,7 @@ async def _copilot_inner(
         pass
 
     # ── PATCH-002A: Sports Language Layer (BEFORE routing / memory / GA) ──
+    _sll = None
     try:
         from src.conversation.sports_language import apply_sports_language_layer
 
@@ -1812,6 +1813,17 @@ async def _copilot_inner(
             message = _sll.normalized_text
     except Exception as _sll_exc:
         logger.warning("copilot: SLL skipped (%s)", _sll_exc)
+
+    # Mission 016 Phase 3 — Path B ingress-order SHADOW (post-SLL pre-CSL).
+    # Observe-only / fail-open. Gated by ENABLE_LANGGRAPH_STATE_SHADOW (default OFF).
+    # Must NOT mutate message, ctx subject writers, memory, or user response (REGRA 23).
+    try:
+        from src.conversation.langgraph_state_adapter import ingress_order_shadow_compare
+
+        _sll_clubs = list(getattr(_sll, "clubs", None) or []) if _sll is not None else None
+        ingress_order_shadow_compare(message, ctx, sll_clubs=_sll_clubs)
+    except Exception as _lg_ingress_exc:
+        logger.warning("copilot: ingress-order shadow skipped (%s)", _lg_ingress_exc)
 
     # TOPIC-BOUNDARY-002 — Episode boundary V2 BEFORE CSL / sport-intent rewrite.
     # Uses raw (post-SLL) message so subject rotation beats fixture reuse.
@@ -1841,10 +1853,10 @@ async def _copilot_inner(
     except Exception as _sil_exc:
         logger.warning("copilot: sport intent layer skipped (%s)", _sil_exc)
 
-    # LANGGRAPH-STATE-POC-001 Phase 2 — SHADOW MODE only (log-only OLD vs NEW).
-    # Gated by ENABLE_LANGGRAPH_STATE_SHADOW (default OFF). Independent of
-    # ENABLE_LANGGRAPH_STATE (production write path stays OFF). Fail-open;
-    # must not change message, payload, response, or live ctx subject writers.
+    # LANGGRAPH-STATE-POC-001 / Mission 016 Phase 3 — Path A legacy-position SHADOW
+    # (post CSL/intent). Log-only OLD vs NEW. Gated by ENABLE_LANGGRAPH_STATE_SHADOW
+    # (default OFF). Independent of ENABLE_LANGGRAPH_STATE (write OFF). Fail-open;
+    # must not change message, payload, response, or live ctx subject writers (REGRA 23).
     try:
         from src.conversation.langgraph_state_adapter import maybe_shadow_compare
 

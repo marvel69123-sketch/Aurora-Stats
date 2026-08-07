@@ -410,7 +410,7 @@ def test_ingress_order_hook_off_by_default_force_ok():
     assert result["shadow_path"] == "B_ingress_order"
     assert result["locus_design"] == "post_sll_pre_csl"
     assert result["production_write_enabled"] is False
-    assert result["appendix_b_ready"] is False
+    assert result["appendix_b_ready"] is True  # Phase 3 Shadow: Appendix B harness ready
 
 
 def test_build_decision_from_classify_helper():
