@@ -51,8 +51,8 @@ Elevação L2/L3: NÃO — Spec consolidates approved research; no product delta
 | Mission | 023 ARCHITECTURE_SPECIFICATION — Execution Manager v1.0 |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(spec): add Execution Manager Specification v1.0` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `d238ece1b055f9ac0f3cb98eb35decc9699aedaf` (Spec body); evidence stamp in follow-up if present |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`db4ca73..d238ece`) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Deliverables | `SPEC_EXECUTION_MANAGER_v1.0.md`, `SPEC_EXECUTION_MANAGER_REPORT.md` |
 
