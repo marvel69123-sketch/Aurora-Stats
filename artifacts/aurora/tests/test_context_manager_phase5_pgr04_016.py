@@ -4,7 +4,7 @@ Mission 016 Phase 5 — Gated Activation PGR-04 ONLY (REGRA 25 / REGRA 27).
 Proves:
   - Repo default OFF / 0%; PGR-04 not armed
   - PGR-04 (25% / STAGE4_25PCT) path when explicitly flagged
-  - pct > 25 blocked without higher PO unlock; PGR-05 not unlocked
+  - pct > 50 blocked without higher PO unlock; PGR-06 not unlocked
   - Instant rollback to OFF; PGR-01/PGR-02/PGR-03 still coherent when PGR-04 off
   - Shadow still works; legacy writers present
   - ENABLE_LANGGRAPH_STATE remains OFF (no full prod write / Phase 6)
@@ -172,20 +172,22 @@ def test_pgr04_defaults_off_not_armed():
     snap = pgr_flag_snapshot()
     assert snap["active_gate"] == "NONE"
     assert snap["pgr04_enable"] is False
-    assert snap["authorized_operational_max_pct"] == 25
+    assert snap["authorized_operational_max_pct"] == 50
     assert snap["higher_gates_locked"] is True
     assert snap["pgr04_not_started"] is False
-    assert snap["pgr05_not_started"] is True
+    assert snap["pgr05_not_started"] is False
+    assert snap["pgr06_not_started"] is True
     assert snap["phase6_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["mirror_drift_open"] is True
     assert PGR04_PCT == 25
     assert PGR04_STAGE == "STAGE4_25PCT"
-    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 25
-    assert FUNNEL_AUTH_MAX == 25
+    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 50
+    assert FUNNEL_AUTH_MAX == 50
     assert len(PGR_LADDER) == 6
     assert PGR_LADDER[3]["authorized_this_mission"] is True
-    assert PGR_LADDER[4]["authorized_this_mission"] is False
+    assert PGR_LADDER[4]["authorized_this_mission"] is True
+    assert PGR_LADDER[5]["authorized_this_mission"] is False
 
 
 def test_pgr04_pct25_without_pgr04_remains_off():
@@ -224,7 +226,8 @@ def test_pgr04_twenty_five_pct_path_when_enabled():
         assert snap["analyze_funnel_live"] is True
         assert snap["boundary_funnel_live"] is True
         assert snap["pgr04_not_started"] is False
-        assert snap["pgr05_not_started"] is True
+        assert snap["pgr05_not_started"] is False
+        assert snap["pgr06_not_started"] is True
         assert snap["phase6_not_started"] is True
         assert snap["phase5_langgraph_write_not_started"] is True
         assert langgraph_state_enabled() is False
@@ -359,26 +362,27 @@ def test_pgr04_funnel_rollback_alone_clears_pct():
 
 
 # ---------------------------------------------------------------------------
-# Higher gates locked / pct > 25 / no PGR-05
+# Higher gates locked / pct > 50 / no PGR-06
 # ---------------------------------------------------------------------------
 
 
-def test_pgr05_enable_does_not_unlock():
+def test_pgr06_enable_does_not_unlock():
     _clear_flags()
     os.environ["AURORA_PGR_04_ENABLE"] = "1"
-    os.environ["AURORA_PGR_05_ENABLE"] = "1"
+    os.environ["AURORA_PGR_06_ENABLE"] = "1"
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "25"
     os.environ["ENABLE_STS_NOTE_SUBJECT_GUARDS"] = "1"
     try:
         assert higher_pgr_gate_attempted() is True
         assert get_funnel_pct() == 0
         assert note_subject_funnel_enabled() is False
-        assert pgr_flag_snapshot()["pgr05_not_started"] is True
+        assert pgr_flag_snapshot()["pgr06_not_started"] is True
     finally:
         _clear_flags()
 
 
-def test_pgr04_pct_above_25_blocked_without_po_unlock():
+def test_pgr04_pct_50_without_pgr05_remains_off():
+    """pct=50 without PGR-05 stays OFF (independent gate — see PGR-05 suite)."""
     _clear_flags()
     os.environ["AURORA_PGR_04_ENABLE"] = "1"
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "50"
@@ -402,12 +406,12 @@ def test_pgr04_hundred_pct_not_unlocked():
         _clear_flags()
 
 
-def test_pgr04_po_unlock_alone_does_not_unlock_above_25():
-    """Even with PO unlock, pct>25 remains fail-closed without PGR-05 mission."""
+def test_pgr04_po_unlock_alone_does_not_unlock_above_50():
+    """Even with PO unlock, pct>50 remains fail-closed without PGR-06 mission."""
     _clear_flags()
     os.environ["AURORA_PGR_04_ENABLE"] = "1"
     os.environ["AURORA_FUNNEL_PO_STAGE_UNLOCK"] = "1"
-    os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "50"
+    os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "100"
     try:
         assert get_funnel_pct() == 0
     finally:
@@ -466,7 +470,7 @@ def test_pgr04_flag_snapshot_and_runbook():
     assert "ENABLE_STS_WRITE_FUNNEL_ANALYZE=1" in runbook
     assert "ENABLE_LANGGRAPH_STATE=0" in runbook
     assert "rollback_pgr04_to_off" in runbook
-    assert "AURORA_PGR_05_ENABLE" in runbook
+    assert "AURORA_PGR_06_ENABLE" in runbook
 
 
 def test_pgr04_no_auto_advance_and_phase6_not_started():
@@ -476,7 +480,8 @@ def test_pgr04_no_auto_advance_and_phase6_not_started():
         snap = funnel_flag_snapshot()
         assert snap["auto_advance"] is False
         assert snap["pgr04_not_started"] is False
-        assert snap["pgr05_not_started"] is True
+        assert snap["pgr05_not_started"] is False
+        assert snap["pgr06_not_started"] is True
         assert snap["phase6_not_started"] is True
         assert snap["effective_pct"] == 25
         assert snap["note_funnel_live"] is True

@@ -1,13 +1,13 @@
 """
-Mission 016 Phase 4+5 — Sole-Writer Funnel + PGR-01..PGR-04 gated activation.
+Mission 016 Phase 4+5 — Sole-Writer Funnel + PGR-01..PGR-05 gated activation.
 
 Progressive activation percentages (constants): 0 → 1 → 5 → 10 → 25 → 50 → 100.
-Default in repo: 0% (OFF). Authorized operational max without higher PO unlock = 25%
-(STAGE4_25PCT) when PGR-04 is independently armed (`AURORA_PGR_04_ENABLE`).
-PGR-03 still gates STAGE3_NOTE_10PCT (10%); PGR-02 gates STAGE2_ANALYZE_5PCT (5%);
-PGR-01 gates STAGE1_BOUNDARY_1PCT (1%). pct > 25 / PGR-05+ remain locked.
-No auto-advance. ENABLE_LANGGRAPH_STATE stays OFF (full prod write / Phase 6
-not started).
+Default in repo: 0% (OFF). Authorized operational max without higher PO unlock = 50%
+(STAGE5_50PCT) when PGR-05 is independently armed (`AURORA_PGR_05_ENABLE`).
+PGR-04 still gates STAGE4_25PCT (25%); PGR-03 gates STAGE3_NOTE_10PCT (10%);
+PGR-02 gates STAGE2_ANALYZE_5PCT (5%); PGR-01 gates STAGE1_BOUNDARY_1PCT (1%).
+pct > 50 / PGR-06+ remain locked. No auto-advance. ENABLE_LANGGRAPH_STATE stays
+OFF (full prod write / Phase 6 not started).
 
 Writes that the funnel owns go through C17 Minimal Commit Orchestrator only
 (dual-write forbidden). Legacy writers remain present when OFF / not selected.
@@ -40,16 +40,17 @@ logger = logging.getLogger(__name__)
 # REGRA 24 stage ladder — higher stages exist as constants only.
 FUNNEL_STAGE_PERCENTAGES: tuple[int, ...] = (0, 1, 5, 10, 25, 50, 100)
 
-# Phase 4 stage-1 ceiling (PGR-01). PGR-02→5%; PGR-03→10%; PGR-04→25%.
+# Phase 4 stage-1 ceiling (PGR-01). PGR-02→5%; PGR-03→10%; PGR-04→25%; PGR-05→50%.
 PHASE4_AUTHORIZED_MAX_PCT = 1
 PGR02_AUTHORIZED_MAX_PCT = 5
 PGR03_AUTHORIZED_MAX_PCT = 10
-# Mission PGR-04 operational ceiling without higher PO unlock / PGR-05.
 PGR04_AUTHORIZED_MAX_PCT = 25
-AUTHORIZED_OPERATIONAL_MAX_PCT = PGR04_AUTHORIZED_MAX_PCT
+# Mission PGR-05 operational ceiling without higher PO unlock / PGR-06.
+PGR05_AUTHORIZED_MAX_PCT = 50
+AUTHORIZED_OPERATIONAL_MAX_PCT = PGR05_AUTHORIZED_MAX_PCT
 
 _ENV_PCT = "AURORA_SOLE_WRITER_FUNNEL_PCT"
-_ENV_PO_UNLOCK = "AURORA_FUNNEL_PO_STAGE_UNLOCK"  # required to set pct > 25
+_ENV_PO_UNLOCK = "AURORA_FUNNEL_PO_STAGE_UNLOCK"  # required to set pct > 50
 _CTX_STS_KEY = "_sts_funnel_snapshot"
 _CTX_FUNNEL_META = "_sts_funnel_meta"
 _CSL_SUBJECT_GUARD = "csl_subject_guard"
@@ -90,7 +91,7 @@ def _flag_truthy(env_name: str) -> bool:
 
 
 def po_stage_unlock_enabled() -> bool:
-    """Explicit PO approval gate for pct > AUTHORIZED_OPERATIONAL_MAX_PCT (25%)."""
+    """Explicit PO approval gate for pct > AUTHORIZED_OPERATIONAL_MAX_PCT (50%)."""
     return _flag_truthy(_ENV_PO_UNLOCK)
 
 
@@ -116,7 +117,7 @@ def get_funnel_pct() -> int:
     """
     Effective progressive activation percentage.
 
-    Default 0. Values > AUTHORIZED_OPERATIONAL_MAX_PCT (25) without PO unlock
+    Default 0. Values > AUTHORIZED_OPERATIONAL_MAX_PCT (50) without PO unlock
     fail-closed to 0 (do not auto-advance; do not silently run higher stages).
 
     Phase 5 / REGRA 25:
@@ -124,7 +125,8 @@ def get_funnel_pct() -> int:
       - configured 5% effective only when PGR-02 is armed
       - configured 10% effective only when PGR-03 is armed
       - configured 25% effective only when PGR-04 is armed
-      - PGR-05+ attempts fail-closed
+      - configured 50% effective only when PGR-05 is armed
+      - PGR-06+ attempts fail-closed
     """
     configured = get_configured_funnel_pct()
     if configured <= 0:
@@ -133,7 +135,7 @@ def get_funnel_pct() -> int:
         _bump("funnel_blocked_high_stage")
         logger.warning(
             "[AUDIT] SOLE_WRITER_FUNNEL blocked_high_stage configured_pct=%s "
-            "authorized_max=%s (set %s=1 only with PO approval for >25%%)",
+            "authorized_max=%s (set %s=1 only with PO approval for >50%%)",
             configured,
             AUTHORIZED_OPERATIONAL_MAX_PCT,
             _ENV_PO_UNLOCK,
@@ -146,11 +148,17 @@ def get_funnel_pct() -> int:
             require_pgr02_for_stage2,
             require_pgr03_for_stage3,
             require_pgr04_for_stage4,
+            require_pgr05_for_stage5,
         )
 
         if higher_pgr_gate_attempted():
             _bump("funnel_blocked_high_stage")
             return 0
+        # PGR-05 independent gate for the authorized 50% stage.
+        if configured == PGR05_AUTHORIZED_MAX_PCT:
+            if not require_pgr05_for_stage5(force=False):
+                return 0
+            return configured
         # PGR-04 independent gate for the authorized 25% stage.
         if configured == PGR04_AUTHORIZED_MAX_PCT:
             if not require_pgr04_for_stage4(force=False):
@@ -172,12 +180,12 @@ def get_funnel_pct() -> int:
                 return 0
             return configured
         # Intermediate / unexpected configured values between gates: fail-closed
-        # unless PO unlock already passed the >25 check above (still no PGR-05).
+        # unless PO unlock already passed the >50 check above (still no PGR-06).
         if configured > AUTHORIZED_OPERATIONAL_MAX_PCT:
             # PO unlock present but no higher PGR — still fail-closed this mission.
             _bump("funnel_blocked_high_stage")
             logger.warning(
-                "[AUDIT] SOLE_WRITER_FUNNEL blocked_high_stage pct>%s without PGR-05+",
+                "[AUDIT] SOLE_WRITER_FUNNEL blocked_high_stage pct>%s without PGR-06+",
                 AUTHORIZED_OPERATIONAL_MAX_PCT,
             )
             return 0
@@ -462,7 +470,9 @@ def commit_via_c17_funnel(
     pct = get_funnel_pct()
     if force and pct <= 0:
         configured = get_configured_funnel_pct()
-        if configured >= PGR04_AUTHORIZED_MAX_PCT:
+        if configured >= PGR05_AUTHORIZED_MAX_PCT:
+            pct = PGR05_AUTHORIZED_MAX_PCT
+        elif configured >= PGR04_AUTHORIZED_MAX_PCT:
             pct = PGR04_AUTHORIZED_MAX_PCT
         elif configured >= PGR03_AUTHORIZED_MAX_PCT:
             pct = PGR03_AUTHORIZED_MAX_PCT
@@ -590,6 +600,7 @@ def funnel_flag_snapshot() -> dict[str, Any]:
             pgr02_enable_flag,
             pgr03_enable_flag,
             pgr04_enable_flag,
+            pgr05_enable_flag,
             pgr_flag_snapshot,
         )
 
@@ -598,11 +609,13 @@ def funnel_flag_snapshot() -> dict[str, Any]:
         pgr02_on = pgr02_enable_flag()
         pgr03_on = pgr03_enable_flag()
         pgr04_on = pgr04_enable_flag()
+        pgr05_on = pgr05_enable_flag()
     except Exception:
         pgr01_on = False
         pgr02_on = False
         pgr03_on = False
         pgr04_on = False
+        pgr05_on = False
     return {
         "configured_pct": configured,
         "effective_pct": effective,
@@ -611,6 +624,7 @@ def funnel_flag_snapshot() -> dict[str, Any]:
         "pgr02_authorized_max_pct": PGR02_AUTHORIZED_MAX_PCT,
         "pgr03_authorized_max_pct": PGR03_AUTHORIZED_MAX_PCT,
         "pgr04_authorized_max_pct": PGR04_AUTHORIZED_MAX_PCT,
+        "pgr05_authorized_max_pct": PGR05_AUTHORIZED_MAX_PCT,
         "authorized_operational_max_pct": AUTHORIZED_OPERATIONAL_MAX_PCT,
         "po_unlock": po_stage_unlock_enabled(),
         "boundary_flag": sts_funnel_boundary_enabled(),
@@ -623,17 +637,19 @@ def funnel_flag_snapshot() -> dict[str, Any]:
         "metrics": funnel_metrics_snapshot(),
         "legacy_writers_present": True,
         "shadow_untouched": True,
-        # Phase 5 PGR-01..04 may be armed; full LangGraph production write still OFF.
+        # Phase 5 PGR-01..05 may be armed; full LangGraph production write still OFF.
         "phase5_pgr01_started": bool(pgr01_on or effective >= 1),
         "phase5_pgr02_started": bool(pgr02_on or effective >= 5),
         "phase5_pgr03_started": bool(pgr03_on or effective >= 10),
         "phase5_pgr04_started": bool(pgr04_on or effective >= 25),
+        "phase5_pgr05_started": bool(pgr05_on or effective >= 50),
         "phase5_langgraph_write_not_started": not langgraph_state_enabled(),
         "phase6_not_started": True,
         "pgr02_not_started": False,
         "pgr03_not_started": False,
         "pgr04_not_started": False,
-        "pgr05_not_started": True,
+        "pgr05_not_started": False,
+        "pgr06_not_started": True,
         "phase5_not_started": not langgraph_state_enabled(),  # compat: write path
         "auto_advance": False,
         "pgr": pgr_snap,
