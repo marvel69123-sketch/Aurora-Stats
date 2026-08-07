@@ -65,8 +65,8 @@ Elevação L2/L3: NÃO — docs-only revision; no product delta; no Master reope
 | Mission | 025 SPECIFICATION_REVISION — EM Spec v1.1 |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(spec): revise Execution Manager Specification v1.1` |
-| Commit hash | *(stamped after commit)* |
-| Push | *(stamped after push)* |
+| Commit hash | `b4b13920f2ab84d6f7f11cf9ced09b45fe9e3391` (Spec body + report) |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (stamped after push) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Family lock | Deterministic Sequential Pipeline + Step Runner + Shadow-first + CM write-free + Tool Use separado — **UNCHANGED** |
 | ADR | **NOT CREATED** |
