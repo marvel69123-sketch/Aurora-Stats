@@ -1,15 +1,14 @@
 """
-Mission 039 Phase 5 — Gated Activation EM PGR-03 (REGRA 25) ONLY.
+Mission 042 Phase 5 — Gated Activation EM PGR-06 (REGRA 25) ONLY.
 
 Proves:
-  - Repo default OFF / 0%; PGR-03 not armed
-  - PGR-03 (10% / EM_STAGE3_SOLE_PATH_10PCT) path when explicitly flagged
-  - pct > 10 fail-closed without higher PO unlock
-  - PGR-06 remain locked / not unlocked
-  - Instant rollback to 0% / PGR-03 OFF; PGR-01/PGR-02 still re-armable
+  - Repo default OFF / 0%; PGR-06 not armed (even at 100% capability)
+  - PGR-06 (100% / EM_STAGE6_SOLE_PATH_100PCT) path when explicitly flagged
+  - pct=100 without PGR-06 stays OFF; no auto-advance
+  - Instant rollback to 0% / PGR-06 OFF; PGR-01..PGR-05 still re-armable
   - Shadow still works; pipeline flags remain DEFAULT OFF
   - Phase 4 extraction-only (pipeline ON, no activation posture) still 100%
-  - No auto-advance; prior EM / PGR-01 / PGR-02 suites remain green under defaults OFF
+  - Stabilization / Final Acceptance NOT started
 """
 
 from __future__ import annotations
@@ -26,6 +25,12 @@ from src.execution_manager import (
     PGR02_STAGE,
     PGR03_PCT,
     PGR03_STAGE,
+    PGR04_PCT,
+    PGR04_STAGE,
+    PGR05_PCT,
+    PGR05_STAGE,
+    PGR06_PCT,
+    PGR06_STAGE,
     assert_legal_em_flag_matrix,
     effective_em_activation_pct,
     em_flag_snapshot,
@@ -38,12 +43,21 @@ from src.execution_manager import (
     pgr01_enable_flag,
     pgr02_enable_flag,
     pgr03_enable_flag,
+    pgr04_enable_flag,
+    pgr05_enable_flag,
+    pgr06_enable_flag,
     require_em_pgr01,
     require_em_pgr02,
     require_em_pgr03,
+    require_em_pgr04,
+    require_em_pgr05,
+    require_em_pgr06,
     rollback_em_pgr01_to_off,
     rollback_em_pgr02_to_off,
     rollback_em_pgr03_to_off,
+    rollback_em_pgr04_to_off,
+    rollback_em_pgr05_to_off,
+    rollback_em_pgr06_to_off,
     shadow_enabled,
 )
 from src.execution_manager.flags import (
@@ -58,7 +72,7 @@ from src.execution_manager.progressive_gate import (
     get_configured_em_activation_pct,
     higher_em_pgr_gate_attempted,
     in_em_canary_bucket,
-    operator_enable_em_pgr03_instructions,
+    operator_enable_em_pgr06_instructions,
     reset_em_pgr_metrics,
 )
 from src.execution_manager.shadow import reset_shadow_metrics
@@ -112,13 +126,46 @@ def _arm_pgr03(*, pipeline: str | None = "ENABLE_EM_PIPELINE_ANALYZE") -> None:
         os.environ[pipeline] = "1"
 
 
+def _arm_pgr04(*, pipeline: str | None = "ENABLE_EM_PIPELINE_ANALYZE") -> None:
+    os.environ["ENABLE_EM_PGR_04"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "25"
+    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
+    os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
+    os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
+    if pipeline:
+        os.environ[pipeline] = "1"
+
+
+def _arm_pgr05(*, pipeline: str | None = "ENABLE_EM_PIPELINE_ANALYZE") -> None:
+    os.environ["ENABLE_EM_PGR_05"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "50"
+    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
+    os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
+    os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
+    if pipeline:
+        os.environ[pipeline] = "1"
+
+
+def _arm_pgr06(*, pipeline: str | None = "ENABLE_EM_PIPELINE_ANALYZE") -> None:
+    os.environ["ENABLE_EM_PGR_06"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "100"
+    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
+    os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
+    os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
+    if pipeline:
+        os.environ[pipeline] = "1"
+
+
 # ---------------------------------------------------------------------------
-# Defaults / PGR-03 independent gate
+# Defaults / PGR-06 independent gate
 # ---------------------------------------------------------------------------
 
 
-def test_pgr03_defaults_off_not_armed():
+def test_pgr06_defaults_off_not_armed():
     _clear_em_flags()
+    assert pgr06_enable_flag() is False
+    assert pgr05_enable_flag() is False
+    assert pgr04_enable_flag() is False
     assert pgr03_enable_flag() is False
     assert pgr02_enable_flag() is False
     assert pgr01_enable_flag() is False
@@ -130,98 +177,88 @@ def test_pgr03_defaults_off_not_armed():
     assert collect_illegal_em_combinations() == []
     snap = em_pgr_flag_snapshot()
     assert snap["active_gate"] == "NONE"
-    assert snap["pgr03_enable"] is False
+    assert snap["pgr06_enable"] is False
     assert snap["effective_pct"] == 0
     assert snap["higher_gates_locked"] is True
-    assert snap["pgr03_not_started"] is False
-    assert snap["pgr04_not_started"] is False
-    assert snap["pgr05_not_started"] is False
     assert snap["pgr06_not_started"] is False
+    assert snap["phase6_stabilization_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["rollback_possible"] is True
-    assert PGR03_PCT == 10
-    assert PGR03_STAGE == "EM_STAGE3_SOLE_PATH_10PCT"
+    assert PGR06_PCT == 100
+    assert PGR06_STAGE == "EM_STAGE6_SOLE_PATH_100PCT"
     assert AUTHORIZED_HIGHEST_GATE == "PGR-06"
     assert AUTHORIZED_OPERATIONAL_MAX_PCT == 100
     assert len(EM_PGR_LADDER) == 6
-    assert EM_PGR_LADDER[0]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[1]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[2]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[3]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[4]["authorized_this_mission"] is True
-    assert EM_PGR_LADDER[5]["authorized_this_mission"] is True
+    assert all(row["authorized_this_mission"] is True for row in EM_PGR_LADDER)
     flag_snap = em_flag_snapshot()
-    assert flag_snap["phase5_pgr03"] is True
-    assert flag_snap["phase5_pgr03_defaults_off"] is True
-    assert flag_snap["phase5_pgr03_not_started"] is False
-    assert flag_snap["phase5_pgr04_not_started"] is False
-    assert flag_snap["phase5_pgr05_not_started"] is False
+    assert flag_snap["phase5_pgr06"] is True
+    assert flag_snap["phase5_pgr06_defaults_off"] is True
     assert flag_snap["phase5_pgr06_not_started"] is False
     assert flag_snap["phase5_authorized_highest_gate"] == "PGR-06"
     assert flag_snap["phase5_authorized_max_pct"] == 100
-    assert flag_snap["progressive_gate_review"]["pgr03_enable"] is False
+    assert flag_snap["phase6_stabilization_not_started"] is True
+    assert flag_snap["progressive_gate_review"]["pgr06_enable"] is False
 
 
-def test_pgr03_pct10_without_flag_remains_off():
-    """Independent gate: EM_ACTIVATION_PCT=10 alone must NOT activate without PGR-03."""
+def test_pgr06_pct100_without_flag_remains_off():
+    """Independent gate: EM_ACTIVATION_PCT=100 alone must NOT activate without PGR-06."""
     _clear_em_flags()
-    os.environ["EM_ACTIVATION_PCT"] = "10"
+    os.environ["EM_ACTIVATION_PCT"] = "100"
     os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
     os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
     os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
     os.environ["ENABLE_EM_PIPELINE_ANALYZE"] = "1"
     try:
-        assert get_configured_em_activation_pct() == 10
+        assert get_configured_em_activation_pct() == 100
         assert get_effective_em_activation_pct() == 0
-        assert require_em_pgr03() is False
+        assert require_em_pgr06() is False
         assert em_pipeline_may_route(True, "session-a") is False
-        assert em_pgr_metrics_snapshot()["em_pgr03_blocked_missing_flag"] >= 1
+        assert em_pgr_metrics_snapshot()["em_pgr06_blocked_missing_flag"] >= 1
         ids = {v["id"] for v in collect_illegal_em_combinations()}
         assert "I6" in ids
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_ten_pct_path_when_enabled():
+def test_pgr06_hundred_pct_path_when_enabled():
     _clear_em_flags()
-    _arm_pgr03()
+    _arm_pgr06()
     try:
-        assert pgr03_enable_flag() is True
-        assert require_em_pgr03() is True
-        assert get_effective_em_activation_pct() == 10
-        assert em_activation_stage_name() == PGR03_STAGE
+        assert pgr06_enable_flag() is True
+        assert require_em_pgr06() is True
+        assert get_effective_em_activation_pct() == 100
+        assert em_activation_stage_name() == PGR06_STAGE
         assert collect_illegal_em_combinations() == []
         assert assert_legal_em_flag_matrix() == []
         snap = em_pgr_flag_snapshot()
-        assert snap["effective_pct"] == 10
-        assert snap["active_gate"] == "PGR-03"
-        assert snap["pgr04_not_started"] is False
-        assert snap["pgr05_not_started"] is False
+        assert snap["effective_pct"] == 100
+        assert snap["active_gate"] == "PGR-06"
         assert snap["pgr06_not_started"] is False
+        assert snap["phase6_stabilization_not_started"] is True
         assert snap["auto_advance"] is False
+        # 100% canary selects all sessions
+        assert in_em_canary_bucket("any-session") is True
+        assert em_pipeline_may_route(True, "any-session") is True
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_canary_bucket_deterministic():
+def test_pgr06_canary_bucket_at_100_selects_all():
     _clear_em_flags()
-    _arm_pgr03()
+    _arm_pgr06()
     try:
         assert in_em_canary_bucket("any", force=True) is True
         assert in_em_canary_bucket("any", pct=0) is False
         assert in_em_canary_bucket("any", pct=100) is True
-        a = in_em_canary_bucket("stable-em-pgr03-session", pct=10)
-        b = in_em_canary_bucket("stable-em-pgr03-session", pct=10)
-        assert a is b
-        assert isinstance(a, bool)
+        assert in_em_canary_bucket("stable-em-pgr06-session") is True
         assert em_pipeline_may_route(True, "x", force=True) is True
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_shim_canary_routes_or_legacy():
+def test_pgr06_shim_routes_when_armed():
     _clear_em_flags()
-    _arm_pgr03(pipeline="ENABLE_EM_PIPELINE_BANKROLL")
+    _arm_pgr06(pipeline="ENABLE_EM_PIPELINE_BANKROLL")
     legacy_calls = {"n": 0}
 
     def legacy():
@@ -230,29 +267,17 @@ def test_pgr03_shim_canary_routes_or_legacy():
 
     try:
         with patch(
-            "src.execution_manager.progressive_gate.in_em_canary_bucket",
-            return_value=False,
+            "src.execution_manager.ports.ProductionDbReadPort.learning_stats",
+            return_value={
+                "bankroll": 1000,
+                "units": 10,
+                "stop_loss": 0,
+                "stop_win": 0,
+            },
         ):
-            out = em_thin_or_legacy("bankroll", legacy, session_id="miss")
-            assert out["source"] == "legacy"
-            assert legacy_calls["n"] == 1
-
-        with patch(
-            "src.execution_manager.progressive_gate.in_em_canary_bucket",
-            return_value=True,
-        ):
-            with patch(
-                "src.execution_manager.ports.ProductionDbReadPort.learning_stats",
-                return_value={
-                    "bankroll": 1000,
-                    "units": 10,
-                    "stop_loss": 0,
-                    "stop_win": 0,
-                },
-            ):
-                out2 = em_thin_or_legacy("bankroll", legacy, session_id="hit")
-                assert isinstance(out2, dict)
-                assert "intent" in out2 or "source" in out2
+            out = em_thin_or_legacy("bankroll", legacy, session_id="hit")
+            assert isinstance(out, dict)
+            assert "intent" in out or "source" in out
     finally:
         _clear_em_flags()
 
@@ -265,78 +290,110 @@ def test_phase4_extraction_without_activation_posture_still_full():
     try:
         assert em_pipeline_may_route(True, "sess") is True
         assert get_effective_em_activation_pct() == 0
-        assert pgr03_enable_flag() is False
+        assert pgr06_enable_flag() is False
     finally:
         _clear_em_flags()
 
 
 # ---------------------------------------------------------------------------
-# Higher pct / PGR-06 locked / PGR-01/PGR-02 still available
+# Independent gate / no auto-advance / prior gates re-armable
 # ---------------------------------------------------------------------------
 
 
-def test_pgr03_pct25_without_pgr04_fail_closed():
-    """pct=25 with only PGR-03 stays OFF (independent PGR-04 gate)."""
+def test_pgr06_enable_with_pct50_does_not_auto_jump():
+    """PGR-06 enable with pct=50 stays on PGR-05 path (no auto-advance to 100%)."""
     _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_03"] = "1"
-    os.environ["EM_ACTIVATION_PCT"] = "25"
+    os.environ["ENABLE_EM_PGR_05"] = "1"
+    os.environ["ENABLE_EM_PGR_06"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "50"
     os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
     os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
     os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
     try:
-        assert get_configured_em_activation_pct() == 25
-        assert get_effective_em_activation_pct() == 0
-        assert em_pipeline_may_route(True, "s") is False
-        assert em_pgr_metrics_snapshot()["em_pgr04_blocked_missing_flag"] >= 1
+        assert higher_em_pgr_gate_attempted() is False
+        assert get_effective_em_activation_pct() == 50
+        assert require_em_pgr05() is True
+        assert em_pgr_flag_snapshot()["active_gate"] == "PGR-06"
+        assert em_activation_stage_name() == PGR05_STAGE
     finally:
         _clear_em_flags()
 
 
-def test_pgr03_hundred_pct_not_unlocked():
+def test_pgr05_pct100_without_pgr06_remains_off():
+    """pct=100 with only PGR-05 stays OFF (independent PGR-06 gate)."""
     _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_03"] = "1"
+    os.environ["ENABLE_EM_PGR_05"] = "1"
     os.environ["EM_ACTIVATION_PCT"] = "100"
+    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
+    os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
+    os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
     try:
+        assert get_configured_em_activation_pct() == 100
         assert get_effective_em_activation_pct() == 0
+        assert em_pipeline_may_route(True, "s") is False
         assert em_pgr_metrics_snapshot()["em_pgr06_blocked_missing_flag"] >= 1
     finally:
         _clear_em_flags()
 
 
-def test_pgr06_enable_does_not_auto_advance_from_pgr03():
-    """PGR-06 enable with pct=10 stays at 10% (no auto-advance to 100%)."""
+def test_pgr05_still_rearmable_when_pgr06_off():
     _clear_em_flags()
-    _arm_pgr03()
-    os.environ["ENABLE_EM_PGR_06"] = "1"
+    _arm_pgr06()
+    rollback_em_pgr06_to_off()
+    _arm_pgr05()
     try:
-        assert higher_em_pgr_gate_attempted() is False
-        assert get_effective_em_activation_pct() == 10
+        assert pgr06_enable_flag() is False
+        assert pgr05_enable_flag() is True
+        assert require_em_pgr05() is True
+        assert get_effective_em_activation_pct() == 50
+        assert em_activation_stage_name() == PGR05_STAGE
+        assert PGR05_PCT == 50
+        assert em_pgr_flag_snapshot()["active_gate"] == "PGR-05"
+    finally:
+        _clear_em_flags()
+
+
+def test_pgr04_still_rearmable_when_pgr06_off():
+    _clear_em_flags()
+    _arm_pgr06()
+    rollback_em_pgr06_to_off()
+    _arm_pgr04()
+    try:
+        assert pgr06_enable_flag() is False
+        assert pgr04_enable_flag() is True
+        assert require_em_pgr04() is True
+        assert get_effective_em_activation_pct() == 25
+        assert em_activation_stage_name() == PGR04_STAGE
+        assert PGR04_PCT == 25
+        assert em_pgr_flag_snapshot()["active_gate"] == "PGR-04"
+    finally:
+        _clear_em_flags()
+
+
+def test_pgr03_still_rearmable_when_pgr06_off():
+    _clear_em_flags()
+    _arm_pgr06()
+    rollback_em_pgr06_to_off()
+    _arm_pgr03()
+    try:
+        assert pgr06_enable_flag() is False
+        assert pgr03_enable_flag() is True
         assert require_em_pgr03() is True
-        assert em_pgr_flag_snapshot()["pgr06_not_started"] is False
-        assert em_pgr_flag_snapshot()["active_gate"] == "PGR-06"
+        assert get_effective_em_activation_pct() == 10
+        assert em_activation_stage_name() == PGR03_STAGE
+        assert PGR03_PCT == 10
+        assert em_pgr_flag_snapshot()["active_gate"] == "PGR-03"
     finally:
         _clear_em_flags()
 
 
-def test_pgr06_enable_alone_does_not_unlock_without_pct():
+def test_pgr02_still_rearmable_when_pgr06_off():
     _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_06"] = "1"
-    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
-    try:
-        assert get_effective_em_activation_pct() == 0
-        assert higher_em_pgr_gate_attempted() is False
-    finally:
-        _clear_em_flags()
-
-
-def test_pgr02_still_rearmable_when_pgr03_off():
-    """Prior gate PGR-02 remains available after PGR-03 rollback / when PGR-03 unset."""
-    _clear_em_flags()
-    _arm_pgr03()
-    rollback_em_pgr03_to_off()
+    _arm_pgr06()
+    rollback_em_pgr06_to_off()
     _arm_pgr02()
     try:
-        assert pgr03_enable_flag() is False
+        assert pgr06_enable_flag() is False
         assert pgr02_enable_flag() is True
         assert require_em_pgr02() is True
         assert get_effective_em_activation_pct() == 5
@@ -347,14 +404,13 @@ def test_pgr02_still_rearmable_when_pgr03_off():
         _clear_em_flags()
 
 
-def test_pgr01_still_rearmable_when_pgr03_off():
-    """Prior gate PGR-01 remains available after PGR-03 rollback."""
+def test_pgr01_still_rearmable_when_pgr06_off():
     _clear_em_flags()
-    _arm_pgr03()
-    rollback_em_pgr03_to_off()
+    _arm_pgr06()
+    rollback_em_pgr06_to_off()
     _arm_pgr01()
     try:
-        assert pgr03_enable_flag() is False
+        assert pgr06_enable_flag() is False
         assert pgr01_enable_flag() is True
         assert require_em_pgr01() is True
         assert get_effective_em_activation_pct() == 1
@@ -365,51 +421,35 @@ def test_pgr01_still_rearmable_when_pgr03_off():
         _clear_em_flags()
 
 
-def test_pgr02_pct10_without_pgr03_remains_off():
-    """pct=10 with only PGR-02 armed stays OFF (independent PGR-03 gate)."""
-    _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_02"] = "1"
-    os.environ["EM_ACTIVATION_PCT"] = "10"
-    os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
-    os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
-    os.environ["ENABLE_EM_DUAL_RUN_HARNESS"] = "1"
-    try:
-        assert get_configured_em_activation_pct() == 10
-        assert get_effective_em_activation_pct() == 0
-        assert em_pgr_metrics_snapshot()["em_pgr03_blocked_missing_flag"] >= 1
-    finally:
-        _clear_em_flags()
-
-
 # ---------------------------------------------------------------------------
 # Rollback / Shadow / matrix / runbook
 # ---------------------------------------------------------------------------
 
 
-def test_rollback_pgr03_to_off():
+def test_rollback_pgr06_to_off():
     _clear_em_flags()
-    _arm_pgr03()
-    assert get_effective_em_activation_pct() == 10
-    out = rollback_em_pgr03_to_off()
-    assert pgr03_enable_flag() is False
+    _arm_pgr06()
+    assert get_effective_em_activation_pct() == 100
+    out = rollback_em_pgr06_to_off()
+    assert pgr06_enable_flag() is False
     assert get_effective_em_activation_pct() == 0
-    assert out["pgr03_enable"] is False
-    assert em_pgr_metrics_snapshot()["em_pgr03_rollback"] >= 1
+    assert out["pgr06_enable"] is False
+    assert em_pgr_metrics_snapshot()["em_pgr06_rollback"] >= 1
     assert shadow_enabled() is True
     _clear_em_flags()
 
 
-def test_shadow_still_works_with_pgr03_off():
+def test_shadow_still_works_with_pgr06_off():
     _clear_em_flags()
     os.environ["ENABLE_EXECUTION_MANAGER_SHADOW"] = "1"
     try:
         assert shadow_enabled() is True
-        assert pgr03_enable_flag() is False
+        assert pgr06_enable_flag() is False
         assert get_effective_em_activation_pct() == 0
         maybe_em_shadow_observe(
             legacy_payload={"intent": "analyze"},
             pipeline_id="analyze",
-            session_id="shadow-pgr03",
+            session_id="shadow-pgr06",
             entities={},
         )
     finally:
@@ -418,20 +458,19 @@ def test_shadow_still_works_with_pgr03_off():
 
 def test_no_auto_advance_and_runbook():
     _clear_em_flags()
-    _arm_pgr03()
+    _arm_pgr06()
     try:
         snap = em_flag_snapshot()
         assert snap["auto_advance"] is False
-        assert snap["phase5_pgr04_not_started"] is False
-        assert snap["phase5_pgr05_not_started"] is False
         assert snap["phase5_pgr06_not_started"] is False
-        assert snap["EM_ACTIVATION_PCT_EFFECTIVE"] == 10
-        runbook = operator_enable_em_pgr03_instructions()
-        assert "ENABLE_EM_PGR_03=1" in runbook
-        assert "EM_ACTIVATION_PCT=10" in runbook
+        assert snap["phase6_stabilization_not_started"] is True
+        assert snap["EM_ACTIVATION_PCT_EFFECTIVE"] == 100
+        runbook = operator_enable_em_pgr06_instructions()
+        assert "ENABLE_EM_PGR_06=1" in runbook
+        assert "EM_ACTIVATION_PCT=100" in runbook
         assert "ENABLE_EXECUTION_MANAGER=1" in runbook
-        assert "PGR-06" in runbook or "ENABLE_EM_PGR_06" in runbook
-        assert "rollback_em_pgr03_to_off" in runbook
+        assert "rollback_em_pgr06_to_off" in runbook
+        assert "Stabilization" in runbook
     finally:
         _clear_em_flags()
 
@@ -449,6 +488,9 @@ def test_pipeline_flags_remain_default_off_in_repo():
         "ENABLE_EM_PGR_01",
         "ENABLE_EM_PGR_02",
         "ENABLE_EM_PGR_03",
+        "ENABLE_EM_PGR_04",
+        "ENABLE_EM_PGR_05",
+        "ENABLE_EM_PGR_06",
         "ENABLE_EXECUTION_MANAGER",
     ):
         assert snap["flags"][name] is False
@@ -466,5 +508,23 @@ def test_rollback_prior_helpers_still_work():
     assert get_effective_em_activation_pct() == 5
     rollback_em_pgr02_to_off()
     assert pgr02_enable_flag() is False
+    assert get_effective_em_activation_pct() == 0
+
+    _arm_pgr03()
+    assert get_effective_em_activation_pct() == 10
+    rollback_em_pgr03_to_off()
+    assert pgr03_enable_flag() is False
+    assert get_effective_em_activation_pct() == 0
+
+    _arm_pgr04()
+    assert get_effective_em_activation_pct() == 25
+    rollback_em_pgr04_to_off()
+    assert pgr04_enable_flag() is False
+    assert get_effective_em_activation_pct() == 0
+
+    _arm_pgr05()
+    assert get_effective_em_activation_pct() == 50
+    rollback_em_pgr05_to_off()
+    assert pgr05_enable_flag() is False
     assert get_effective_em_activation_pct() == 0
     _clear_em_flags()
