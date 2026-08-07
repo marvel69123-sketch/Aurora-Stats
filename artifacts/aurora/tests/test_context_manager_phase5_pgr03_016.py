@@ -159,24 +159,24 @@ def test_pgr03_defaults_off_not_armed():
     snap = pgr_flag_snapshot()
     assert snap["active_gate"] == "NONE"
     assert snap["pgr03_enable"] is False
-    assert snap["authorized_operational_max_pct"] == 50
+    assert snap["authorized_operational_max_pct"] == 100
     assert snap["higher_gates_locked"] is True
     assert snap["pgr03_not_started"] is False
     assert snap["pgr04_not_started"] is False
     assert snap["pgr05_not_started"] is False
-    assert snap["pgr06_not_started"] is True
+    assert snap["pgr06_not_started"] is False
     assert snap["phase6_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["mirror_drift_open"] is True
     assert PGR03_PCT == 10
     assert PGR03_STAGE == "STAGE3_NOTE_10PCT"
-    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 50
-    assert FUNNEL_AUTH_MAX == 50
+    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 100
+    assert FUNNEL_AUTH_MAX == 100
     assert len(PGR_LADDER) == 6
     assert PGR_LADDER[2]["authorized_this_mission"] is True
     assert PGR_LADDER[3]["authorized_this_mission"] is True
     assert PGR_LADDER[4]["authorized_this_mission"] is True
-    assert PGR_LADDER[5]["authorized_this_mission"] is False
+    assert PGR_LADDER[5]["authorized_this_mission"] is True
 
 
 def test_pgr03_pct10_without_pgr03_remains_off():
@@ -217,7 +217,7 @@ def test_pgr03_ten_pct_path_when_enabled():
         assert snap["pgr03_not_started"] is False
         assert snap["pgr04_not_started"] is False
         assert snap["pgr05_not_started"] is False
-        assert snap["pgr06_not_started"] is True
+        assert snap["pgr06_not_started"] is False
         assert snap["phase6_not_started"] is True
         assert snap["phase5_langgraph_write_not_started"] is True
         assert langgraph_state_enabled() is False
@@ -332,23 +332,27 @@ def test_pgr03_funnel_rollback_alone_clears_pct():
 
 
 # ---------------------------------------------------------------------------
-# Higher gates locked / pct > 50 / no PGR-06
+# Higher pct fail-closed without matching PGR / no auto-advance
 # ---------------------------------------------------------------------------
 
 
 def test_pgr06_enable_does_not_unlock():
+    """PGR-06 enable with pct=10 does not auto-jump to 100% (no auto-advance)."""
     _clear_flags()
     os.environ["AURORA_PGR_03_ENABLE"] = "1"
     os.environ["AURORA_PGR_06_ENABLE"] = "1"
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "10"
     os.environ["ENABLE_STS_NOTE_SUBJECT_GUARDS"] = "1"
+    os.environ["ENABLE_STS_WRITE_FUNNEL_BOUNDARY"] = "1"
+    os.environ["ENABLE_STS_WRITE_FUNNEL_ANALYZE"] = "1"
     try:
-        assert higher_pgr_gate_attempted() is True
-        assert get_funnel_pct() == 0
-        assert note_subject_funnel_enabled() is False
-        assert pgr_flag_snapshot()["pgr06_not_started"] is True
+        assert higher_pgr_gate_attempted() is False
+        assert get_funnel_pct() == 10
+        assert note_subject_funnel_enabled() is True
+        assert pgr_flag_snapshot()["pgr06_not_started"] is False
     finally:
         _clear_flags()
+
 
 
 def test_pgr03_pct_25_without_pgr04_remains_off():
@@ -451,7 +455,7 @@ def test_pgr03_no_auto_advance_and_phase6_not_started():
         assert snap["pgr03_not_started"] is False
         assert snap["pgr04_not_started"] is False
         assert snap["pgr05_not_started"] is False
-        assert snap["pgr06_not_started"] is True
+        assert snap["pgr06_not_started"] is False
         assert snap["phase6_not_started"] is True
         assert snap["effective_pct"] == 10
         assert snap["note_funnel_live"] is True

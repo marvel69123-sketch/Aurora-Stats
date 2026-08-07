@@ -29,9 +29,9 @@ _FUNNEL_FLAGS = (
     "ENABLE_STS_SOLE_WRITER",
 )
 
-# Progressive funnel pct (REGRA 24) — default 0; PGR-05 operational max = 50.
+# Progressive funnel pct (REGRA 24) — default 0; PGR-06 operational max = 100.
 _FUNNEL_PCT_ENV = "AURORA_SOLE_WRITER_FUNNEL_PCT"
-_FUNNEL_PO_UNLOCK_ENV = "AURORA_FUNNEL_PO_STAGE_UNLOCK"  # required for pct > 50
+_FUNNEL_PO_UNLOCK_ENV = "AURORA_FUNNEL_PO_STAGE_UNLOCK"  # required for pct > 100
 
 
 class MigrationStage(str, Enum):
@@ -275,7 +275,7 @@ def flag_snapshot() -> dict[str, Any]:
             "pgr03_not_started": False,
             "pgr04_not_started": False,
             "pgr05_not_started": False,
-            "pgr06_not_started": True,
+            "pgr06_not_started": False,
         }
     pgr_snap: dict[str, Any] = {}
     try:
@@ -290,13 +290,14 @@ def flag_snapshot() -> dict[str, Any]:
             "pgr03_enable": False,
             "pgr04_enable": False,
             "pgr05_enable": False,
+            "pgr06_enable": False,
             "higher_gates_locked": True,
             "phase6_not_started": True,
             "pgr02_not_started": False,
             "pgr03_not_started": False,
             "pgr04_not_started": False,
             "pgr05_not_started": False,
-            "pgr06_not_started": True,
+            "pgr06_not_started": False,
             "mirror_drift_open": True,
         }
     return {
@@ -319,6 +320,7 @@ def flag_snapshot() -> dict[str, Any]:
         "AURORA_PGR_03_ENABLE": _flag_truthy("AURORA_PGR_03_ENABLE"),
         "AURORA_PGR_04_ENABLE": _flag_truthy("AURORA_PGR_04_ENABLE"),
         "AURORA_PGR_05_ENABLE": _flag_truthy("AURORA_PGR_05_ENABLE"),
+        "AURORA_PGR_06_ENABLE": _flag_truthy("AURORA_PGR_06_ENABLE"),
         "sole_writer_funnel": funnel_pct_snap,
         "progressive_gate_review": pgr_snap,
     }
