@@ -82,7 +82,7 @@ Elevação L2/L3: NÃO — CDR docs-only; no product delta; no Master reopen
 | Mission | 024 CRITICAL_DESIGN_REVIEW — EM CDR-001 |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(review): add Execution Manager CDR-001` |
-| Commit hash | *(filled after commit)* |
+| Commit hash | `492a6f64cdf3a9ca1668ae074f74dab503fac559` |
 | Push | *(filled after push)* |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Spec edited | **NO** |
