@@ -383,13 +383,16 @@ def em_flag_snapshot() -> dict[str, Any]:
         "phase4_stage4_live_team": True,
         "phase4_live_team_defaults_off": not live_team_pipeline_extraction_enabled(),
         "phase4_extraction_complete": True,
-        # Phase 5 Progressive Activation — PGR-01 capability; defaults OFF.
+        # Phase 5 Progressive Activation — PGR-01 + PGR-02 capability; defaults OFF.
         "phase5_activation_not_started": False,
         "phase5_pgr01": True,
         "phase5_pgr01_defaults_off": not _flag_truthy("ENABLE_EM_PGR_01"),
-        "phase5_pgr02_not_started": True,
-        "phase5_authorized_highest_gate": "PGR-01",
-        "phase5_authorized_max_pct": 1,
+        "phase5_pgr02": True,
+        "phase5_pgr02_defaults_off": not _flag_truthy("ENABLE_EM_PGR_02"),
+        "phase5_pgr02_not_started": False,
+        "phase5_pgr03_not_started": True,
+        "phase5_authorized_highest_gate": "PGR-02",
+        "phase5_authorized_max_pct": 5,
         "progressive_gate_review": pgr_snap,
         "auto_advance": False,
         "rollback_possible": True,
@@ -417,6 +420,11 @@ def rollback_em_pgrXX_to_off(gate: int) -> None:
         from src.execution_manager.progressive_gate import rollback_em_pgr01_to_off
 
         rollback_em_pgr01_to_off()
+        return
+    if gate == 2:
+        from src.execution_manager.progressive_gate import rollback_em_pgr02_to_off
+
+        rollback_em_pgr02_to_off()
         return
     os.environ[f"ENABLE_EM_PGR_0{gate}"] = "0"
     # Clamp pct to 0 (prior plateau math for higher gates lands in later PGR missions).

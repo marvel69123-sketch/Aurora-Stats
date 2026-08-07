@@ -131,7 +131,9 @@ def test_stage1_flags_default_off():
     assert snap["phase4_live_defaults_off"] is True
     assert snap["phase5_activation_not_started"] is False
     assert snap["phase5_pgr01"] is True
-    assert snap["phase5_pgr02_not_started"] is True
+    assert snap["phase5_pgr02"] is True
+    assert snap["phase5_pgr02_not_started"] is False
+    assert snap["phase5_pgr03_not_started"] is True
 
 
 def test_thin_flag_on_enables_only_that_pipeline():
