@@ -79,8 +79,8 @@ Elevação L2/L3: NÃO — one extraction wave only; defaults OFF; dual path;
 | Mission | 034 CONTROLLED_IMPLEMENTATION — Phase 4 Progressive Extraction Stage 2 ONLY |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete Phase 4 Progressive Extraction Stage 2` |
-| Commit hash | `04fb21705c9f39853b3fc16625a2bb349d8ee8ca` (`04fb217`) |
-| Push | *(filled after push)* |
+| Commit hash | `84830f46caa22b960905428b0854f759fe831294` (`84830f4`) |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` |
 | Scope | E2 live extraction + Router async shim + DEFAULT OFF flag + tests + completion |
 | Product primary path (defaults) | **UNCHANGED** — legacy `_run_live` when `ENABLE_EM_PIPELINE_LIVE` OFF |
 | Spec / Plan / Master / Blueprint / SSOT | **UNTOUCHED** |
