@@ -36,6 +36,7 @@ __all__ = [
     "legacy_intent",
     "maybe_shadow_log",
     "maybe_shadow_compare",
+    "ingress_order_shadow_compare",
     "infer_contamination_locus",
 ]
 
@@ -159,6 +160,7 @@ def legacy_snapshot(ctx: dict[str, Any] | None) -> dict[str, Any]:
         "followup_context": followup_context,
         "boundary_reason": boundary_reason,
         "intent": legacy_intent(ctx),
+        "subject_generation": int(ctx.get("subject_generation") or 0),
     }
 
 
@@ -284,7 +286,7 @@ def maybe_shadow_compare(
     ctx: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
     """
-    Phase 2 SHADOW MODE — fail-open, read-only / side-effect-log-only.
+    Path A — legacy-position shadow (POC): fail-open, read-only / side-effect-log-only.
 
     When ENABLE_LANGGRAPH_STATE_SHADOW is ON:
       1. Capture OLD_STATE from ctx (CSL / last_* / SRF / episode / intent)
@@ -343,6 +345,7 @@ def maybe_shadow_compare(
             "contamination_locus": locus,
             "message": message or "",
             "shadow_only": True,
+            "shadow_path": "A_legacy_position",
             "production_write_enabled": langgraph_state_enabled(),
         }
 
@@ -365,6 +368,108 @@ def maybe_shadow_compare(
         return result
     except Exception as exc:
         logger.warning("maybe_shadow_compare fail-open: %s", exc)
+        return None
+
+
+def ingress_order_shadow_compare(
+    message: str,
+    ctx: dict[str, Any] | None,
+    *,
+    sll_clubs: list[str] | None = None,
+    force: bool = False,
+) -> dict[str, Any] | None:
+    """
+    Path B — P2 ingress-order experiment design (Spec §9.2 / Appendix B).
+
+    Intended locus: post-SLL **pre-CSL**. Scaffolding for Mission 016 Migration
+    phase; does NOT activate Appendix B harness grading here.
+
+    Gate: ENABLE_LANGGRAPH_STATE_SHADOW (or force for unit tests).
+    Fail-open; never mutates live ctx / CSL. Production write stays OFF.
+
+    Router wiring of Path B is deferred to Migration/Integration — Phase 2
+    only provides the hook API + metrics shape.
+    """
+    if not force and not langgraph_state_shadow_enabled():
+        return None
+    try:
+        from src.conversation.langgraph_state_graph import (
+            classify_turn,
+            langgraph_package_available,
+            process_sport_state_turn,
+        )
+        from src.conversation.topic_boundary_v2 import current_message_entities
+
+        # Prefer explicit SLL clubs when provided (ingress-order contract).
+        clubs = list(sll_clubs) if sll_clubs is not None else current_message_entities(
+            message or "", None
+        )
+
+        # OLD at ingress: prefer raw last_*/SRF without assuming CSL already wrote.
+        old_snap = legacy_snapshot(ctx)
+        old_sts = SportTopicState.from_dict(old_snap)
+        isolated = SportTopicState.from_dict(old_sts.to_dict())
+
+        route, reason = classify_turn(message or "", isolated)
+        new_sts = process_sport_state_turn(
+            message or "",
+            isolated,
+            force=True,
+            prefer_sequential=not langgraph_package_available(),
+        )
+        new_snap = new_sts.to_dict()
+        locus = infer_contamination_locus(message or "", old_snap, new_snap)
+        diff = compare_shadow(old_snap, new_sts)
+
+        # Divergence classes for Appendix B grading (Migration harness).
+        divergence_classes: list[str] = []
+        if diff.get("divergent") and "teams" in (diff.get("fields") or {}):
+            divergence_classes.append("subject_teams_mismatch")
+        soft_contaminated = (
+            locus == "before_langgraph"
+            and reason in {"soft_followup_same_episode", "soft_team_in_episode"}
+            and bool(diff.get("divergent"))
+        )
+        if soft_contaminated:
+            divergence_classes.append("soft_fu_on_contaminated_prior")
+
+        result: dict[str, Any] = {
+            "shadow_path": "B_ingress_order",
+            "locus_design": "post_sll_pre_csl",
+            "sll_clubs": clubs,
+            "old": {
+                "fixture": old_snap.get("fixture"),
+                "episode": old_snap.get("episode_id"),
+                "teams": list(old_snap.get("teams") or []),
+                "subject_generation": old_snap.get("subject_generation", 0),
+            },
+            "new": {
+                "fixture": new_snap.get("fixture"),
+                "episode": new_snap.get("episode_id"),
+                "teams": list(new_snap.get("teams") or []),
+                "boundary_reason": new_snap.get("boundary_reason"),
+                "turn_route": route,
+                "decision_reason": reason,
+                "subject_generation": new_snap.get("subject_generation", 0),
+            },
+            "divergent": bool(diff.get("divergent")),
+            "fields": diff.get("fields") or {},
+            "contamination_locus": locus,
+            "divergence_classes": divergence_classes,
+            "message": message or "",
+            "shadow_only": True,
+            "production_write_enabled": langgraph_state_enabled(),
+            "appendix_b_ready": False,  # harness grading = Migration phase
+        }
+        logger.info(
+            "[AUDIT] INGRESS_ORDER_SHADOW path=B divergent=%s locus=%s classes=%s",
+            result["divergent"],
+            locus,
+            divergence_classes,
+        )
+        return result
+    except Exception as exc:
+        logger.warning("ingress_order_shadow_compare fail-open: %s", exc)
         return None
 
 

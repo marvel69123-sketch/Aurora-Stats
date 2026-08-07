@@ -1,12 +1,13 @@
 """
 LANGGRAPH-STATE-POC-001 — SportTopicState (SSOT shape for conversational sport subject).
 
-Phase 1: model + helpers only. Does NOT replace CSL/SRF/short_mem writers in
-production.
+Mission 016 Phase 2 infra: authoritative fields + mandatory subject_generation
+epoch (Spec §8.3 / FINDING-021). Does NOT replace CSL/SRF/short_mem writers in
+production. Commit Gate stages live in sts_commit_gate.py (C7).
 
 Flags (independent):
-  - ENABLE_LANGGRAPH_STATE (default OFF) — production LangGraph write path (Phase 3+).
-  - ENABLE_LANGGRAPH_STATE_SHADOW (default OFF) — Phase 2 log-only OLD vs NEW compare.
+  - ENABLE_LANGGRAPH_STATE (default OFF) — production LangGraph write path (P4).
+  - ENABLE_LANGGRAPH_STATE_SHADOW (default OFF) — log-only OLD vs NEW compare.
     Shadow ≠ production activation. Enabling shadow does NOT enable the write path.
 
 Never invents fixtures/odds. Engines and Response Selector untouched.
@@ -37,7 +38,7 @@ def langgraph_state_enabled() -> bool:
 
 def langgraph_state_shadow_enabled() -> bool:
     """
-    Phase 2 shadow compare gate. Default OFF.
+    Shadow compare gate. Default OFF.
 
     When ON: read-only / side-effect-log-only OLD_STATE vs NEW_STATE compare.
     Does NOT activate ENABLE_LANGGRAPH_STATE or any production writer.
@@ -49,8 +50,8 @@ class SportTopicState:
     """
     Canonical sport conversational subject snapshot (design SSOT).
 
-    Phase 1 holds this in-memory / in the LangGraph host; production ctx
-    writers remain multi-owner until later phases.
+    Held in-memory / Commit Host; production ctx writers remain multi-owner
+    until Migration/Activation. subject_generation is the mandatory epoch.
     """
 
     episode_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -62,15 +63,23 @@ class SportTopicState:
     date_context: str | None = None
     followup_context: dict[str, Any] = field(default_factory=dict)
     boundary_reason: str | None = None
+    # Spec FINDING-021 — mandatory epoch on STS + projections.
+    subject_generation: int = 0
 
     def snapshot(self) -> dict[str, Any]:
         """Read-only deep copy of the state dict."""
         return copy.deepcopy(self.to_dict())
 
+    def bump_subject_generation(self) -> int:
+        """Increment epoch after authoritative subject mutation (Commit Gate Stage 2)."""
+        self.subject_generation = int(self.subject_generation or 0) + 1
+        return self.subject_generation
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["teams"] = list(self.teams)[:4]
         d["followup_context"] = dict(self.followup_context or {})
+        d["subject_generation"] = int(self.subject_generation or 0)
         return d
 
     @classmethod
@@ -83,6 +92,12 @@ class SportTopicState:
         fu = data.get("followup_context")
         if not isinstance(fu, dict):
             fu = {}
+        try:
+            gen = int(data.get("subject_generation") or 0)
+        except (TypeError, ValueError):
+            gen = 0
+        if gen < 0:
+            gen = 0
         return cls(
             episode_id=str(data.get("episode_id") or uuid.uuid4()),
             fixture=data.get("fixture") if isinstance(data.get("fixture"), str) else None,
@@ -101,6 +116,7 @@ class SportTopicState:
                 if isinstance(data.get("boundary_reason"), str)
                 else None
             ),
+            subject_generation=gen,
         )
 
     def clear_for_new_episode(

@@ -1,11 +1,14 @@
 """
-LANGGRAPH-STATE-POC-001 — Minimal LangGraph host for SportTopicState.
+LANGGRAPH-STATE-POC-001 — Minimal LangGraph host for SportTopicState (C1 / P4).
 
 Holds conversational sport subject as graph state. Reuses topic_boundary_v2
 detection helpers (fixture phrase, soft FU, single-team ask, Jaccard).
 
-Phase 1: POC only. Default flag OFF. Production router NOT wired for writes.
-Phase 2: shadow compare may invoke this with force=True (isolated copy only).
+Mission 016 Phase 2: P4 evolution path prepared — classify can consume typed
+EpisodeTransitionDecision + Appendix A (opt-in via use_appendix_a). Default
+behavior preserved for existing POC/tests. Production write flag remains OFF.
+
+P3 legal host is C17 (minimal_commit_orchestrator.py), not this module.
 When langgraph is missing and flag ON: log + no-op (fail-open).
 When flag OFF: fail-open no-op unless force=True (shadow / tests).
 
@@ -214,6 +217,8 @@ def node_classify(state: GraphSportState) -> GraphSportState:
     """Classify and stamp turn_route (no STS write beyond ensuring load)."""
     sts = _sts_from_state(state)
     message = state.get("message") or ""
+    # Default: POC classify_turn (preserves existing tests / shadow).
+    # Appendix A typed path is available via classify_with_appendix_a for P4 prep.
     route, reason = classify_turn(message, sts)
     out: GraphSportState = dict(state)
     out["turn_route"] = route
@@ -221,6 +226,24 @@ def node_classify(state: GraphSportState) -> GraphSportState:
     out["last_node"] = "classify"
     out["sts"] = sts.to_dict()
     return out
+
+
+def classify_with_appendix_a(
+    message: str, sts: SportTopicState
+) -> tuple[RouteName, str, dict[str, Any]]:
+    """
+    P4-prep classify: typed EpisodeTransitionDecision + Appendix A route.
+
+    Returns (route, closed_reason, decision_dict). Does not mutate STS.
+    """
+    from src.conversation.episode_transition import (
+        EpisodeTransition,
+        select_apply_node,
+    )
+
+    decision = EpisodeTransition.decide(message or "", sts)
+    route = select_apply_node(decision)
+    return route, decision.reason, decision.to_dict()
 
 
 def _pick_route(state: GraphSportState) -> str:

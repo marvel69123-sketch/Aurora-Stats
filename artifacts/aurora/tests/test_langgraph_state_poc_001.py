@@ -64,16 +64,22 @@ def test_sticky_bleed_new_fixture_then_soft_fu():
     _enable()
     try:
         sts = SportTopicState()
-        sts = process_sport_state_turn("Flamengo x Palmeiras", sts)
+        sts = process_sport_state_turn(
+            "Flamengo x Palmeiras", sts, prefer_sequential=True
+        )
         assert sts.fixture == "Flamengo x Palmeiras"
         assert "Flamengo" in sts.teams
 
-        sts = process_sport_state_turn("Liverpool x Chelsea", sts)
+        sts = process_sport_state_turn(
+            "Liverpool x Chelsea", sts, prefer_sequential=True
+        )
         assert sts.fixture == "Liverpool x Chelsea"
         assert "Liverpool" in sts.teams
         assert "Flamengo" not in sts.teams
 
-        sts = process_sport_state_turn("Quem está melhor?", sts)
+        sts = process_sport_state_turn(
+            "Quem está melhor?", sts, prefer_sequential=True
+        )
         assert sts.fixture == "Liverpool x Chelsea"
         assert "Liverpool" in sts.teams
         assert "Flamengo" not in (sts.teams or [])
@@ -87,9 +93,13 @@ def test_soft_fu_stays_flamengo():
     _enable()
     try:
         sts = SportTopicState()
-        sts = process_sport_state_turn("Flamengo x Palmeiras", sts)
+        sts = process_sport_state_turn(
+            "Flamengo x Palmeiras", sts, prefer_sequential=True
+        )
         ep = sts.episode_id
-        sts = process_sport_state_turn("Quem está melhor?", sts)
+        sts = process_sport_state_turn(
+            "Quem está melhor?", sts, prefer_sequential=True
+        )
         assert sts.fixture == "Flamengo x Palmeiras"
         assert "Flamengo" in sts.teams
         assert sts.episode_id == ep
@@ -103,9 +113,13 @@ def test_partial_inter_boundary():
     _enable()
     try:
         sts = SportTopicState()
-        sts = process_sport_state_turn("Flamengo x Palmeiras", sts)
+        sts = process_sport_state_turn(
+            "Flamengo x Palmeiras", sts, prefer_sequential=True
+        )
         old_ep = sts.episode_id
-        sts = process_sport_state_turn("Inter joga hoje?", sts)
+        sts = process_sport_state_turn(
+            "Inter joga hoje?", sts, prefer_sequential=True
+        )
         assert sts.episode_id != old_ep
         assert "Inter" in sts.teams
         assert "Flamengo" not in sts.teams
@@ -127,12 +141,14 @@ def test_chelsea_soft_keep_after_liverpool_chelsea():
     _enable()
     try:
         sts = SportTopicState()
-        sts = process_sport_state_turn("Liverpool x Chelsea", sts)
+        sts = process_sport_state_turn(
+            "Liverpool x Chelsea", sts, prefer_sequential=True
+        )
         ep = sts.episode_id
         route, reason = classify_turn("Chelsea", sts)
         assert route == "keep_followup"
         assert reason in {"soft_followup_same_episode", "soft_team_in_episode", "no_current_entities"}
-        sts = process_sport_state_turn("Chelsea", sts)
+        sts = process_sport_state_turn("Chelsea", sts, prefer_sequential=True)
         assert sts.fixture == "Liverpool x Chelsea"
         assert sts.episode_id == ep
         assert "Chelsea" in sts.teams
