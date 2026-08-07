@@ -357,8 +357,8 @@ See **Q12**. Reminder: **await PO** before Research 021 / Spec / architecture / 
 | Mission | 020 MODULE_DISCOVERY — Execution Manager |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(research): add Execution Manager Discovery Report (Mission 020)` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `caed099cc1f01ddc1a6310cb3820f29ba221719b` (discovery body); evidence stamp in follow-up commit |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`63f7475..caed099`, plus evidence follow-up) |
 | Product code | **Nenhuma alteração de código: SIM** |
 
 ## Scope
