@@ -61,8 +61,8 @@ Elevação L2/L3: NÃO — Prep docs/harness + OFF-assert tests only; no EM pack
 | Mission | 030 CONTROLLED_IMPLEMENTATION — Phase 1 Preparation ONLY |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete Phase 1 Preparation` |
-| Commit hash | `ac01e4c90a50d6dbe4b8fddfa6514940cf462c2c` |
-| Push | pending stamp after `git push` |
+| Commit hash | `7d6be13183b0e8374f72dd79924a1bc9b49a4d6d` |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`a62478f..7d6be13`) |
 | Scope | Prep baselines / inventories / residuals / flags OFF confirm / Phase 1 tests |
 | Product runtime code | **UNCHANGED** |
 | Spec / Plan / Master / Blueprint / SSOT | **UNTOUCHED** |
