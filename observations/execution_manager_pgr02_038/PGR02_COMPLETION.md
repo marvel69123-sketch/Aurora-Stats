@@ -73,7 +73,7 @@ Elevação L2/L3: NÃO — one gate only; defaults OFF; fail-closed >5%;
 | Mission | 038 CONTROLLED_IMPLEMENTATION — Phase 5 Progressive Activation **PGR-02 ONLY** |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete PGR-02 (5%)` |
-| Commit hash | *(stamped after push)* |
+| Commit hash | `cc6ee6dbc03d2cb261bc76aa570c5937e8548fb5` (`cc6ee6d`) |
 | Push | **YES** — `origin/feat/aurora-response-selector-001` |
 | Scope | EM PGR-02 independent gate @ 5% canary + tests + Dual Reporting completion |
 | Product primary path (defaults) | **UNCHANGED** — legacy / 0% without explicit arming |
