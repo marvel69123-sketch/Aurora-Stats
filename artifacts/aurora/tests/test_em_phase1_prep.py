@@ -52,8 +52,9 @@ def test_em_activation_pct_default_zero() -> None:
     assert pct in {"0", "0.0", ""}
 
 
-def test_em_package_absent_in_phase1() -> None:
-    assert not (SOT / "src" / "execution_manager").exists()
+def test_em_package_present_after_phase2_infra() -> None:
+    """Phase 1 asserted absence; Phase 2 Infrastructure lands the package (flags still OFF)."""
+    assert (SOT / "src" / "execution_manager").is_dir()
 
 
 @pytest.mark.parametrize("name", REQUIRED_BASELINES)

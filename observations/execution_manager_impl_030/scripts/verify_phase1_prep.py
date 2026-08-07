@@ -92,9 +92,11 @@ def main() -> None:
     if pct not in {"0", "0.0", ""}:
         _fail(f"EM_ACTIVATION_PCT must be 0; got {pct!r}")
 
+    # Phase 2 Infrastructure may have landed execution_manager/; Prep baselines
+    # remain valid. Package presence is no longer a Prep failure.
     em_pkg = SOT / "src" / "execution_manager"
-    if em_pkg.exists():
-        _fail("execution_manager package must not exist in Phase 1 Prep")
+    if em_pkg.exists() and not (em_pkg / "__init__.py").is_file():
+        _fail("execution_manager present but missing __init__.py")
 
     print("PASS: Phase 1 Prep baselines + flags OFF + SoT inventory reproducible")
 
