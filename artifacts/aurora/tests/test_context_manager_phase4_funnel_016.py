@@ -68,12 +68,21 @@ def _clear_flags():
         "CLAIM_SHADOW_AS_SOLE_WRITER",
         "AURORA_SOLE_WRITER_FUNNEL_PCT",
         "AURORA_FUNNEL_PO_STAGE_UNLOCK",
+        "AURORA_PGR_01_ENABLE",
+        "AURORA_PGR_02_ENABLE",
+        "AURORA_PGR_03_ENABLE",
         "ENABLE_TOPIC_BOUNDARY_V2",
         "ENABLE_TB_V2_APPLY_MATERIALIZER",
         "ENABLE_STS_HOST_APPLY_MATERIALIZER",
     ):
         os.environ.pop(k, None)
     reset_funnel_metrics()
+    try:
+        from src.conversation.progressive_gate_review import reset_pgr_metrics
+
+        reset_pgr_metrics()
+    except Exception:
+        pass
 
 
 def _prior_ctx() -> dict:
@@ -149,6 +158,7 @@ def test_phase4_stage1_one_pct_activatable():
     _clear_flags()
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "1"
     os.environ["ENABLE_STS_WRITE_FUNNEL_BOUNDARY"] = "1"
+    os.environ["AURORA_PGR_01_ENABLE"] = "1"  # Phase 5 REGRA 25 independent gate
     try:
         assert get_funnel_pct() == 1
         assert funnel_stage_name() == "STAGE1_BOUNDARY_1PCT"
@@ -164,6 +174,7 @@ def test_phase4_rollback_to_off():
     _clear_flags()
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "1"
     os.environ["ENABLE_STS_WRITE_FUNNEL_BOUNDARY"] = "1"
+    os.environ["AURORA_PGR_01_ENABLE"] = "1"
     assert get_funnel_pct() == 1
     assert rollback_funnel_to_off() == 0
     assert get_funnel_pct() == 0
@@ -326,6 +337,7 @@ def test_phase4_analyze_note_stages_not_auto_advanced():
     _clear_flags()
     os.environ["AURORA_SOLE_WRITER_FUNNEL_PCT"] = "1"
     os.environ["ENABLE_STS_WRITE_FUNNEL_BOUNDARY"] = "1"
+    os.environ["AURORA_PGR_01_ENABLE"] = "1"
     os.environ["ENABLE_STS_WRITE_FUNNEL_ANALYZE"] = "1"
     os.environ["ENABLE_STS_NOTE_SUBJECT_GUARDS"] = "1"
     try:

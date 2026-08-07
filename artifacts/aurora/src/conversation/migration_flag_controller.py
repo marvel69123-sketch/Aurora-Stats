@@ -270,6 +270,22 @@ def flag_snapshot() -> dict[str, Any]:
             "effective_pct": 0,
             "stage_name": "OFF_0",
             "phase5_not_started": True,
+            "phase6_not_started": True,
+            "pgr02_not_started": True,
+        }
+    pgr_snap: dict[str, Any] = {}
+    try:
+        from src.conversation.progressive_gate_review import pgr_flag_snapshot
+
+        pgr_snap = pgr_flag_snapshot()
+    except Exception:
+        pgr_snap = {
+            "active_gate": "NONE",
+            "pgr01_enable": False,
+            "higher_gates_locked": True,
+            "phase6_not_started": True,
+            "pgr02_not_started": True,
+            "mirror_drift_open": True,
         }
     return {
         "migration_stage": get_migration_stage().value,
@@ -286,5 +302,7 @@ def flag_snapshot() -> dict[str, Any]:
         },
         "AURORA_SOLE_WRITER_FUNNEL_PCT": (os.environ.get(_FUNNEL_PCT_ENV) or "0"),
         "AURORA_FUNNEL_PO_STAGE_UNLOCK": _flag_truthy(_FUNNEL_PO_UNLOCK_ENV),
+        "AURORA_PGR_01_ENABLE": _flag_truthy("AURORA_PGR_01_ENABLE"),
         "sole_writer_funnel": funnel_pct_snap,
+        "progressive_gate_review": pgr_snap,
     }

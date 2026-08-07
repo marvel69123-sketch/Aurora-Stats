@@ -1,14 +1,16 @@
 """
-Mission 016 Phase 4 — Sole-Writer Funnel (REGRA 24 progressive, stage 1 only).
+Mission 016 Phase 4+5 — Sole-Writer Funnel + PGR-01 gated activation.
 
 Progressive activation percentages (constants): 0 → 1 → 5 → 10 → 25 → 50 → 100.
-Default in repo: 0% (OFF). This mission authorizes ONLY the first controlled stage
-(1% + boundary funnel path). Higher % require explicit PO unlock env; no auto-advance.
-100% is never the Phase-4 default and is blocked without PO unlock.
+Default in repo: 0% (OFF). Authorized live stage without PO unlock = 1% only
+(STAGE1_BOUNDARY_1PCT), and Phase 5 REGRA 25 requires independent PGR-01 arming
+(`AURORA_PGR_01_ENABLE`) before that 1% path is live. Higher % / PGR-02+ remain
+locked. No auto-advance. ENABLE_LANGGRAPH_STATE stays OFF (full prod write / Phase 6
+not started).
 
 Writes that the funnel owns go through C17 Minimal Commit Orchestrator only
 (dual-write forbidden). Legacy writers remain present when OFF / not selected.
-Shadow (Phase 3) is untouched. ENABLE_LANGGRAPH_STATE stays OFF (Phase 5 not started).
+Shadow (Phase 3) is untouched.
 """
 
 from __future__ import annotations
@@ -110,6 +112,9 @@ def get_funnel_pct() -> int:
 
     Default 0. Values > PHASE4_AUTHORIZED_MAX_PCT without PO unlock fail-closed to 0
     (do not auto-advance; do not silently run higher stages).
+
+    Phase 5 / REGRA 25: configured 1% is effective only when PGR-01 is armed
+    (`AURORA_PGR_01_ENABLE`). Without that independent gate, effective remains 0.
     """
     configured = get_configured_funnel_pct()
     if configured <= 0:
@@ -124,6 +129,25 @@ def get_funnel_pct() -> int:
             _ENV_PO_UNLOCK,
         )
         return 0
+    # PGR-01 independent gate for the authorized 1% stage.
+    if configured == PHASE4_AUTHORIZED_MAX_PCT:
+        try:
+            from src.conversation.progressive_gate_review import (
+                higher_pgr_gate_attempted,
+                require_pgr01_for_stage1,
+            )
+
+            if higher_pgr_gate_attempted():
+                _bump("funnel_blocked_high_stage")
+                return 0
+            if not require_pgr01_for_stage1(force=False):
+                return 0
+        except Exception as exc:
+            logger.warning(
+                "[AUDIT] SOLE_WRITER_FUNNEL pgr01_gate_check failed fail-closed (%s)",
+                exc,
+            )
+            return 0
     return configured
 
 
@@ -163,13 +187,14 @@ def in_funnel_canary_bucket(
     """
     Deterministic canary selection for progressive %.
 
-    force=True: tests only — treat as selected when pct>0.
+    force=True: tests only — treat as selected (PGR arming may be absent in
+    unit tests that still exercise C17 ownership via force).
     """
+    if force:
+        return True
     effective = get_funnel_pct() if pct is None else int(pct)
     if effective <= 0:
         return False
-    if force:
-        return True
     if effective >= 100:
         return True
     key = (session_key or "").strip() or "anonymous"
@@ -179,12 +204,19 @@ def in_funnel_canary_bucket(
 
 
 def boundary_funnel_enabled(*, force: bool = False) -> bool:
-    """First Plan funnel stage: boundary write path (REGRA 24 stage 1%)."""
+    """First Plan funnel stage: boundary write path (REGRA 24/25 stage 1% + PGR-01)."""
     if not sts_funnel_boundary_enabled():
         return False
     if force:
         # Tests may force stage-1 semantics when boundary flag is ON.
         return True
+    try:
+        from src.conversation.progressive_gate_review import require_pgr01_for_stage1
+
+        if not require_pgr01_for_stage1(force=False):
+            return False
+    except Exception:
+        return False
     return get_funnel_pct() >= 1
 
 
@@ -496,6 +528,17 @@ def funnel_flag_snapshot() -> dict[str, Any]:
     """Read-only posture for reports / Validation Contract."""
     configured = get_configured_funnel_pct()
     effective = get_funnel_pct()
+    pgr_snap: dict[str, Any] = {}
+    try:
+        from src.conversation.progressive_gate_review import (
+            pgr01_enable_flag,
+            pgr_flag_snapshot,
+        )
+
+        pgr_snap = pgr_flag_snapshot()
+        pgr01_on = pgr01_enable_flag()
+    except Exception:
+        pgr01_on = False
     return {
         "configured_pct": configured,
         "effective_pct": effective,
@@ -512,6 +555,12 @@ def funnel_flag_snapshot() -> dict[str, Any]:
         "metrics": funnel_metrics_snapshot(),
         "legacy_writers_present": True,
         "shadow_untouched": True,
-        "phase5_not_started": not langgraph_state_enabled(),
+        # Phase 5 PGR-01 may be armed; full LangGraph production write still OFF.
+        "phase5_pgr01_started": bool(pgr01_on or effective >= 1),
+        "phase5_langgraph_write_not_started": not langgraph_state_enabled(),
+        "phase6_not_started": True,
+        "pgr02_not_started": True,
+        "phase5_not_started": not langgraph_state_enabled(),  # compat: write path
         "auto_advance": False,
+        "pgr": pgr_snap,
     }
