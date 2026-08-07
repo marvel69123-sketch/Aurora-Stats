@@ -74,8 +74,8 @@ Elevação L2/L3: NÃO — Infra scaffolding + OFF flags + boundary tests;
 | Mission | 031 CONTROLLED_IMPLEMENTATION — Phase 2 Infrastructure ONLY |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `feat(execution-manager): complete Phase 2 Infrastructure` |
-| Commit hash | `8682ff3d5a2b9628d2fad4039fc3e2ad16b3269d` |
-| Push | **YES** — `origin/feat/aurora-response-selector-001` (pending push evidence below) |
+| Commit hash | `f5a8a74ff9b39cce56c8486df9178361a90a7c14` |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`1102f29..f5a8a74`) |
 | Scope | EM package · contracts · Step Runner stubs · ports · flags/illegal matrix · unit tests · completion report |
 | Product runtime path (Router) | **UNCHANGED** — no import / invoke of EM |
 | Spec / Plan / Master / Blueprint / SSOT | **UNTOUCHED** |
