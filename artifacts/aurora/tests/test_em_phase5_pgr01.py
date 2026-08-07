@@ -104,13 +104,14 @@ def test_pgr01_defaults_off_not_armed():
     assert snap["pgr02_not_started"] is False
     assert snap["pgr03_not_started"] is False
     assert snap["pgr04_not_started"] is False
-    assert snap["pgr05_not_started"] is True
+    assert snap["pgr05_not_started"] is False
+    assert snap["pgr06_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["rollback_possible"] is True
     assert PGR01_PCT == 1
     assert PGR01_STAGE == "EM_STAGE1_SOLE_PATH_1PCT"
-    assert AUTHORIZED_HIGHEST_GATE == "PGR-04"
-    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 25
+    assert AUTHORIZED_HIGHEST_GATE == "PGR-05"
+    assert AUTHORIZED_OPERATIONAL_MAX_PCT == 50
     assert len(EM_PGR_LADDER) == 6
     flag_snap = em_flag_snapshot()
     assert flag_snap["phase5_pgr01"] is True
@@ -118,7 +119,8 @@ def test_pgr01_defaults_off_not_armed():
     assert flag_snap["phase5_pgr02_not_started"] is False
     assert flag_snap["phase5_pgr03_not_started"] is False
     assert flag_snap["phase5_pgr04_not_started"] is False
-    assert flag_snap["phase5_pgr05_not_started"] is True
+    assert flag_snap["phase5_pgr05_not_started"] is False
+    assert flag_snap["phase5_pgr06_not_started"] is True
     assert flag_snap["progressive_gate_review"]["pgr01_enable"] is False
 
 
@@ -157,7 +159,8 @@ def test_pgr01_one_pct_path_when_enabled():
         assert snap["pgr02_not_started"] is False
         assert snap["pgr03_not_started"] is False
         assert snap["pgr04_not_started"] is False
-        assert snap["pgr05_not_started"] is True
+        assert snap["pgr05_not_started"] is False
+        assert snap["pgr06_not_started"] is True
         assert snap["auto_advance"] is False
     finally:
         _clear_em_flags()
@@ -238,7 +241,7 @@ def test_phase4_extraction_without_activation_posture_still_full():
 
 
 # ---------------------------------------------------------------------------
-# Higher pct / PGR-05 locked / independent prior gates
+# Higher pct / PGR-06 locked / independent prior gates
 # ---------------------------------------------------------------------------
 
 
@@ -270,25 +273,25 @@ def test_pgr01_hundred_pct_not_unlocked():
         _clear_em_flags()
 
 
-def test_pgr05_not_unlocked_when_flag_set():
-    """PGR-05 flag armed during PGR-04 plateau → higher gate blocked."""
+def test_pgr06_not_unlocked_when_flag_set():
+    """PGR-06 flag armed during PGR-05 plateau → higher gate blocked."""
     _clear_em_flags()
     _arm_pgr01()
-    os.environ["ENABLE_EM_PGR_05"] = "1"
+    os.environ["ENABLE_EM_PGR_06"] = "1"
     try:
         assert higher_em_pgr_gate_attempted() is True
         assert get_effective_em_activation_pct() == 0
         assert require_em_pgr01() is False
-        assert em_pgr_flag_snapshot()["pgr05_not_started"] is True
+        assert em_pgr_flag_snapshot()["pgr06_not_started"] is True
         assert em_pgr_metrics_snapshot()["em_pgr_higher_gate_blocked"] >= 1
     finally:
         _clear_em_flags()
 
 
-def test_pgr05_enable_alone_does_not_unlock_50pct():
+def test_pgr06_enable_alone_does_not_unlock_100pct():
     _clear_em_flags()
-    os.environ["ENABLE_EM_PGR_05"] = "1"
-    os.environ["EM_ACTIVATION_PCT"] = "50"
+    os.environ["ENABLE_EM_PGR_06"] = "1"
+    os.environ["EM_ACTIVATION_PCT"] = "100"
     os.environ["ENABLE_EXECUTION_MANAGER"] = "1"
     try:
         assert get_effective_em_activation_pct() == 0
@@ -343,13 +346,14 @@ def test_no_auto_advance_and_runbook():
         assert snap["phase5_pgr02_not_started"] is False
         assert snap["phase5_pgr03_not_started"] is False
         assert snap["phase5_pgr04_not_started"] is False
-        assert snap["phase5_pgr05_not_started"] is True
+        assert snap["phase5_pgr05_not_started"] is False
+        assert snap["phase5_pgr06_not_started"] is True
         assert snap["EM_ACTIVATION_PCT_EFFECTIVE"] == 1
         runbook = operator_enable_em_pgr01_instructions()
         assert "ENABLE_EM_PGR_01=1" in runbook
         assert "EM_ACTIVATION_PCT=1" in runbook
         assert "ENABLE_EXECUTION_MANAGER=1" in runbook
-        assert "PGR-05" in runbook or "ENABLE_EM_PGR_05" in runbook
+        assert "PGR-06" in runbook or "ENABLE_EM_PGR_06" in runbook
         assert "rollback_em_pgr01_to_off" in runbook
     finally:
         _clear_em_flags()

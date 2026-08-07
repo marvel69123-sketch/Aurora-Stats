@@ -151,7 +151,8 @@ def test_stage3_flags_default_off():
     assert snap["phase5_pgr02_not_started"] is False
     assert snap["phase5_pgr03_not_started"] is False
     assert snap["phase5_pgr04_not_started"] is False
-    assert snap["phase5_pgr05_not_started"] is True
+    assert snap["phase5_pgr05_not_started"] is False
+    assert snap["phase5_pgr06_not_started"] is True
 
 
 def test_analyze_flag_on_does_not_arm_live_team_or_pgr():
@@ -474,7 +475,8 @@ def test_no_pgr_flags_armed_by_stage3():
     assert snap["phase5_pgr02_not_started"] is False
     assert snap["phase5_pgr03_not_started"] is False
     assert snap["phase5_pgr04_not_started"] is False
-    assert snap["phase5_pgr05_not_started"] is True
+    assert snap["phase5_pgr05_not_started"] is False
+    assert snap["phase5_pgr06_not_started"] is True
     assert snap["EM_ACTIVATION_PCT"] == 0.0
     for name in EM_BOOL_FLAGS:
         if "PGR" in name:

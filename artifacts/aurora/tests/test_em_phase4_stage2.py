@@ -137,7 +137,8 @@ def test_stage2_flags_default_off():
     assert snap["phase5_pgr02_not_started"] is False
     assert snap["phase5_pgr03_not_started"] is False
     assert snap["phase5_pgr04_not_started"] is False
-    assert snap["phase5_pgr05_not_started"] is True
+    assert snap["phase5_pgr05_not_started"] is False
+    assert snap["phase5_pgr06_not_started"] is True
 
 
 def test_live_flag_on_does_not_arm_analyze_or_thin():

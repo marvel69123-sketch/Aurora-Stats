@@ -1,14 +1,15 @@
 """
-Mission 040 Phase 5 — Progressive Gate Review for Execution Manager (REGRA 25).
+Mission 041 Phase 5 — Progressive Gate Review for Execution Manager (REGRA 25).
 
-PGR-04 ONLY (25%) authorized this mission. PGR-05..06 remain locked until PO unlock.
-PGR-01 (1%), PGR-02 (5%), and PGR-03 (10%) remain re-armable when PGR-04 is off.
+PGR-05 ONLY (50%) authorized this mission. PGR-06 remains locked until PO unlock.
+PGR-01 (1%), PGR-02 (5%), PGR-03 (10%), and PGR-04 (25%) remain re-armable when
+PGR-05 is off.
 
   PGR-01 → EM_STAGE1_SOLE_PATH_1PCT (1%)   — still available
   PGR-02 → EM_STAGE2_SOLE_PATH_5PCT (5%)   — still available
   PGR-03 → EM_STAGE3_SOLE_PATH_10PCT (10%) — still available
-  PGR-04 → EM_STAGE4_SOLE_PATH_25PCT (25%) — authorized this mission
-  PGR-05 → EM_STAGE5_SOLE_PATH_50PCT (50%) — NOT unlocked
+  PGR-04 → EM_STAGE4_SOLE_PATH_25PCT (25%) — still available
+  PGR-05 → EM_STAGE5_SOLE_PATH_50PCT (50%) — authorized this mission
   PGR-06 → EM_STAGE6_SOLE_PATH_100PCT (100%) — NOT unlocked
 
 Repo default: all EM PGR gates OFF / EM_ACTIVATION_PCT=0.
@@ -64,7 +65,7 @@ EM_PGR_LADDER: tuple[dict[str, Any], ...] = (
         "pct": 50,
         "stage_name": "EM_STAGE5_SOLE_PATH_50PCT",
         "env_enable": "ENABLE_EM_PGR_05",
-        "authorized_this_mission": False,
+        "authorized_this_mission": True,
     },
     {
         "id": "PGR-06",
@@ -95,9 +96,14 @@ PGR04_PCT = 25
 PGR04_STAGE = "EM_STAGE4_SOLE_PATH_25PCT"
 _ENV_PGR_04 = "ENABLE_EM_PGR_04"
 
-# Mission 040 — PGR-01..PGR-04 unlocked; operational max = 25%.
-AUTHORIZED_HIGHEST_GATE = PGR04_ID
-AUTHORIZED_OPERATIONAL_MAX_PCT = PGR04_PCT
+PGR05_ID = "PGR-05"
+PGR05_PCT = 50
+PGR05_STAGE = "EM_STAGE5_SOLE_PATH_50PCT"
+_ENV_PGR_05 = "ENABLE_EM_PGR_05"
+
+# Mission 041 — PGR-01..PGR-05 unlocked; operational max = 50%.
+AUTHORIZED_HIGHEST_GATE = PGR05_ID
+AUTHORIZED_OPERATIONAL_MAX_PCT = PGR05_PCT
 
 _EM_ACTIVATION_LADDER_PCTS: frozenset[int] = frozenset({1, 5, 10, 25, 50, 100})
 
@@ -115,6 +121,9 @@ _METRICS: dict[str, int] = {
     "em_pgr04_armed": 0,
     "em_pgr04_blocked_missing_flag": 0,
     "em_pgr04_rollback": 0,
+    "em_pgr05_armed": 0,
+    "em_pgr05_blocked_missing_flag": 0,
+    "em_pgr05_rollback": 0,
     "em_pgr_higher_gate_blocked": 0,
     "em_activation_blocked_high_pct": 0,
     "em_canary_selected": 0,
@@ -182,6 +191,11 @@ def pgr04_enable_flag() -> bool:
     return _flag_truthy(_ENV_PGR_04)
 
 
+def pgr05_enable_flag() -> bool:
+    """True when operator set ENABLE_EM_PGR_05."""
+    return _flag_truthy(_ENV_PGR_05)
+
+
 def em_pgr_gate_definition(gate_id: str) -> dict[str, Any] | None:
     for row in EM_PGR_LADDER:
         if row["id"] == gate_id:
@@ -191,9 +205,9 @@ def em_pgr_gate_definition(gate_id: str) -> dict[str, Any] | None:
 
 def higher_em_pgr_gate_attempted() -> bool:
     """
-    True if any PGR above AUTHORIZED_HIGHEST_GATE (PGR-04) is armed.
+    True if any PGR above AUTHORIZED_HIGHEST_GATE (PGR-05) is armed.
 
-    Mission 040: PGR-05..06 must remain locked.
+    Mission 041: PGR-06 must remain locked.
     """
     past_authorized = False
     for row in EM_PGR_LADDER:
@@ -208,13 +222,13 @@ def higher_em_pgr_gate_attempted() -> bool:
 
 
 def assert_no_higher_em_pgr_gates(*, bump: bool = True) -> bool:
-    """Fail-closed: gates above PGR-04 must not unlock. True when safe."""
+    """Fail-closed: gates above PGR-05 must not unlock. True when safe."""
     if higher_em_pgr_gate_attempted():
         if bump:
             _bump("em_pgr_higher_gate_blocked")
         logger.warning(
-            "[AUDIT] EM PGR higher_gate_blocked — only PGR-01..PGR-04 authorized "
-            "(PGR-05+ await PO)"
+            "[AUDIT] EM PGR higher_gate_blocked — only PGR-01..PGR-05 authorized "
+            "(PGR-06 await PO)"
         )
         return False
     return True
@@ -308,6 +322,28 @@ def require_em_pgr04(*, force: bool = False) -> bool:
     return True
 
 
+def require_em_pgr05(*, force: bool = False) -> bool:
+    """
+    Independent gate check for EM_STAGE5_SOLE_PATH_50PCT.
+
+    force=True: tests may bypass PGR arming for isolated unit checks.
+    """
+    if force:
+        return True
+    if not assert_no_higher_em_pgr_gates():
+        return False
+    if not pgr05_enable_flag():
+        _bump("em_pgr05_blocked_missing_flag")
+        logger.info(
+            "[AUDIT] EM PGR-05 blocked_missing_flag — set %s=1 with PO approval "
+            "to arm EM_STAGE5_SOLE_PATH_50PCT",
+            _ENV_PGR_05,
+        )
+        return False
+    _bump("em_pgr05_armed")
+    return True
+
+
 def pgr01_armed() -> bool:
     """Operator arming flag only (does not alone activate sole-path traffic)."""
     if higher_em_pgr_gate_attempted():
@@ -340,17 +376,26 @@ def pgr04_armed() -> bool:
     return pgr04_enable_flag()
 
 
+def pgr05_armed() -> bool:
+    """Operator arming flag only (does not alone activate sole-path traffic)."""
+    if higher_em_pgr_gate_attempted():
+        _bump("em_pgr_higher_gate_blocked")
+        return False
+    return pgr05_enable_flag()
+
+
 def get_effective_em_activation_pct() -> int:
     """
     Effective progressive activation percentage for EM sole-path.
 
-    Default 0. Mission 040:
+    Default 0. Mission 041:
       - configured 1% effective only when PGR-01 is armed
       - configured 5% effective only when PGR-02 is armed
       - configured 10% effective only when PGR-03 is armed
       - configured 25% effective only when PGR-04 is armed
-      - configured >25% without higher PO unlock → fail-closed 0
-      - PGR-05+ armed → fail-closed 0
+      - configured 50% effective only when PGR-05 is armed
+      - configured >50% without higher PO unlock → fail-closed 0
+      - PGR-06 armed → fail-closed 0
     """
     configured = get_configured_em_activation_pct()
     if configured <= 0:
@@ -359,7 +404,7 @@ def get_effective_em_activation_pct() -> int:
         _bump("em_activation_blocked_high_pct")
         logger.warning(
             "[AUDIT] EM_ACTIVATION_PCT blocked_high_pct configured=%s "
-            "authorized_max=%s (PGR-04 max 25%%; await PO for PGR-05+)",
+            "authorized_max=%s (PGR-05 max 50%%; await PO for PGR-06)",
             configured,
             AUTHORIZED_OPERATIONAL_MAX_PCT,
         )
@@ -367,6 +412,10 @@ def get_effective_em_activation_pct() -> int:
     if higher_em_pgr_gate_attempted():
         _bump("em_pgr_higher_gate_blocked")
         return 0
+    if configured == PGR05_PCT:
+        if not require_em_pgr05(force=False):
+            return 0
+        return configured
     if configured == PGR04_PCT:
         if not require_em_pgr04(force=False):
             return 0
@@ -399,7 +448,7 @@ def em_activation_stage_name(pct: int | None = None) -> str:
     if p == 25:
         return PGR04_STAGE
     if p == 50:
-        return "EM_STAGE5_SOLE_PATH_50PCT"
+        return PGR05_STAGE
     if p >= 100:
         return "EM_STAGE6_SOLE_PATH_100PCT"
     return f"EM_PCT_{p}"
@@ -454,8 +503,8 @@ def em_sole_path_canary_allows(
     Progressive Activation canary gate for EM sole-path traffic.
 
     Requires master + effective pct (PGR-01 @ 1%, PGR-02 @ 5%, PGR-03 @ 10%,
-    or PGR-04 @ 25%) + canary bucket. Pipeline eligibility is checked by the
-    caller / shim.
+    PGR-04 @ 25%, or PGR-05 @ 50%) + canary bucket. Pipeline eligibility is
+    checked by the caller / shim.
     """
     if force:
         return get_effective_em_activation_pct() >= 1 or require_em_pgr01(force=True)
@@ -560,6 +609,25 @@ def rollback_em_pgr04_to_off() -> dict[str, Any]:
     return em_pgr_flag_snapshot()
 
 
+def rollback_em_pgr05_to_off() -> dict[str, Any]:
+    """
+    Fail-safe rollback for EM PGR-05: clear PGR-05 enable + activation pct → 0%.
+
+    Prefer clear rollback_to_off. Prior gates PGR-01..PGR-04 remain available to
+    re-arm independently. Does not touch Shadow. Does not enable PGR-06.
+    """
+    os.environ.pop(_ENV_PGR_05, None)
+    os.environ[_ENV_PGR_05] = "0"
+    os.environ.pop(_ACTIVATION_PCT_ENV, None)
+    os.environ[_ACTIVATION_PCT_ENV] = "0"
+    _bump("em_pgr05_rollback")
+    logger.warning(
+        "[AUDIT] EM PGR-05 rollback_to_off pct=0 pgr05=OFF "
+        "(PGR-01/PGR-02/PGR-03/PGR-04 still available)"
+    )
+    return em_pgr_flag_snapshot()
+
+
 def operator_enable_em_pgr01_instructions() -> str:
     """Operator runbook snippet for EM PGR-01."""
     return (
@@ -575,7 +643,7 @@ def operator_enable_em_pgr01_instructions() -> str:
         "# set ENABLE_EM_PIPELINE_LIVE=1\n"
         "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
         "# Do NOT set EM_ACTIVATION_PCT>1 without matching PGR armed\n"
-        "# Do NOT set ENABLE_EM_PGR_05..06 (locked this mission)\n"
+        "# Do NOT set ENABLE_EM_PGR_06 (locked this mission)\n"
         "# Auto-advance=False\n"
         "#\n"
         "# Instant rollback:\n"
@@ -600,7 +668,7 @@ def operator_enable_em_pgr02_instructions() -> str:
         "# set ENABLE_EM_PIPELINE_LIVE=1\n"
         "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
         "# Do NOT set EM_ACTIVATION_PCT>5 without matching PGR armed\n"
-        "# Do NOT set ENABLE_EM_PGR_05..06 (locked this mission)\n"
+        "# Do NOT set ENABLE_EM_PGR_06 (locked this mission)\n"
         "# Auto-advance=False\n"
         "#\n"
         "# Instant rollback:\n"
@@ -631,7 +699,7 @@ def operator_enable_em_pgr03_instructions() -> str:
         "# set ENABLE_EM_PIPELINE_LIVE=1\n"
         "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
         "# Do NOT set EM_ACTIVATION_PCT>10 without matching PGR armed\n"
-        "# Do NOT set ENABLE_EM_PGR_05..06 (locked this mission)\n"
+        "# Do NOT set ENABLE_EM_PGR_06 (locked this mission)\n"
         "# Auto-advance=False\n"
         "#\n"
         "# Instant rollback:\n"
@@ -667,8 +735,8 @@ def operator_enable_em_pgr04_instructions() -> str:
         "# set ENABLE_EM_PIPELINE_ANALYZE=1\n"
         "# set ENABLE_EM_PIPELINE_LIVE=1\n"
         "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
-        "# Do NOT set EM_ACTIVATION_PCT>25 without PGR-05+ PO unlock\n"
-        "# Do NOT set ENABLE_EM_PGR_05..06 (locked this mission)\n"
+        "# Do NOT set EM_ACTIVATION_PCT>25 without matching PGR armed\n"
+        "# Do NOT set ENABLE_EM_PGR_06 (locked this mission)\n"
         "# Auto-advance=False\n"
         "#\n"
         "# Instant rollback:\n"
@@ -696,9 +764,60 @@ def operator_enable_em_pgr04_instructions() -> str:
     )
 
 
+def operator_enable_em_pgr05_instructions() -> str:
+    """Operator runbook snippet for EM PGR-05."""
+    return (
+        "# EM PGR-05 (50% / EM_STAGE5_SOLE_PATH_50PCT) — controlled gated enablement\n"
+        "# Repo default remains OFF. Shadow may stay armed independently.\n"
+        "# Pipeline flags stay OFF unless intentionally included in canary scope.\n"
+        "set ENABLE_EM_PGR_05=1\n"
+        "set EM_ACTIVATION_PCT=50\n"
+        "set ENABLE_EXECUTION_MANAGER=1\n"
+        "set ENABLE_EXECUTION_MANAGER_SHADOW=1\n"
+        "# Optional: arm eligible pipelines for canary sole-path (still DEFAULT OFF):\n"
+        "# set ENABLE_EM_PIPELINE_ANALYZE=1\n"
+        "# set ENABLE_EM_PIPELINE_LIVE=1\n"
+        "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
+        "# Do NOT set EM_ACTIVATION_PCT>50 without PGR-06 PO unlock\n"
+        "# Do NOT set ENABLE_EM_PGR_06 (locked this mission)\n"
+        "# Auto-advance=False\n"
+        "#\n"
+        "# Instant rollback:\n"
+        "#   set ENABLE_EM_PGR_05=0\n"
+        "#   set EM_ACTIVATION_PCT=0\n"
+        "#   OR call rollback_em_pgr05_to_off()\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-04 / 25%):\n"
+        "#   set ENABLE_EM_PGR_05=0\n"
+        "#   set ENABLE_EM_PGR_04=1\n"
+        "#   set EM_ACTIVATION_PCT=25\n"
+        "#   set ENABLE_EXECUTION_MANAGER=1\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-03 / 10%):\n"
+        "#   set ENABLE_EM_PGR_05=0\n"
+        "#   set ENABLE_EM_PGR_03=1\n"
+        "#   set EM_ACTIVATION_PCT=10\n"
+        "#   set ENABLE_EXECUTION_MANAGER=1\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-02 / 5%):\n"
+        "#   set ENABLE_EM_PGR_05=0\n"
+        "#   set ENABLE_EM_PGR_02=1\n"
+        "#   set EM_ACTIVATION_PCT=5\n"
+        "#   set ENABLE_EXECUTION_MANAGER=1\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-01 / 1%):\n"
+        "#   set ENABLE_EM_PGR_05=0\n"
+        "#   set ENABLE_EM_PGR_01=1\n"
+        "#   set EM_ACTIVATION_PCT=1\n"
+        "#   set ENABLE_EXECUTION_MANAGER=1\n"
+    )
+
+
 def _active_em_gate_id() -> str:
     if higher_em_pgr_gate_attempted():
         return "NONE"
+    if pgr05_enable_flag():
+        return "PGR-05"
     if pgr04_enable_flag():
         return "PGR-04"
     if pgr03_enable_flag():
@@ -741,6 +860,9 @@ def em_pgr_flag_snapshot() -> dict[str, Any]:
         "pgr04_enable": pgr04_enable_flag(),
         "pgr04_pct": PGR04_PCT,
         "pgr04_stage": PGR04_STAGE,
+        "pgr05_enable": pgr05_enable_flag(),
+        "pgr05_pct": PGR05_PCT,
+        "pgr05_stage": PGR05_STAGE,
         "configured_pct": get_configured_em_activation_pct(),
         "effective_pct": effective,
         "stage_name": em_activation_stage_name(effective),
@@ -752,7 +874,7 @@ def em_pgr_flag_snapshot() -> dict[str, Any]:
         "pgr02_not_started": False,
         "pgr03_not_started": False,
         "pgr04_not_started": False,
-        "pgr05_not_started": True,
+        "pgr05_not_started": False,
         "pgr06_not_started": True,
         "phase6_stabilization_not_started": True,
         "gates": gates,
@@ -761,6 +883,7 @@ def em_pgr_flag_snapshot() -> dict[str, Any]:
         "operator_enable_pgr02_runbook": operator_enable_em_pgr02_instructions(),
         "operator_enable_pgr03_runbook": operator_enable_em_pgr03_instructions(),
         "operator_enable_pgr04_runbook": operator_enable_em_pgr04_instructions(),
+        "operator_enable_pgr05_runbook": operator_enable_em_pgr05_instructions(),
         "rollback_possible": True,
         "shadow_independent": True,
     }
