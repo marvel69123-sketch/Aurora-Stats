@@ -1,17 +1,18 @@
 """
-Mission 016 Phase 5 — Progressive Gate Review (REGRA 25) — PGR-01 + PGR-02.
+Mission 016 Phase 5 — Progressive Gate Review (REGRA 25) — PGR-01 + PGR-02 + PGR-03.
 
 Each activation increase is an independent gate. This module operationalizes:
 
   PGR-01 → STAGE1_BOUNDARY_1PCT (1%)
   PGR-02 → STAGE2_ANALYZE_5PCT (5%)
+  PGR-03 → STAGE3_NOTE_10PCT (10%)
 
-Higher gates (PGR-03 @ 10%, …) exist as constants / labels only and MUST remain
+Higher gates (PGR-04 @ 25%, …) exist as constants / labels only and MUST remain
 locked this mission. No auto-advance. No Phase 6 Stabilization.
 
-Repo default: all PGR gates OFF. Operators enable PGR-01 / PGR-02 explicitly via env.
-Mirror drift remains OPEN — PGR gates are controlled/gated enablement of authorized
-stages behind flags (not full-env production Activation).
+Repo default: all PGR gates OFF. Operators enable PGR-01 / PGR-02 / PGR-03
+explicitly via env. Mirror drift remains OPEN — PGR gates are controlled/gated
+enablement of authorized stages behind flags (not full-env production Activation).
 ENABLE_LANGGRAPH_STATE stays OFF.
 """
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 PGRId = Literal["PGR-01", "PGR-02", "PGR-03", "PGR-04", "PGR-05", "PGR-06"]
 
-# REGRA 25 ladder — PGR-01 and PGR-02 unlockable this mission (one gate per decision).
+# REGRA 25 ladder — PGR-01/02/03 unlockable this mission (one gate per decision).
 PGR_LADDER: tuple[dict[str, Any], ...] = (
     {
         "id": "PGR-01",
@@ -47,7 +48,7 @@ PGR_LADDER: tuple[dict[str, Any], ...] = (
         "pct": 10,
         "stage_name": "STAGE3_NOTE_10PCT",
         "env_enable": "AURORA_PGR_03_ENABLE",
-        "authorized_this_mission": False,
+        "authorized_this_mission": True,
     },
     {
         "id": "PGR-04",
@@ -82,9 +83,14 @@ PGR02_PCT = 5
 PGR02_STAGE = "STAGE2_ANALYZE_5PCT"
 _ENV_PGR_02 = "AURORA_PGR_02_ENABLE"
 
-# Highest gate authorized without a new PO mission (REGRA 27 — this commit = PGR-02).
-AUTHORIZED_HIGHEST_GATE = PGR02_ID
-AUTHORIZED_OPERATIONAL_MAX_PCT = PGR02_PCT
+PGR03_ID = "PGR-03"
+PGR03_PCT = 10
+PGR03_STAGE = "STAGE3_NOTE_10PCT"
+_ENV_PGR_03 = "AURORA_PGR_03_ENABLE"
+
+# Highest gate authorized without a new PO mission (REGRA 27 — this commit = PGR-03).
+AUTHORIZED_HIGHEST_GATE = PGR03_ID
+AUTHORIZED_OPERATIONAL_MAX_PCT = PGR03_PCT
 
 _metrics_lock = threading.Lock()
 _METRICS: dict[str, int] = {
@@ -94,6 +100,9 @@ _METRICS: dict[str, int] = {
     "pgr02_armed": 0,
     "pgr02_blocked_missing_flag": 0,
     "pgr02_rollback": 0,
+    "pgr03_armed": 0,
+    "pgr03_blocked_missing_flag": 0,
+    "pgr03_rollback": 0,
     "pgr_higher_gate_blocked": 0,
 }
 
@@ -129,6 +138,11 @@ def pgr02_enable_flag() -> bool:
     return _flag_truthy(_ENV_PGR_02)
 
 
+def pgr03_enable_flag() -> bool:
+    """True when operator set AURORA_PGR_03_ENABLE (independent REGRA 25 gate)."""
+    return _flag_truthy(_ENV_PGR_03)
+
+
 def pgr_gate_definition(gate_id: str) -> dict[str, Any] | None:
     for row in PGR_LADDER:
         if row["id"] == gate_id:
@@ -140,8 +154,8 @@ def higher_pgr_gate_attempted() -> bool:
     """
     True if any PGR above the authorized highest gate is armed.
 
-    After PGR-02 mission: PGR-03+ enable env must fail-closed.
-    PGR-02 itself is authorized and does not count as "higher".
+    After PGR-03 mission: PGR-04+ enable env must fail-closed.
+    PGR-03 itself is authorized and does not count as "higher".
     """
     past_authorized = False
     for row in PGR_LADDER:
@@ -157,15 +171,15 @@ def higher_pgr_gate_attempted() -> bool:
 
 def assert_no_higher_pgr_gates(*, bump: bool = True) -> bool:
     """
-    Fail-closed helper: PGR-03+ enable flags must not unlock this mission.
-    Returns True when safe (no higher-than-PGR-02 gates armed).
+    Fail-closed helper: PGR-04+ enable flags must not unlock this mission.
+    Returns True when safe (no higher-than-PGR-03 gates armed).
     """
     if higher_pgr_gate_attempted():
         if bump:
             _bump("pgr_higher_gate_blocked")
         logger.warning(
-            "[AUDIT] PGR higher_gate_blocked — only PGR-01/PGR-02 authorized "
-            "(PGR-03+ locked this mission)"
+            "[AUDIT] PGR higher_gate_blocked — only PGR-01/PGR-02/PGR-03 authorized "
+            "(PGR-04+ locked this mission)"
         )
         return False
     return True
@@ -195,6 +209,19 @@ def pgr02_armed() -> bool:
         _bump("pgr_higher_gate_blocked")
         return False
     return pgr02_enable_flag()
+
+
+def pgr03_armed() -> bool:
+    """
+    PGR-03 operator arming flag only (does not alone activate the 10% path).
+
+    Full live activation also requires funnel pct=10 + note subject guards
+    (see sole_writer_funnel / require_pgr03_for_stage3).
+    """
+    if higher_pgr_gate_attempted():
+        _bump("pgr_higher_gate_blocked")
+        return False
+    return pgr03_enable_flag()
 
 
 def require_pgr01_for_stage1(*, force: bool = False) -> bool:
@@ -241,12 +268,34 @@ def require_pgr02_for_stage2(*, force: bool = False) -> bool:
     return True
 
 
+def require_pgr03_for_stage3(*, force: bool = False) -> bool:
+    """
+    Independent gate check for STAGE3_NOTE_10PCT live path.
+
+    force=True: tests may bypass PGR arming (canary/ownership unit tests).
+    """
+    if force:
+        return True
+    if not assert_no_higher_pgr_gates():
+        return False
+    if not pgr03_enable_flag():
+        _bump("pgr03_blocked_missing_flag")
+        logger.info(
+            "[AUDIT] PGR-03 blocked_missing_flag — set %s=1 with PO approval "
+            "to arm STAGE3_NOTE_10PCT",
+            _ENV_PGR_03,
+        )
+        return False
+    _bump("pgr03_armed")
+    return True
+
+
 def rollback_pgr01_to_off() -> dict[str, Any]:
     """
     Fail-safe rollback for PGR-01: clear PGR-01 enable + funnel pct → 0%.
 
     Does not touch shadow flags. Does not enable higher gates.
-    Does not clear PGR-02 enable (caller may use rollback_pgr02_to_off).
+    Does not clear PGR-02/PGR-03 enable (caller may use dedicated rollback helpers).
     """
     os.environ.pop(_ENV_PGR_01, None)
     try:
@@ -267,7 +316,7 @@ def rollback_pgr02_to_off() -> dict[str, Any]:
 
     Prefer clear rollback_to_off. Prior gate PGR-01 remains available to re-arm
     independently (set AURORA_PGR_01_ENABLE + pct=1 + boundary flag).
-    Does not touch shadow flags. Does not enable PGR-03+.
+    Does not touch shadow flags. Does not enable PGR-04+.
     """
     os.environ.pop(_ENV_PGR_02, None)
     try:
@@ -282,6 +331,29 @@ def rollback_pgr02_to_off() -> dict[str, Any]:
     return pgr_flag_snapshot()
 
 
+def rollback_pgr03_to_off() -> dict[str, Any]:
+    """
+    Fail-safe rollback for PGR-03: clear PGR-03 enable + funnel pct → 0%.
+
+    Prefer clear rollback_to_off. Prior gates PGR-01/PGR-02 remain available to
+    re-arm independently. Does not touch shadow flags. Does not enable PGR-04+.
+    """
+    os.environ.pop(_ENV_PGR_03, None)
+    try:
+        from src.conversation.sole_writer_funnel import rollback_funnel_to_off
+
+        rollback_funnel_to_off()
+    except Exception as exc:
+        os.environ.pop("AURORA_SOLE_WRITER_FUNNEL_PCT", None)
+        logger.warning("[AUDIT] PGR-03 rollback funnel helper skipped (%s)", exc)
+    _bump("pgr03_rollback")
+    logger.warning(
+        "[AUDIT] PGR-03 rollback_to_off pct=0 pgr03=OFF "
+        "(PGR-01/PGR-02 still available)"
+    )
+    return pgr_flag_snapshot()
+
+
 def operator_enable_pgr01_instructions() -> str:
     """Operator runbook snippet for PGR-01 (documentation / snapshot)."""
     return (
@@ -291,8 +363,8 @@ def operator_enable_pgr01_instructions() -> str:
         "set AURORA_SOLE_WRITER_FUNNEL_PCT=1\n"
         "set ENABLE_STS_WRITE_FUNNEL_BOUNDARY=1\n"
         "set ENABLE_LANGGRAPH_STATE=0\n"
-        "# Do NOT set AURORA_PGR_03_ENABLE (or higher) — locked this mission\n"
-        "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >5%\n"
+        "# Do NOT set AURORA_PGR_04_ENABLE (or higher) — locked this mission\n"
+        "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >10%\n"
         "#\n"
         "# Instant rollback:\n"
         "#   unset AURORA_PGR_01_ENABLE\n"
@@ -304,7 +376,7 @@ def operator_enable_pgr01_instructions() -> str:
 def operator_enable_pgr02_instructions() -> str:
     """Operator runbook snippet for PGR-02 (documentation / snapshot)."""
     return (
-        "# PGR-02 ONLY (5% / STAGE2_ANALYZE_5PCT) — controlled gated enablement\n"
+        "# PGR-02 (5% / STAGE2_ANALYZE_5PCT) — controlled gated enablement\n"
         "# Repo default remains OFF. Mirror drift OPEN ⇒ not full-env Activation.\n"
         "set AURORA_PGR_02_ENABLE=1\n"
         "set AURORA_SOLE_WRITER_FUNNEL_PCT=5\n"
@@ -313,9 +385,9 @@ def operator_enable_pgr02_instructions() -> str:
         "set ENABLE_LANGGRAPH_STATE=0\n"
         "# Optional: keep PGR-01 armed for prior-gate coherence / rollback ladder\n"
         "# set AURORA_PGR_01_ENABLE=1\n"
-        "# Do NOT set AURORA_PGR_03_ENABLE (or higher) — locked this mission\n"
-        "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >5%\n"
-        "# Do NOT set pct > 5 without higher PO unlock\n"
+        "# Do NOT set AURORA_PGR_04_ENABLE (or higher) — locked this mission\n"
+        "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >10%\n"
+        "# Do NOT set pct > 10 without higher PO unlock\n"
         "#\n"
         "# Instant rollback to OFF:\n"
         "#   unset AURORA_PGR_02_ENABLE\n"
@@ -331,9 +403,51 @@ def operator_enable_pgr02_instructions() -> str:
     )
 
 
+def operator_enable_pgr03_instructions() -> str:
+    """Operator runbook snippet for PGR-03 (documentation / snapshot)."""
+    return (
+        "# PGR-03 ONLY (10% / STAGE3_NOTE_10PCT) — controlled gated enablement\n"
+        "# Repo default remains OFF. Mirror drift OPEN ⇒ not full-env Activation.\n"
+        "set AURORA_PGR_03_ENABLE=1\n"
+        "set AURORA_SOLE_WRITER_FUNNEL_PCT=10\n"
+        "set ENABLE_STS_WRITE_FUNNEL_BOUNDARY=1\n"
+        "set ENABLE_STS_WRITE_FUNNEL_ANALYZE=1\n"
+        "set ENABLE_STS_NOTE_SUBJECT_GUARDS=1\n"
+        "set ENABLE_LANGGRAPH_STATE=0\n"
+        "# Optional: keep prior gates armed for coherence / rollback ladder\n"
+        "# set AURORA_PGR_01_ENABLE=1\n"
+        "# set AURORA_PGR_02_ENABLE=1\n"
+        "# Do NOT set AURORA_PGR_04_ENABLE (or higher) — locked this mission\n"
+        "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >10%\n"
+        "# Do NOT set pct > 10 without higher PO unlock / PGR-04+\n"
+        "#\n"
+        "# Instant rollback to OFF:\n"
+        "#   unset AURORA_PGR_03_ENABLE\n"
+        "#   unset AURORA_SOLE_WRITER_FUNNEL_PCT\n"
+        "#   OR call rollback_pgr03_to_off()\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-02 / 5%):\n"
+        "#   unset AURORA_PGR_03_ENABLE\n"
+        "#   set AURORA_PGR_02_ENABLE=1\n"
+        "#   set AURORA_SOLE_WRITER_FUNNEL_PCT=5\n"
+        "#   set ENABLE_STS_WRITE_FUNNEL_BOUNDARY=1\n"
+        "#   set ENABLE_STS_WRITE_FUNNEL_ANALYZE=1\n"
+        "#   unset ENABLE_STS_NOTE_SUBJECT_GUARDS  (optional)\n"
+        "#\n"
+        "# Re-arm prior gate only (PGR-01 / 1%):\n"
+        "#   unset AURORA_PGR_03_ENABLE\n"
+        "#   unset AURORA_PGR_02_ENABLE\n"
+        "#   set AURORA_PGR_01_ENABLE=1\n"
+        "#   set AURORA_SOLE_WRITER_FUNNEL_PCT=1\n"
+        "#   set ENABLE_STS_WRITE_FUNNEL_BOUNDARY=1\n"
+    )
+
+
 def _active_gate_id() -> str:
     if higher_pgr_gate_attempted():
         return "NONE"
+    if pgr03_enable_flag():
+        return "PGR-03"
     if pgr02_enable_flag():
         return "PGR-02"
     if pgr01_enable_flag():
@@ -363,6 +477,9 @@ def pgr_flag_snapshot() -> dict[str, Any]:
         "pgr02_enable": pgr02_enable_flag(),
         "pgr02_pct": PGR02_PCT,
         "pgr02_stage": PGR02_STAGE,
+        "pgr03_enable": pgr03_enable_flag(),
+        "pgr03_pct": PGR03_PCT,
+        "pgr03_stage": PGR03_STAGE,
         "authorized_highest_gate": AUTHORIZED_HIGHEST_GATE,
         "authorized_operational_max_pct": AUTHORIZED_OPERATIONAL_MAX_PCT,
         "higher_gates_locked": True,
@@ -370,11 +487,13 @@ def pgr_flag_snapshot() -> dict[str, Any]:
         "auto_advance": False,
         "phase6_not_started": True,
         "pgr02_not_started": False,
-        "pgr03_not_started": True,
+        "pgr03_not_started": False,
+        "pgr04_not_started": True,
         "gates": gates,
         "metrics": pgr_metrics_snapshot(),
-        "operator_enable_runbook": operator_enable_pgr02_instructions(),
+        "operator_enable_runbook": operator_enable_pgr03_instructions(),
         "operator_enable_pgr01_runbook": operator_enable_pgr01_instructions(),
+        "operator_enable_pgr02_runbook": operator_enable_pgr02_instructions(),
         "mirror_drift_open": True,
         "production_langgraph_write_required": False,
         "legacy_writers_present": True,
