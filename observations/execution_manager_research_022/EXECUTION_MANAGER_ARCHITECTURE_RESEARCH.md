@@ -342,8 +342,8 @@ Por quê?
 | Mission | 022 ARCHITECTURE_RESEARCH — Future Execution Manager |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(research): add Execution Manager architecture research` |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `eaa64379f7e60e78a6c9b3decf04617c0d0b39fa` (body); stamp below |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (pending push confirmation below) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Deliverables | `EXECUTION_MANAGER_ARCHITECTURE_RESEARCH.md`, `COMPARATIVE_ANALYSIS.md` |
 
