@@ -93,7 +93,7 @@ Elevação L2/L3: NÃO — AAR docs-only; no product delta; no Master/Blueprint/
 | Mission | 027 ARCHITECTURE_ACCEPTANCE_REVIEW — EM AAR-001 |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(governance): add Execution Manager AAR-001` |
-| Commit hash | *(filled after commit)* |
+| Commit hash | `a80f889cd226bc1d11b06dd6706a5e73350af833` (AAR body); stamp *(this commit)* |
 | Push | *(filled after push)* |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Spec edited | **NO** |
