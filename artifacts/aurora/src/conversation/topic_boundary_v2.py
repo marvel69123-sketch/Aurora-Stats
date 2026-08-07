@@ -655,7 +655,41 @@ def apply_topic_boundary_v2(
 
         decision = detect_episode_boundary(message, ctx)
         if decision.is_boundary:
-            decision = apply_episode_boundary(ctx, decision)
+            # Mission 016 Phase 4 — Sole-Writer Funnel (stage 1 / 1% boundary only).
+            # When funnel owns path: C17 commit only (dual-write forbidden).
+            # When OFF / not selected: legacy apply_episode_boundary remains.
+            funnel_owned = False
+            try:
+                from src.conversation.sole_writer_funnel import (
+                    commit_via_c17_funnel,
+                    mark_dual_write_blocked,
+                )
+
+                session_key = str(
+                    ctx.get("session_id") or ctx.get("thread_id") or ""
+                ) or None
+                funnel_res = commit_via_c17_funnel(
+                    message,
+                    ctx,
+                    owner="boundary",
+                    session_key=session_key,
+                )
+                funnel_owned = bool(funnel_res.owned and funnel_res.committed)
+                if funnel_res.owned and funnel_res.committed:
+                    mark_dual_write_blocked("boundary")
+                    decision.episode_id = str(
+                        (ctx.get("episode_id") or decision.episode_id or "")
+                    ) or decision.episode_id
+                    ctx[CTX_KEY] = decision.to_dict()
+            except Exception as funnel_exc:
+                logger.warning(
+                    "topic_boundary_v2: sole-writer funnel skipped (%s)",
+                    funnel_exc,
+                )
+                funnel_owned = False
+
+            if not funnel_owned:
+                decision = apply_episode_boundary(ctx, decision)
         else:
             ctx[CTX_KEY] = decision.to_dict()
         return decision

@@ -1,8 +1,10 @@
 """
 Mission 016 Phase 2 — Migration stage / feature-flag controller (C12).
 
+Phase 4 extends observability for Sole-Writer Funnel progressive % (REGRA 24)
+without enabling production write. Defaults remain OFF / S0_OFF.
+
 MIGRATION_STAGE enum S0…S4_RETIRE + illegal matrix I1–I7 fail-closed asserts.
-Defaults remain OFF / S0_OFF. Does NOT enable production write or shadow.
 """
 
 from __future__ import annotations
@@ -26,6 +28,10 @@ _FUNNEL_FLAGS = (
     "ENABLE_STS_PROJECTIONS_RO",
     "ENABLE_STS_SOLE_WRITER",
 )
+
+# Progressive funnel pct (REGRA 24) — default 0; Phase 4 max authorized = 1.
+_FUNNEL_PCT_ENV = "AURORA_SOLE_WRITER_FUNNEL_PCT"
+_FUNNEL_PO_UNLOCK_ENV = "AURORA_FUNNEL_PO_STAGE_UNLOCK"
 
 
 class MigrationStage(str, Enum):
@@ -254,6 +260,17 @@ def assert_legal_flag_matrix(*, raise_on_illegal: bool = True) -> list[dict[str,
 
 def flag_snapshot() -> dict[str, Any]:
     """Read-only observability of current flag / stage posture."""
+    funnel_pct_snap: dict[str, Any] = {}
+    try:
+        from src.conversation.sole_writer_funnel import funnel_flag_snapshot
+
+        funnel_pct_snap = funnel_flag_snapshot()
+    except Exception:
+        funnel_pct_snap = {
+            "effective_pct": 0,
+            "stage_name": "OFF_0",
+            "phase5_not_started": True,
+        }
     return {
         "migration_stage": get_migration_stage().value,
         "ENABLE_LANGGRAPH_STATE": langgraph_state_enabled(),
@@ -267,4 +284,7 @@ def flag_snapshot() -> dict[str, Any]:
         "funnel_flags_default_off": {
             name: _flag_truthy(name) for name in _FUNNEL_FLAGS
         },
+        "AURORA_SOLE_WRITER_FUNNEL_PCT": (os.environ.get(_FUNNEL_PCT_ENV) or "0"),
+        "AURORA_FUNNEL_PO_STAGE_UNLOCK": _flag_truthy(_FUNNEL_PO_UNLOCK_ENV),
+        "sole_writer_funnel": funnel_pct_snap,
     }

@@ -1,12 +1,12 @@
 """
 Mission 016 Phase 2 — C17 Minimal Commit Orchestrator (P3 Commit Host).
 
+Phase 4 Sole-Writer Funnel may authorize invoke via S2_FUNNEL / funnel stage
+(REGRA 24) in addition to force=True. Production LangGraph write (P4 host / C1)
+remains OFF; when ENABLE_LANGGRAPH_STATE is ON, C17 skips (no dual host).
+
 Same semantic edges as P4 LangGraph host:
   init_load → classify → {apply_boundary|keep_followup|apply_subject} → Commit Gate
-
-Does NOT invent a second production commit path. Production write remains OFF;
-invoke() is scaffolding / force-testable only (mirrors process_sport_state_turn
-force semantics). Router is NOT wired to C17 write in this phase.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from src.conversation.episode_transition import (
 from src.conversation.migration_flag_controller import (
     get_migration_stage,
     production_write_active,
+    sts_funnel_boundary_enabled,
 )
 from src.conversation.sport_topic_state import (
     SportTopicState,
@@ -168,9 +169,15 @@ def invoke_minimal_commit_orchestrator(
     Dual-orchestration ban: this is the sole P3 host; do not invent a peer path.
     """
     stage = get_migration_stage()
-    # Phase 2: only force (unit tests) or explicit S2_FUNNEL env may run.
-    # S2_FUNNEL still does not write live ctx (persist default False).
-    allowed = force or stage.value == "S2_FUNNEL"
+    # Phase 4: force (tests) OR S2_FUNNEL OR progressive funnel stage-1 boundary.
+    funnel_stage1 = False
+    try:
+        from src.conversation.sole_writer_funnel import get_funnel_pct
+
+        funnel_stage1 = get_funnel_pct() >= 1 and sts_funnel_boundary_enabled()
+    except Exception:
+        funnel_stage1 = False
+    allowed = force or stage.value == "S2_FUNNEL" or funnel_stage1
     # Never allow silent activation via ENABLE_LANGGRAPH_STATE alone (that's C1).
     if langgraph_state_enabled() and not force:
         # P4 write path belongs to LangGraph host — C17 must not dual-commit.
