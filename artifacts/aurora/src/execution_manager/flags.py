@@ -3,6 +3,9 @@ EM feature-flag controller + illegal matrix I1–I8 (Plan §8).
 
 All production-affecting defaults OFF / 0%. Fail-closed asserts for illegal combos.
 Rollback helpers clear env flags (operator convenience; repo defaults remain OFF).
+
+Phase 5 Progressive Activation: PGR-01 (1%) independent gate lives in
+``progressive_gate`` — this module remains the Plan §8 SoT for flag names / I1–I8.
 """
 
 from __future__ import annotations
@@ -27,6 +30,16 @@ EM_BOOL_FLAGS: tuple[str, ...] = (
     "ENABLE_EM_PGR_05",
     "ENABLE_EM_PGR_06",
 )
+
+# Ladder pct → required PGR flag (Plan §8 / Phase 5).
+_PCT_TO_PGR_FLAG: dict[int, str] = {
+    1: "ENABLE_EM_PGR_01",
+    5: "ENABLE_EM_PGR_02",
+    10: "ENABLE_EM_PGR_03",
+    25: "ENABLE_EM_PGR_04",
+    50: "ENABLE_EM_PGR_05",
+    100: "ENABLE_EM_PGR_06",
+}
 
 EM_PIPELINE_FLAGS: tuple[str, ...] = (
     "ENABLE_EM_PIPELINE_BANKROLL",
@@ -60,6 +73,7 @@ def _flag_truthy(env_name: str) -> bool:
 
 
 def _activation_pct() -> float:
+    """Configured EM_ACTIVATION_PCT (raw). Prefer get_effective via progressive_gate."""
     raw = (os.environ.get(_ACTIVATION_PCT_ENV) or "0").strip()
     try:
         return float(raw)
@@ -77,6 +91,31 @@ def sole_path_master_enabled() -> bool:
 
 def pipeline_enabled(pipeline_flag: str) -> bool:
     return _flag_truthy(pipeline_flag)
+
+
+def effective_em_activation_pct() -> int:
+    """Effective sole-path canary % (0 unless matching PGR armed)."""
+    from src.execution_manager.progressive_gate import get_effective_em_activation_pct
+
+    return get_effective_em_activation_pct()
+
+
+def em_pipeline_may_route(
+    pipeline_extraction_on: bool,
+    session_key: str | None = "",
+    *,
+    force: bool = False,
+) -> bool:
+    """
+    Shim helper: Phase 4 extraction-only OR Phase 5 PGR canary sole-path.
+
+    Defaults OFF. Does not enable pipeline flags.
+    """
+    from src.execution_manager.progressive_gate import pipeline_may_use_em_path
+
+    return pipeline_may_use_em_path(
+        pipeline_extraction_on, session_key, force=force
+    )
 
 
 # Phase 4 Stage 1 (E1 thin reports) — pipeline flag names.
@@ -232,6 +271,22 @@ def collect_illegal_em_combinations() -> list[dict[str, str]]:
                 "detail": f"EM_ACTIVATION_PCT={pct} without any ENABLE_EM_PGR_0N armed",
             }
         )
+    else:
+        try:
+            pct_i = int(pct) if float(pct) == int(pct) else -1
+        except (TypeError, ValueError):
+            pct_i = -1
+        required = _PCT_TO_PGR_FLAG.get(pct_i)
+        if pct > 0 and required and not _flag_truthy(required):
+            violations.append(
+                {
+                    "id": "I6",
+                    "detail": (
+                        f"EM_ACTIVATION_PCT={pct} requires {required} "
+                        "(corresponding PGR gate)"
+                    ),
+                }
+            )
 
     # I7 — Bundled auto-advance PGR-N → PGR-N+1.
     if _flag_truthy(_FORBIDDEN_PGR_AUTO_ADVANCE):
@@ -298,9 +353,13 @@ def assert_legal_em_flag_matrix(*, raise_on_illegal: bool = True) -> list[dict[s
 
 def em_flag_snapshot() -> dict[str, Any]:
     """Read-only observability of EM flag posture."""
+    from src.execution_manager.progressive_gate import em_pgr_flag_snapshot
+
+    pgr_snap = em_pgr_flag_snapshot()
     return {
         "flags": {name: _flag_truthy(name) for name in EM_BOOL_FLAGS},
         "EM_ACTIVATION_PCT": _activation_pct(),
+        "EM_ACTIVATION_PCT_EFFECTIVE": pgr_snap.get("effective_pct", 0),
         "shadow_enabled": shadow_enabled(),
         "sole_path_master_enabled": sole_path_master_enabled(),
         "any_pipeline_enabled": any_pipeline_enabled(),
@@ -310,7 +369,7 @@ def em_flag_snapshot() -> dict[str, Any]:
         "phase3_shadow_observe_only": True,
         "phase3_shadow_default_off": not shadow_enabled(),
         # Phase 4 Stage 1 (E1 thin) + Stage 2 (E2 live) + Stage 3 (E3 analyze);
-        # defaults OFF.
+        # Stage 4 (E4 live_team); defaults OFF.
         "phase4_extraction_not_started": False,
         "phase4_stage1_thin_reports": True,
         "phase4_stage2_not_started": False,
@@ -324,7 +383,16 @@ def em_flag_snapshot() -> dict[str, Any]:
         "phase4_stage4_live_team": True,
         "phase4_live_team_defaults_off": not live_team_pipeline_extraction_enabled(),
         "phase4_extraction_complete": True,
-        "phase5_activation_not_started": True,
+        # Phase 5 Progressive Activation — PGR-01 capability; defaults OFF.
+        "phase5_activation_not_started": False,
+        "phase5_pgr01": True,
+        "phase5_pgr01_defaults_off": not _flag_truthy("ENABLE_EM_PGR_01"),
+        "phase5_pgr02_not_started": True,
+        "phase5_authorized_highest_gate": "PGR-01",
+        "phase5_authorized_max_pct": 1,
+        "progressive_gate_review": pgr_snap,
+        "auto_advance": False,
+        "rollback_possible": True,
     }
 
 
@@ -345,10 +413,14 @@ def rollback_em_sole_path_off() -> None:
 def rollback_em_pgrXX_to_off(gate: int) -> None:
     if gate < 1 or gate > 6:
         raise ValueError(f"PGR gate must be 1..6, got {gate}")
-    os.environ[f"ENABLE_EM_PGR_0{gate}"] = "0"
-    # Clamp pct to 0 in Infra (prior-plateau math lands in Phase 5).
-    os.environ[_ACTIVATION_PCT_ENV] = "0"
+    if gate == 1:
+        from src.execution_manager.progressive_gate import rollback_em_pgr01_to_off
 
+        rollback_em_pgr01_to_off()
+        return
+    os.environ[f"ENABLE_EM_PGR_0{gate}"] = "0"
+    # Clamp pct to 0 (prior plateau math for higher gates lands in later PGR missions).
+    os.environ[_ACTIVATION_PCT_ENV] = "0"
 
 def rollback_em_all_off() -> None:
     """Global EM kill — all flags OFF, pct 0."""

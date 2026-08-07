@@ -124,6 +124,14 @@ def test_flags_default_off_snapshot():
     assert snap["phase4_stage4_live_team"] is True
     assert snap["phase4_live_team_defaults_off"] is True
     assert snap["phase4_extraction_complete"] is True
+    assert snap["phase5_activation_not_started"] is False
+    assert snap["phase5_pgr01"] is True
+    assert snap["phase5_pgr01_defaults_off"] is True
+    assert snap["phase5_pgr02_not_started"] is True
+    assert snap["phase5_authorized_highest_gate"] == "PGR-01"
+    assert snap["phase5_authorized_max_pct"] == 1
+    assert snap["auto_advance"] is False
+    assert snap["rollback_possible"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 

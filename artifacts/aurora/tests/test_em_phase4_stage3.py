@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import asyncio
 import os
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -144,7 +145,9 @@ def test_stage3_flags_default_off():
     assert snap["phase4_stage4_live_team"] is True
     assert snap["phase4_stage4_not_started"] is False
     assert snap["phase4_live_team_defaults_off"] is True
-    assert snap["phase5_activation_not_started"] is True
+    assert snap["phase5_activation_not_started"] is False
+    assert snap["phase5_pgr01"] is True
+    assert snap["phase5_pgr02_not_started"] is True
 
 
 def test_analyze_flag_on_does_not_arm_live_team_or_pgr():
@@ -294,10 +297,9 @@ def test_router_shim_on_uses_em_path():
         return {"intent": "analyze_match", "source": "legacy"}
 
     fake_data = _minimal_fixture_data(fixture_id=99, partial=False)
-    with patch(
-        "src.routers.analyze.analyze_fixture",
-        new=AsyncMock(return_value=fake_data),
-    ):
+    fake_analyze = type(sys)("src.routers.analyze")
+    fake_analyze.analyze_fixture = AsyncMock(return_value=fake_data)
+    with patch.dict(sys.modules, {"src.routers.analyze": fake_analyze}):
         # May succeed via EM or fail-open to legacy if engines need more fields.
         out = asyncio.run(em_analyze_or_legacy(legacy, home="Palmeiras", away="Flamengo"))
     assert out["intent"] == "analyze_match"
@@ -313,10 +315,11 @@ def test_router_shim_fail_open_fallback_to_legacy():
     async def legacy():
         return {"intent": "analyze_match", "source": "legacy-fallback"}
 
-    with patch(
-        "src.routers.analyze.analyze_fixture",
-        new=AsyncMock(side_effect=RuntimeError("injected fetch failure")),
-    ):
+    fake_analyze = type(sys)("src.routers.analyze")
+    fake_analyze.analyze_fixture = AsyncMock(
+        side_effect=RuntimeError("injected fetch failure")
+    )
+    with patch.dict(sys.modules, {"src.routers.analyze": fake_analyze}):
         out = asyncio.run(em_analyze_or_legacy(legacy, home="A", away="B"))
     assert out["source"] == "legacy-fallback"
     _clear_em_flags()
@@ -461,7 +464,9 @@ def test_pipeline_analyze_on_without_shadow_is_illegal_i1():
 def test_no_pgr_flags_armed_by_stage3():
     _clear_em_flags()
     snap = em_flag_snapshot()
-    assert snap["phase5_activation_not_started"] is True
+    assert snap["phase5_activation_not_started"] is False
+    assert snap["phase5_pgr01"] is True
+    assert snap["phase5_pgr02_not_started"] is True
     assert snap["EM_ACTIVATION_PCT"] == 0.0
     for name in EM_BOOL_FLAGS:
         if "PGR" in name:

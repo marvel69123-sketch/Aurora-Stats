@@ -1,9 +1,11 @@
 """
-Execution Manager — Phase 2/3 scaffolding + Phase 4 Progressive Extraction.
+Execution Manager — Phase 2/3 scaffolding + Phase 4 Progressive Extraction
++ Phase 5 Progressive Activation PGR-01 (1%).
 
 Contracts, Step Runner, ports, flag controller, Shadow Mode (observe-only),
 thin-report (E1), live (E2), analyze (E3), and live_team_analyze (E4)
-progressive extraction behind DEFAULT OFF flags.
+progressive extraction behind DEFAULT OFF flags. PGR-01 independent gate
+for 1% sole-path canary (DEFAULT OFF; PGR-02+ locked).
 """
 
 from __future__ import annotations
@@ -24,8 +26,10 @@ from src.execution_manager.flags import (
     IllegalEmFlagMatrixError,
     analyze_pipeline_extraction_enabled,
     assert_legal_em_flag_matrix,
+    effective_em_activation_pct,
     em_flag_snapshot,
     em_flags_all_off,
+    em_pipeline_may_route,
     live_pipeline_extraction_enabled,
     live_team_pipeline_extraction_enabled,
     pipeline_enabled,
@@ -34,6 +38,17 @@ from src.execution_manager.flags import (
     rollback_em_sole_path_off,
     shadow_enabled,
     thin_pipeline_extraction_enabled,
+)
+from src.execution_manager.progressive_gate import (
+    AUTHORIZED_HIGHEST_GATE,
+    AUTHORIZED_OPERATIONAL_MAX_PCT,
+    PGR01_PCT,
+    PGR01_STAGE,
+    em_pgr_flag_snapshot,
+    get_effective_em_activation_pct,
+    pgr01_enable_flag,
+    require_em_pgr01,
+    rollback_em_pgr01_to_off,
 )
 from src.execution_manager.router_shim import (
     em_analyze_from_fixture,
@@ -56,6 +71,8 @@ from src.execution_manager.step_runner import ExecutionManager, StepRunner
 __all__ = [
     "ANALYZE_FROZEN_ENGINE_ORDER",
     "APPENDIX_A_MANDATORY_KEYS",
+    "AUTHORIZED_HIGHEST_GATE",
+    "AUTHORIZED_OPERATIONAL_MAX_PCT",
     "AbortReason",
     "ExecutionManager",
     "ExecutionMode",
@@ -64,6 +81,8 @@ __all__ = [
     "ExecutionStatus",
     "FixtureQuality",
     "IllegalEmFlagMatrixError",
+    "PGR01_PCT",
+    "PGR01_STAGE",
     "PipelineId",
     "ShadowCompareResult",
     "StepRunner",
@@ -71,6 +90,7 @@ __all__ = [
     "StepTrace",
     "analyze_pipeline_extraction_enabled",
     "assert_legal_em_flag_matrix",
+    "effective_em_activation_pct",
     "em_analyze_from_fixture",
     "em_analyze_or_legacy",
     "em_flag_snapshot",
@@ -79,12 +99,18 @@ __all__ = [
     "em_live_or_legacy",
     "em_live_team_from_feed",
     "em_live_team_or_legacy",
+    "em_pipeline_may_route",
+    "em_pgr_flag_snapshot",
     "em_thin_or_legacy",
+    "get_effective_em_activation_pct",
     "live_pipeline_extraction_enabled",
     "live_team_pipeline_extraction_enabled",
     "maybe_em_shadow_observe",
+    "pgr01_enable_flag",
     "pipeline_enabled",
+    "require_em_pgr01",
     "rollback_em_all_off",
+    "rollback_em_pgr01_to_off",
     "rollback_em_shadow_off",
     "rollback_em_sole_path_off",
     "shadow_compare",

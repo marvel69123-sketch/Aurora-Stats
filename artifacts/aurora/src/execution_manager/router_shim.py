@@ -30,9 +30,13 @@ def em_thin_or_legacy(
     Live / analyze / live_team are NOT gated here.
     """
     try:
-        from src.execution_manager.flags import thin_pipeline_extraction_enabled
+        from src.execution_manager.flags import (
+            em_pipeline_may_route,
+            thin_pipeline_extraction_enabled,
+        )
 
-        if not thin_pipeline_extraction_enabled(pipeline_id):
+        extraction_on = thin_pipeline_extraction_enabled(pipeline_id)
+        if not em_pipeline_may_route(extraction_on, session_id):
             return legacy_fn()
 
         from src.execution_manager.contracts import (
@@ -135,9 +139,12 @@ async def em_live_or_legacy(
     Match-card attachment is the caller's responsibility (Router).
     """
     try:
-        from src.execution_manager.flags import live_pipeline_extraction_enabled
+        from src.execution_manager.flags import (
+            em_pipeline_may_route,
+            live_pipeline_extraction_enabled,
+        )
 
-        if not live_pipeline_extraction_enabled():
+        if not em_pipeline_may_route(live_pipeline_extraction_enabled(), session_id):
             return await legacy_fn()
 
         from src.routers.live import _build_live_response
@@ -241,9 +248,12 @@ async def em_analyze_or_legacy(
     Match-card attachment is the caller's responsibility (Router).
     """
     try:
-        from src.execution_manager.flags import analyze_pipeline_extraction_enabled
+        from src.execution_manager.flags import (
+            analyze_pipeline_extraction_enabled,
+            em_pipeline_may_route,
+        )
 
-        if not analyze_pipeline_extraction_enabled():
+        if not em_pipeline_may_route(analyze_pipeline_extraction_enabled(), session_id):
             return await legacy_fn()
 
         from src.routers.analyze import analyze_fixture
@@ -358,9 +368,14 @@ async def em_live_team_or_legacy(
     Match-card attachment is the caller's responsibility (Router).
     """
     try:
-        from src.execution_manager.flags import live_team_pipeline_extraction_enabled
+        from src.execution_manager.flags import (
+            em_pipeline_may_route,
+            live_team_pipeline_extraction_enabled,
+        )
 
-        if not live_team_pipeline_extraction_enabled():
+        if not em_pipeline_may_route(
+            live_team_pipeline_extraction_enabled(), session_id
+        ):
             return await legacy_fn()
 
         from src.execution_manager.pipelines.live_team_analyze import (

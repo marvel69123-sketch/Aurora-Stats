@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import asyncio
 import os
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -112,7 +113,9 @@ def test_stage4_flags_default_off():
     assert snap["phase4_stage4_not_started"] is False
     assert snap["phase4_live_team_defaults_off"] is True
     assert snap["phase4_extraction_complete"] is True
-    assert snap["phase5_activation_not_started"] is True
+    assert snap["phase5_activation_not_started"] is False
+    assert snap["phase5_pgr01"] is True
+    assert snap["phase5_pgr02_not_started"] is True
 
 
 def test_live_team_flag_on_does_not_arm_pgr():
@@ -228,23 +231,24 @@ def test_router_shim_on_uses_em_path():
         return {"intent": "live_team_analysis", "source": "legacy"}
 
     fake_feed = _feed_with_match()
-    with patch(
-        "src.routers.live._build_live_response",
-        new=AsyncMock(return_value=fake_feed),
-    ), patch(
-        "src.routers.analyze.analyze_fixture",
-        new=AsyncMock(
-            return_value={
-                "fixture": {"id": 99, "status": {"short": "1H", "minute": 10}},
-                "teams": {
-                    "home": {"id": 1, "name": "Palmeiras"},
-                    "away": {"id": 2, "name": "Flamengo"},
-                },
-                "league": {"name": "Serie A"},
-                "standings": {},
-                "_partial": False,
-            }
-        ),
+    fake_live = type(sys)("src.routers.live")
+    fake_live._build_live_response = AsyncMock(return_value=fake_feed)
+    fake_analyze = type(sys)("src.routers.analyze")
+    fake_analyze.analyze_fixture = AsyncMock(
+        return_value={
+            "fixture": {"id": 99, "status": {"short": "1H", "minute": 10}},
+            "teams": {
+                "home": {"id": 1, "name": "Palmeiras"},
+                "away": {"id": 2, "name": "Flamengo"},
+            },
+            "league": {"name": "Serie A"},
+            "standings": {},
+            "_partial": False,
+        }
+    )
+    with patch.dict(
+        sys.modules,
+        {"src.routers.live": fake_live, "src.routers.analyze": fake_analyze},
     ):
         out = asyncio.run(em_live_team_or_legacy(legacy, team="Palmeiras"))
     assert out["intent"] in ("analyze_match", "live_team_analysis")
@@ -260,10 +264,11 @@ def test_router_shim_fail_open_fallback_to_legacy():
     async def legacy():
         return {"intent": "live_team_analysis", "source": "legacy-fallback"}
 
-    with patch(
-        "src.routers.live._build_live_response",
-        new=AsyncMock(side_effect=RuntimeError("injected feed failure")),
-    ):
+    fake_live = type(sys)("src.routers.live")
+    fake_live._build_live_response = AsyncMock(
+        side_effect=RuntimeError("injected feed failure")
+    )
+    with patch.dict(sys.modules, {"src.routers.live": fake_live}):
         out = asyncio.run(em_live_team_or_legacy(legacy, team="Palmeiras"))
     assert out["source"] == "legacy-fallback"
     _clear_em_flags()
