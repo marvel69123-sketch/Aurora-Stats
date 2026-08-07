@@ -15,11 +15,48 @@
 
 ---
 
+## AMENDMENT 001 — Prompt Mestre + PO visual template (2026-08-07)
+
+**Amendment ID:** `AMENDMENT_001`  
+**Policy version:** `2026.08.07` → `2026.08.07.1`  
+**Scope:** Documentation enhancement of REGRA Nº 29 only — **no product code**.
+
+### What changed
+
+| Item | Action |
+|------|--------|
+| Official **Prompt Mestre** governance block | Added as copyable §3 in `DUAL_REPORTING_POLICY.md`; must be prepended/included in all future mission prompts |
+| Official **visual Product Owner Report** header pattern | Institutionalized (📋 / ✅ / 🧠 / 👤 / ⚠️ / 🎯 / 📊 / 🏗️ / 📝) |
+| Progress bar under “Quanto falta?” | Mandatory text bar + percent (example `██████████████████░░  80%`) |
+| Language rules | Restated under Prompt Mestre + §5.3 |
+| Compatibility Rules 19–29 | Explicit non-alteration matrix including Rule 29 itself |
+| Separate lay-explanation requests | Marked **obsolete** — Dual Reporting at mission close is the official lay channel |
+| Governance / SSOT index pointers | Purpose lines updated to mention Prompt Mestre + visual template |
+
+### Non-goals (unchanged)
+
+- Master Architecture not modified  
+- SSOT / AEAP / Rules 19 / 23–28 not altered  
+- No product / runtime code  
+
+### Engineering evidence for this amendment
+
+| Field | Value |
+|-------|-------|
+| Commit message (this enhancement) | `docs(governance): enhance Dual Reporting Policy with Prompt block and PO visual template` |
+| Commit hash | *(filled after commit)* |
+| Push | *(filled after push)* |
+| Code changes | **Nenhuma alteração de código: SIM** |
+
+---
+
 # REPORT 1 — ENGINEERING REPORT
 
 ## 1. Objective
 
 Institutionalize permanent AEL policy **REGRA Nº 29 — Dual Reporting** as official governance documentation under `docs/architecture/governance/`, with a mission observation package under `observations/`.
+
+**Amendment 001 objective:** Evolve the already-institutionalized policy with the official Prompt Mestre governance block and the official visual Product Owner Report header pattern (plus progress-bar guidance).
 
 ## 2. Scope
 
@@ -29,6 +66,7 @@ Institutionalize permanent AEL policy **REGRA Nº 29 — Dual Reporting** as off
 | Observation `REPORT.md` (this file) with Dual Reporting dual | PGR-06 or Phase 6 |
 | Tiny index pointers in existing governance navigation | Master Architecture pillar reopen |
 | Docs-only Git commit + push | Spec / ADR content edits |
+| Amendment 001: Prompt Mestre + PO visual template | New AEL rules beyond enhancing Rule 29 |
 
 ## 3. Deliverables
 
@@ -57,21 +95,22 @@ Institutionalize permanent AEL policy **REGRA Nº 29 — Dual Reporting** as off
 
 ## 6. REGRA 29 self-application
 
-This mission closes with Report 1 (Engineering) and Report 2 (Product Owner) in this same observation file as **two independent sections**, per the new policy.
+This mission closes with Report 1 (Engineering) and Report 2 (Product Owner) in this same observation file as **two independent sections**, per the new policy. Amendment 001 closes with the official visual PO headers and progress bar.
 
 ## 7. Commit / push
 
 | Field | Value |
 |-------|-------|
-| Commit message | `docs(governance): add Dual Reporting Policy (Rule 29)` |
-| Commit hash | *(filled after commit)* |
+| Commit message (initial) | `docs(governance): add Dual Reporting Policy (Rule 29)` |
+| Commit message (Amendment 001) | `docs(governance): enhance Dual Reporting Policy with Prompt block and PO visual template` |
+| Commit hash (Amendment 001) | *(filled after commit)* |
 | Push | *(filled after push)* |
-| Files staged | Policy + observation + governance/navigation index rows only |
+| Files staged | Policy + observation amendment + governance/navigation index purpose lines only |
 
 ## 8. Residual / next
 
 - Optional future hygiene: one-line AEL pointer in Master.  
-- Operational: all future missions must ship Dual Reporting at close.  
+- Operational: all future missions must ship Dual Reporting at close **and** include the Prompt Mestre governance block.  
 - Not started: PGR-06.
 
 ---
@@ -80,11 +119,11 @@ This mission closes with Report 1 (Engineering) and Report 2 (Product Owner) in 
 
 ### 1. O que fizemos hoje?
 
-Criamos uma regra oficial permanente: toda missão da Aurora deve terminar com **dois relatórios separados** — um técnico e um em linguagem simples para o Product Owner.
+Criamos uma regra oficial permanente: toda missão da Aurora deve terminar com **dois relatórios separados** — um técnico e um em linguagem simples para o Product Owner. Em seguida, **aperfeiçoamos** essa regra com um bloco oficial para colar no início das missões e um modelo visual claro do relatório do Product Owner (com barra de progresso).
 
 ### 2. O que isso significa em linguagem simples?
 
-Antes, o fechamento podia misturar detalhes de engenharia com a visão de produto. Agora fica obrigatório explicar o mesmo resultado em duas vozes: uma para quem valida a técnica e outra para quem decide o produto.
+Antes, o fechamento podia misturar detalhes de engenharia com a visão de produto. Agora fica obrigatório explicar o mesmo resultado em duas vozes: uma para quem valida a técnica e outra para quem decide o produto. Pedidos separados de “explica de novo em português simples” deixam de ser necessários — o segundo relatório já é obrigatório.
 
 ### 3. O usuário percebe alguma diferença?
 
@@ -92,27 +131,32 @@ Antes, o fechamento podia misturar detalhes de engenharia com a visão de produt
 
 ### 4. Existe algum risco?
 
-Risco baixo e só de processo: se alguém esquecer o relatório do Product Owner, a missão fica incompleta. Não há risco novo para o usuário final. A regra **não** mexe nas proteções já existentes (impacto zero, ativação progressiva, etc.).
+Risco baixo e só de processo: se alguém esquecer o relatório do Product Owner (ou a barra de “quanto falta”), a missão fica incompleta. Não há risco novo para o usuário final. A regra **não** mexe nas proteções já existentes (impacto zero, ativação progressiva, etc.).
 
 ### 5. O que ainda falta?
 
-- Usar esta regra em **todas** as missões futuras.  
+- Usar o bloco Prompt Mestre e o modelo visual em **todas** as missões futuras.  
 - (Opcional) Mais tarde, colocar um ponteiro curto no Documento Mestre apontando para a Regra 29 — sem reabrir arquitetura agora.  
 - Continuar o plano de ativação (próximo passo de produto continua separado; **não** é esta missão).
 
 ### 6. Quanto falta para terminar?
 
-Para **esta** missão de governança: concluída após o commit/push dos documentos.  
-Para o produto como um todo: a regra de dois relatórios passa a valer daqui em diante; o restante do roadmap/gates segue no seu próprio trilho.
+Para **esta** evolução da Regra 29 (documentos + modelo visual): praticamente concluída após o commit/push.
+
+```text
+███████████████████░  95%
+```
+
+(Os 5% restantes são só o commit/push e a confirmação no retorno. O roadmap de produto segue em outro trilho.)
 
 ### 7. Analogia simples.
 
-É como entregar o mesmo dia de trabalho em **dois envelopes**: um com o diário técnico da oficina e outro com um bilhete claro para a direção — os dois são obrigatórios; um não substitui o outro.  
+É como entregar o mesmo dia de trabalho em **dois envelopes**: um com o diário técnico da oficina e outro com um bilhete claro para a direção — os dois são obrigatórios; um não substitui o outro. O aperfeiçoamento de hoje é como carimbar o bilhete da direção com um **cabeçalho padrão** e uma **régua de progresso**, para ninguém entregar o envelope pela metade.  
 (Quando falarmos de modos futuros: *Shadow Mode* = aluno que acompanha o professor mas ainda não responde sozinho; *Rollback* = voltar rapidamente ao estado anterior.)
 
 ### 8. Resumo em uma frase.
 
-A Aurora agora exige, em toda missão, um relatório técnico e um relatório simples para o Product Owner — sem mudar o produto nem as regras de segurança já aprovadas.
+A Aurora exige, em toda missão, um relatório técnico e um relatório visual simples para o Product Owner — e agora tem um bloco oficial de governança para garantir isso desde o início da missão, sem mudar o produto.
 
 ---
 
@@ -121,6 +165,8 @@ A Aurora agora exige, em toda missão, um relatório técnico e um relatório si
 | Question | Answer |
 |----------|--------|
 | A REGRA 29 foi incorporada ao AEL? | **SIM** — política oficial em `docs/architecture/governance/DUAL_REPORTING_POLICY.md` |
-| Todas as futuras missões passam a exigir dois relatórios? | **SIM** — §2 / §6 da política |
-| A política é compatível com a SSOT e a AEAP? | **SIM** — cláusula de não alteração (§7) |
+| Todas as futuras missões passam a exigir dois relatórios? | **SIM** — §2 / §7 da política |
+| Prompt Mestre + template visual PO institucionalizados? | **SIM** — Amendment 001 / policy v2026.08.07.1 |
+| A política é compatível com a SSOT e a AEAP? | **SIM** — cláusula de não alteração (§8) |
 | Houve alguma alteração arquitetural? | **NÃO** |
+| Nenhuma alteração de código? | **SIM** |

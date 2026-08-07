@@ -56,7 +56,7 @@ docs/architecture/
 | Governance index | [`governance/README.md`](./governance/README.md) | AARs, matrices, SSOT policy, waiver template, Dual Reporting (Rule 29) |
 | SSOT Policy | [`governance/SSOT_POLICY.md`](./governance/SSOT_POLICY.md) | Versioning, approval, freeze-while-NOT-APPROVED, traceability |
 | Substitution Waiver Template | [`governance/SUBSTITUTION_WAIVER_TEMPLATE.md`](./governance/SUBSTITUTION_WAIVER_TEMPLATE.md) | Time-boxed waiver form (prefer master coverage; do not use to bypass Spec residuals) |
-| Dual Reporting Policy (REGRA Nº 29) | [`governance/DUAL_REPORTING_POLICY.md`](./governance/DUAL_REPORTING_POLICY.md) | AEL: every mission ends with Engineering + Product Owner reports |
+| Dual Reporting Policy (REGRA Nº 29) | [`governance/DUAL_REPORTING_POLICY.md`](./governance/DUAL_REPORTING_POLICY.md) | AEL Dual Reporting — Eng + PO; Prompt Mestre block; PO visual template |
 
 ---
 

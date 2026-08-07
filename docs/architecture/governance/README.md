@@ -10,7 +10,7 @@
 |----------|------|---------|
 | SSOT Policy | [`SSOT_POLICY.md`](./SSOT_POLICY.md) | Versioning, approval, freeze-while-NOT-APPROVED, traceability, promotion |
 | Substitution Waiver Template | [`SUBSTITUTION_WAIVER_TEMPLATE.md`](./SUBSTITUTION_WAIVER_TEMPLATE.md) | Time-boxed waiver form (Path B); prefer Master Path A |
-| Dual Reporting Policy (REGRA Nº 29) | [`DUAL_REPORTING_POLICY.md`](./DUAL_REPORTING_POLICY.md) | AEL permanent Dual Reporting — Engineering + Product Owner reports at mission close |
+| Dual Reporting Policy (REGRA Nº 29) | [`DUAL_REPORTING_POLICY.md`](./DUAL_REPORTING_POLICY.md) | AEL Dual Reporting — Engineering + PO reports; Prompt Mestre block; PO visual template + progress bar |
 
 ---
 
