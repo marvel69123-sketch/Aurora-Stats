@@ -117,7 +117,9 @@ def test_flags_default_off_snapshot():
     assert snap["phase4_stage2_live"] is True
     assert snap["phase4_thin_defaults_off"] is True
     assert snap["phase4_live_defaults_off"] is True
-    assert snap["phase4_stage3_not_started"] is True
+    assert snap["phase4_stage3_not_started"] is False
+    assert snap["phase4_stage3_analyze"] is True
+    assert snap["phase4_analyze_defaults_off"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 
@@ -438,8 +440,8 @@ def test_em_package_forbids_cm_matchcard_begin_request():
 
 def test_router_shadow_hook_is_observe_only_not_sole_path():
     """
-    Phase 3 shadow remains observe-only. Phase 4 Stage 1/2 add thin+live shims.
-    Analyze/live_team must NOT be sole-pathed. Legacy bodies remain.
+    Phase 3 shadow remains observe-only. Phase 4 Stage 1/2/3 add thin+live+analyze shims.
+    live_team must NOT be sole-pathed. Legacy bodies remain.
     """
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "_observe_em_shadow" in text
@@ -447,8 +449,9 @@ def test_router_shadow_hook_is_observe_only_not_sole_path():
     assert "ENABLE_EXECUTION_MANAGER_SHADOW" in text
     assert "_em_thin_or_legacy" in text
     assert "_em_live_or_legacy" in text
-    # Stage 2 live wired; analyze/live_team pipeline flags absent from Router
-    assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
+    assert "_em_analyze_or_legacy" in text
+    assert "analyze_pipeline_extraction_enabled" in text
+    # Stage 3 analyze wired; live_team pipeline flag absent from Router
     assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
     # Must not assign shadow result onto production payload
     assert "payload = maybe_em_shadow_observe" not in text

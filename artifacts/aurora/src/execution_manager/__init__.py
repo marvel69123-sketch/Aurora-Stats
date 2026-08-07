@@ -1,8 +1,9 @@
 """
-Execution Manager — Phase 2/3 scaffolding + Phase 4 Stage 1/2 extraction.
+Execution Manager — Phase 2/3 scaffolding + Phase 4 Stage 1/2/3 extraction.
 
 Contracts, Step Runner, ports, flag controller, Shadow Mode (observe-only),
-thin-report (E1) and live (E2) progressive extraction behind DEFAULT OFF flags.
+thin-report (E1), live (E2), and analyze (E3) progressive extraction behind
+DEFAULT OFF flags.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from src.execution_manager.contracts import (
 )
 from src.execution_manager.flags import (
     IllegalEmFlagMatrixError,
+    analyze_pipeline_extraction_enabled,
     assert_legal_em_flag_matrix,
     em_flag_snapshot,
     em_flags_all_off,
@@ -32,7 +34,13 @@ from src.execution_manager.flags import (
     shadow_enabled,
     thin_pipeline_extraction_enabled,
 )
-from src.execution_manager.router_shim import em_live_from_feed, em_live_or_legacy, em_thin_or_legacy
+from src.execution_manager.router_shim import (
+    em_analyze_from_fixture,
+    em_analyze_or_legacy,
+    em_live_from_feed,
+    em_live_or_legacy,
+    em_thin_or_legacy,
+)
 from src.execution_manager.shadow import (
     APPENDIX_A_MANDATORY_KEYS,
     ShadowCompareResult,
@@ -58,7 +66,10 @@ __all__ = [
     "StepRunner",
     "StepStatus",
     "StepTrace",
+    "analyze_pipeline_extraction_enabled",
     "assert_legal_em_flag_matrix",
+    "em_analyze_from_fixture",
+    "em_analyze_or_legacy",
     "em_flag_snapshot",
     "em_flags_all_off",
     "em_live_from_feed",

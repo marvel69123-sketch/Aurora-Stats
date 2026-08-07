@@ -2,8 +2,8 @@
 EM outbound ports (Spec §4.5) — protocols + inert stub adapters.
 
 Phase 2: stubs do NOT call production Tool Use / engines / cost_protection
-begin_request. Phase 4 Stage 1/2: production read/feed/engine adapters behind
-DEFAULT OFF pipeline flags. Never CM write. Never begin_request.
+begin_request. Phase 4 Stage 1/2/3: production read/feed/fixture/engine
+adapters behind DEFAULT OFF pipeline flags. Never CM write. Never begin_request.
 """
 
 from __future__ import annotations
@@ -212,6 +212,73 @@ class ProductionLiveEnginePort:
         else:
             fixtures = []
         return build_live_payload(fixtures, get_brain_meta())
+
+
+@dataclass
+class PrefetchedFixture:
+    """
+    Phase 4 Stage 3 — inject an already-fetched analyze_fixture payload.
+
+    Preferred under a running event loop; avoids nested asyncio.run.
+    """
+
+    response: dict[str, Any] = field(
+        default_factory=lambda: {"fixture": {"id": 0}, "teams": {}, "found": False}
+    )
+
+    def fetch(
+        self,
+        *,
+        home: str | None = None,
+        away: str | None = None,
+        force_refresh: bool = False,
+        soft: bool = True,
+    ) -> dict[str, Any]:
+        out = dict(self.response)
+        out.setdefault("home", home)
+        out.setdefault("away", away)
+        out.setdefault("force_refresh", force_refresh)
+        out.setdefault("soft", soft)
+        return out
+
+
+@dataclass
+class ProductionFetchFixturePort:
+    """
+    Phase 4 Stage 3 — FetchFixture adapter (Tool Use analyze_fixture port).
+
+    Sync bridge to `routers.analyze.analyze_fixture`. When already inside a
+    running event loop, callers must use PrefetchedFixture instead.
+    """
+
+    prefer_live: bool = False
+
+    def fetch(
+        self,
+        *,
+        home: str | None = None,
+        away: str | None = None,
+        force_refresh: bool = False,
+        soft: bool = True,
+    ) -> dict[str, Any]:
+        from src.routers.analyze import analyze_fixture
+
+        coro = analyze_fixture(
+            home=home or "",
+            away=away or "",
+            prefer_live=bool(self.prefer_live),
+            soft=bool(soft),
+            force_refresh=bool(force_refresh),
+        )
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            out = asyncio.run(coro)
+            return dict(out) if isinstance(out, dict) else {"fixture": {"id": 0}, "teams": {}}
+        raise RuntimeError(
+            "ProductionFetchFixturePort.fetch cannot block under a running "
+            "event loop — use PrefetchedFixture from the async Router shim"
+        )
 
 
 @dataclass

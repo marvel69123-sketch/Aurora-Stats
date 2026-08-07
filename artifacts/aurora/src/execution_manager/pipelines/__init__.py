@@ -1,8 +1,8 @@
-"""Pipeline handlers package (Phase 2 stubs + Phase 4 Stage 1/2 extractions)."""
+"""Pipeline handlers package (Phase 2 stubs + Phase 4 Stage 1/2/3 extractions)."""
 
 from __future__ import annotations
 
-from src.execution_manager.pipelines.analyze import run_analyze_stub
+from src.execution_manager.pipelines.analyze import run_analyze, run_analyze_stub
 from src.execution_manager.pipelines.live import run_live, run_live_stub
 from src.execution_manager.pipelines.live_team_analyze import run_live_team_analyze_stub
 from src.execution_manager.pipelines.thin_reports import (
@@ -15,6 +15,7 @@ from src.execution_manager.pipelines.thin_reports import (
 )
 
 __all__ = [
+    "run_analyze",
     "run_analyze_stub",
     "run_bankroll",
     "run_bankroll_stub",

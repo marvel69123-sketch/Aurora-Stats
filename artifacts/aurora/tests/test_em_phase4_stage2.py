@@ -127,7 +127,8 @@ def test_stage2_flags_default_off():
     assert snap["phase4_stage2_live"] is True
     assert snap["phase4_stage2_not_started"] is False
     assert snap["phase4_live_defaults_off"] is True
-    assert snap["phase4_stage3_not_started"] is True
+    assert snap["phase4_stage3_not_started"] is False
+    assert snap["phase4_stage3_analyze"] is True
     assert snap["phase5_activation_not_started"] is True
 
 
@@ -255,14 +256,15 @@ def test_router_shim_fail_open_fallback_to_legacy():
     _clear_em_flags()
 
 
-def test_analyze_and_live_team_not_gated_by_stage2():
+def test_analyze_wired_live_team_not_gated_by_stage2():
     _clear_em_flags()
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "_em_live_or_legacy" in text
-    assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
+    assert "_em_analyze_or_legacy" in text
+    assert "analyze_pipeline_extraction_enabled" in text
     assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
-    assert "await _run_analyze" in text
-    # live_team bridge not extracted
+    assert "async def _run_analyze" in text
+    # live_team bridge not extracted as E4 composite
     assert "live_team_analysis" in text
 
 

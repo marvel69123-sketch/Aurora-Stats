@@ -131,7 +131,7 @@ async def em_live_or_legacy(
 
     DEFAULT OFF → legacy `_run_live`.
     Flag ON → prefetch live feed + EM live path; fail-open fallback to legacy.
-    Analyze / live_team are NOT gated here.
+    Analyze / live_team are NOT gated here (analyze = Stage 3).
     Match-card attachment is the caller's responsibility (Router).
     """
     try:
@@ -159,4 +159,116 @@ async def em_live_or_legacy(
         return await legacy_fn()
     except Exception as exc:
         logger.warning("copilot: EM live failed (%s) — fallback legacy", exc)
+        return await legacy_fn()
+
+
+def em_analyze_from_fixture(
+    data: dict[str, Any],
+    *,
+    home: str = "",
+    away: str = "",
+    prefer_live: bool = False,
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Sync EM analyze run with a prefetched analyze_fixture payload.
+
+    Returns payload dict on success, or None for fail-open caller fallback.
+    Does NOT attach match cards (Router post-EM). Does NOT write CM.
+    """
+    from src.execution_manager.contracts import (
+        ExecutionMode,
+        ExecutionRequest,
+        ExecutionStatus,
+    )
+    from src.execution_manager.ports import PortBundle, PrefetchedFixture
+    from src.execution_manager.step_runner import ExecutionManager
+
+    ents = dict(entities or {})
+    ents.setdefault("home", home)
+    ents.setdefault("away", away)
+    em = ExecutionManager(
+        ports=PortBundle(fetch_fixture=PrefetchedFixture(response=dict(data or {})))
+    )
+    result = em.run(
+        ExecutionRequest(
+            run_id=secrets.token_hex(8),
+            pipeline_id="analyze",
+            session_id=session_id or "",
+            mode=ExecutionMode.PRIMARY,
+            entities=ents,
+            flags={
+                "prefer_live": bool(prefer_live),
+                "force_refresh": bool(force_refresh),
+                "home": home,
+                "away": away,
+            },
+        )
+    )
+    if result.status == ExecutionStatus.COMPLETED and isinstance(result.payload, dict):
+        out = dict(result.payload)
+        # Stash fixture data for Router match-card attach (success path only).
+        if result.abort_reason != "integrity_invalid_hard_abort":
+            fx = (result.diagnostics or {}).get("analyze_fixture_data")
+            if isinstance(fx, dict):
+                out["_em_analyze_fixture_data"] = fx
+        return out
+    logger.warning(
+        "copilot: EM analyze incomplete (status=%s)",
+        getattr(result.status, "value", result.status),
+    )
+    return None
+
+
+async def em_analyze_or_legacy(
+    legacy_fn: Callable[[], Awaitable[dict[str, Any]]],
+    *,
+    home: str,
+    away: str,
+    prefer_live: bool = False,
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Phase 4 Stage 3 — Progressive Extraction E3 (analyze).
+
+    DEFAULT OFF → legacy `_run_analyze`.
+    Flag ON → soft-fetch fixture + EM analyze path; fail-open fallback to legacy.
+    Live_team composite is NOT gated here (E4).
+    Soft-try / post-integrity / CM eligibility remain the caller's job (§4.6–§4.7).
+    Match-card attachment is the caller's responsibility (Router).
+    """
+    try:
+        from src.execution_manager.flags import analyze_pipeline_extraction_enabled
+
+        if not analyze_pipeline_extraction_enabled():
+            return await legacy_fn()
+
+        from src.routers.analyze import analyze_fixture
+
+        data = await analyze_fixture(
+            home=home,
+            away=away,
+            prefer_live=bool(prefer_live),
+            soft=True,
+            force_refresh=bool(force_refresh),
+        )
+        payload = em_analyze_from_fixture(
+            data if isinstance(data, dict) else {},
+            home=home,
+            away=away,
+            prefer_live=prefer_live,
+            force_refresh=force_refresh,
+            session_id=session_id,
+            entities=entities,
+        )
+        if payload is not None:
+            return payload
+        logger.warning("copilot: EM analyze incomplete — fallback legacy")
+        return await legacy_fn()
+    except Exception as exc:
+        logger.warning("copilot: EM analyze failed (%s) — fallback legacy", exc)
         return await legacy_fn()

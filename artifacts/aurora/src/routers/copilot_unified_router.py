@@ -163,6 +163,84 @@ async def _em_live_or_legacy(
         return await _run_live()
 
 
+def _attach_analyze_match_card(payload: dict, data: dict | None) -> dict:
+    """Router-only match card for analyze (Plan §7.3 / Spec A13 — never inside EM)."""
+    if not isinstance(payload, dict) or not isinstance(data, dict):
+        return payload
+    # Do not attach on HARD-ABORT / INVALID blocked payloads.
+    if payload.get("fixture_quality") == "INVALID" or (
+        isinstance(payload.get("entities"), dict)
+        and payload["entities"].get("entity_invalid") is True
+    ):
+        return payload
+    try:
+        from src.communication import attach_match_card, build_match_card_from_analyze
+
+        card = build_match_card_from_analyze(
+            data,
+            is_live=bool(payload.get("is_live")),
+            minute=payload.get("minute") if isinstance(payload.get("minute"), int) else None,
+            status_label=str(payload.get("status")) if payload.get("status") else None,
+            confidence=payload.get("confidence")
+            if isinstance(payload.get("confidence"), dict)
+            else None,
+        )
+        return attach_match_card(payload, card)
+    except Exception as _mc_exc:
+        logger.warning("copilot: analyze match_card skipped (%s)", _mc_exc)
+        return payload
+
+
+async def _em_analyze_or_legacy(
+    home: str,
+    away: str,
+    prefer_live: bool = False,
+    *,
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict | None = None,
+) -> dict:
+    """
+    Mission 035 Phase 4 Stage 3 — Progressive Extraction E3 (analyze).
+
+    DEFAULT OFF → legacy `_run_analyze`.
+    Flag ON → EM analyze path; fail-open fallback to legacy.
+    Match card attached here (Router), never inside EM.
+    Soft-try / post-integrity / CM eligibility stay in the caller (§4.6–§4.7).
+    live_team composite is NOT extracted here (E4).
+    """
+    from src.execution_manager.flags import analyze_pipeline_extraction_enabled
+
+    async def _legacy():
+        return await _run_analyze(
+            home, away, prefer_live=prefer_live, force_refresh=force_refresh
+        )
+
+    if not analyze_pipeline_extraction_enabled():
+        return await _legacy()
+
+    try:
+        from src.execution_manager.router_shim import em_analyze_or_legacy
+
+        payload = await em_analyze_or_legacy(
+            _legacy,
+            home=home,
+            away=away,
+            prefer_live=prefer_live,
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+            entities=dict(entities or {}) if entities else None,
+        )
+        if isinstance(payload, dict) and "_em_analyze_fixture_data" in payload:
+            data = payload.pop("_em_analyze_fixture_data")
+            return _attach_analyze_match_card(payload, data)
+        # Legacy fallback already attached card inside _run_analyze; HARD-ABORT has none.
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM analyze shim failed (%s) — fallback legacy", exc)
+        return await _legacy()
+
+
 # ---------------------------------------------------------------------------
 # Request model
 # ---------------------------------------------------------------------------
@@ -3960,8 +4038,13 @@ async def _copilot_inner(
                             ctx.get("last_match"), ctx.get("last_intent"),
                         )
                         prefer_live = bool(entities.get("is_live")) or _integrity.is_blocked
-                        payload = await _run_analyze(
-                            home, away, prefer_live=prefer_live, force_refresh=force_refresh
+                        payload = await _em_analyze_or_legacy(
+                            home,
+                            away,
+                            prefer_live=prefer_live,
+                            force_refresh=force_refresh,
+                            session_id=session_id,
+                            entities=entities,
                         )
                         _still_invalid = (
                             payload.get("fixture_quality") == "INVALID"
@@ -4079,8 +4162,13 @@ async def _copilot_inner(
                     if _lt_pre.is_blocked:
                         payload = _blocked_lt(_lt_pre, brain=brain)
                     else:
-                        payload = await _run_analyze(
-                            _lt_home, _lt_away, prefer_live=True, force_refresh=force_refresh
+                        payload = await _em_analyze_or_legacy(
+                            _lt_home,
+                            _lt_away,
+                            prefer_live=True,
+                            force_refresh=force_refresh,
+                            session_id=session_id,
+                            entities=entities,
                         )
                         _lt_post = _assess_lt(
                             _lt_home,
@@ -4297,8 +4385,13 @@ async def _copilot_inner(
                 if _pre404.is_blocked:
                     payload = _blocked_404(_pre404, brain=brain)
                 else:
-                    payload = await _run_analyze(
-                        home_q, away_q, prefer_live=False, force_refresh=force_refresh
+                    payload = await _em_analyze_or_legacy(
+                        home_q,
+                        away_q,
+                        prefer_live=False,
+                        force_refresh=force_refresh,
+                        session_id=session_id,
+                        entities=entities,
                     )
                     _post404 = _assess_404(
                         home_q,

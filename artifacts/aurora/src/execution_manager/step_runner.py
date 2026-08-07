@@ -6,6 +6,9 @@ Phase 4 Stage 1: thin report pipelines are real handlers; Router shims gate
 them behind DEFAULT OFF flags.
 Phase 4 Stage 2: live pipeline is a real handler; Router async shim gates
 it behind ENABLE_EM_PIPELINE_LIVE (DEFAULT OFF).
+Phase 4 Stage 3: analyze pipeline is a real handler; Router async shim gates
+it behind ENABLE_EM_PIPELINE_ANALYZE (DEFAULT OFF). Soft-try / CM eligibility
+remain Orchestration. Match-card attach remains Router-only.
 Production primary path remains legacy when flags OFF.
 """
 
@@ -53,7 +56,8 @@ class ExecutionManager:
     """
     Spec §4.1 conceptual API.
 
-    `run` executes EM pipelines (thin = Stage 1; live = Stage 2; others may stub).
+    `run` executes EM pipelines (thin = Stage 1; live = Stage 2; analyze = Stage 3;
+    live_team may still stub).
     `shadow_compare` observes EM vs a legacy payload — never replaces primary.
     """
 

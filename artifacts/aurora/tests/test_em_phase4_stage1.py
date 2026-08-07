@@ -268,15 +268,15 @@ def test_router_shim_fail_open_fallback_to_legacy():
     _clear_em_flags()
 
 
-def test_other_pipelines_not_gated_by_stage1():
-    """analyze / live_team extraction flags must remain OFF and ungated by Stage 1."""
+def test_other_pipelines_stage1_coexists_with_later_stages():
+    """Stage 1 thin shim retained; Stage 2/3 shims may coexist; live_team not extracted."""
     _clear_em_flags()
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
-    assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
     assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
-    # Stage 1 thin shim retained; Stage 2 live shim coexists
     assert "_em_thin_or_legacy" in text
-    assert "await _run_analyze" in text
+    assert "_em_live_or_legacy" in text
+    assert "_em_analyze_or_legacy" in text
+    assert "async def _run_analyze" in text
 
 
 # ---------------------------------------------------------------------------
