@@ -122,6 +122,16 @@ def analyze_pipeline_extraction_enabled() -> bool:
     return pipeline_enabled("ENABLE_EM_PIPELINE_ANALYZE")
 
 
+def live_team_pipeline_extraction_enabled() -> bool:
+    """
+    Stage 4 shim gate: True only when ENABLE_EM_PIPELINE_LIVE_TEAM is ON.
+
+    Defaults OFF. Does not arm PGR / master sole-path. Master/PGR untouched.
+    Composite depends on E3 analyze handler inside EM (not the analyze Router flag).
+    """
+    return pipeline_enabled("ENABLE_EM_PIPELINE_LIVE_TEAM")
+
+
 def any_pipeline_enabled() -> bool:
     return any(_flag_truthy(f) for f in EM_PIPELINE_FLAGS)
 
@@ -310,7 +320,10 @@ def em_flag_snapshot() -> dict[str, Any]:
         "phase4_stage3_not_started": False,
         "phase4_stage3_analyze": True,
         "phase4_analyze_defaults_off": not analyze_pipeline_extraction_enabled(),
-        "phase4_stage4_not_started": True,
+        "phase4_stage4_not_started": False,
+        "phase4_stage4_live_team": True,
+        "phase4_live_team_defaults_off": not live_team_pipeline_extraction_enabled(),
+        "phase4_extraction_complete": True,
         "phase5_activation_not_started": True,
     }
 

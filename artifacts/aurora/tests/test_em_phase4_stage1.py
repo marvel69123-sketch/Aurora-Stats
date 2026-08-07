@@ -269,14 +269,15 @@ def test_router_shim_fail_open_fallback_to_legacy():
 
 
 def test_other_pipelines_stage1_coexists_with_later_stages():
-    """Stage 1 thin shim retained; Stage 2/3 shims may coexist; live_team not extracted."""
+    """Stage 1 thin shim retained; Stage 2/3/4 shims may coexist."""
     _clear_em_flags()
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
-    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
     assert "_em_thin_or_legacy" in text
     assert "_em_live_or_legacy" in text
     assert "_em_analyze_or_legacy" in text
+    assert "_em_live_team_or_legacy" in text
     assert "async def _run_analyze" in text
+    assert "async def _run_live_team_analysis" in text
 
 
 # ---------------------------------------------------------------------------

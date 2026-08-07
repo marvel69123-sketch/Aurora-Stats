@@ -237,7 +237,6 @@ async def em_analyze_or_legacy(
 
     DEFAULT OFF → legacy `_run_analyze`.
     Flag ON → soft-fetch fixture + EM analyze path; fail-open fallback to legacy.
-    Live_team composite is NOT gated here (E4).
     Soft-try / post-integrity / CM eligibility remain the caller's job (§4.6–§4.7).
     Match-card attachment is the caller's responsibility (Router).
     """
@@ -271,4 +270,133 @@ async def em_analyze_or_legacy(
         return await legacy_fn()
     except Exception as exc:
         logger.warning("copilot: EM analyze failed (%s) — fallback legacy", exc)
+        return await legacy_fn()
+
+
+def em_live_team_from_feed(
+    feed: dict[str, Any],
+    *,
+    team: str = "",
+    fixture_data: dict[str, Any] | None = None,
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Sync EM live_team_analyze run with a prefetched live feed (+ optional fixture).
+
+    Returns payload dict on success, or None for fail-open caller fallback.
+    Does NOT attach match cards. Does NOT write CM.
+    """
+    from src.execution_manager.contracts import (
+        ExecutionMode,
+        ExecutionRequest,
+        ExecutionStatus,
+    )
+    from src.execution_manager.ports import (
+        PortBundle,
+        PrefetchedFixture,
+        PrefetchedLiveFeed,
+    )
+    from src.execution_manager.step_runner import ExecutionManager
+
+    ents = dict(entities or {})
+    if team:
+        ents.setdefault("team", team)
+    ports_kwargs: dict[str, Any] = {
+        "fetch_live_feed": PrefetchedLiveFeed(response=dict(feed or {})),
+    }
+    if isinstance(fixture_data, dict):
+        ports_kwargs["fetch_fixture"] = PrefetchedFixture(response=dict(fixture_data))
+    em = ExecutionManager(ports=PortBundle(**ports_kwargs))
+    result = em.run(
+        ExecutionRequest(
+            run_id=secrets.token_hex(8),
+            pipeline_id="live_team_analyze",
+            session_id=session_id or "",
+            mode=ExecutionMode.PRIMARY,
+            entities=ents,
+            flags={
+                "prefer_live": True,
+                "force_refresh": bool(force_refresh),
+                "team": team,
+            },
+        )
+    )
+    if result.status == ExecutionStatus.COMPLETED and isinstance(result.payload, dict):
+        out = dict(result.payload)
+        diag = result.diagnostics or {}
+        if diag.get("matched"):
+            out["_em_live_team_home"] = diag.get("home") or ""
+            out["_em_live_team_away"] = diag.get("away") or ""
+            fx = diag.get("analyze_fixture_data")
+            if isinstance(fx, dict) and result.abort_reason != "integrity_invalid_hard_abort":
+                out["_em_analyze_fixture_data"] = fx
+        return out
+    logger.warning(
+        "copilot: EM live_team incomplete (status=%s)",
+        getattr(result.status, "value", result.status),
+    )
+    return None
+
+
+async def em_live_team_or_legacy(
+    legacy_fn: Callable[[], Awaitable[dict[str, Any]]],
+    *,
+    team: str = "",
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Phase 4 Stage 4 — Progressive Extraction E4 (live_team_analyze).
+
+    DEFAULT OFF → legacy live_team bridge body.
+    Flag ON → prefetch live feed (+ soft fixture when matched) + EM composite;
+    fail-open fallback to legacy.
+    Post-integrity / CM eligibility remain the caller's job (§4.6–§4.7).
+    Match-card attachment is the caller's responsibility (Router).
+    """
+    try:
+        from src.execution_manager.flags import live_team_pipeline_extraction_enabled
+
+        if not live_team_pipeline_extraction_enabled():
+            return await legacy_fn()
+
+        from src.execution_manager.pipelines.live_team_analyze import (
+            match_team_in_live_feed,
+        )
+        from src.routers.live import _build_live_response
+
+        feed = await _build_live_response()
+        feed_dict = feed if isinstance(feed, dict) else {"matches": []}
+        home, away = match_team_in_live_feed(team, feed_dict)
+        fixture_data: dict[str, Any] | None = None
+        if home and away:
+            from src.routers.analyze import analyze_fixture
+
+            fixture_data = await analyze_fixture(
+                home=home,
+                away=away,
+                prefer_live=True,
+                soft=True,
+                force_refresh=bool(force_refresh),
+            )
+            if not isinstance(fixture_data, dict):
+                fixture_data = {}
+
+        payload = em_live_team_from_feed(
+            feed_dict,
+            team=team,
+            fixture_data=fixture_data,
+            force_refresh=force_refresh,
+            session_id=session_id,
+            entities=entities,
+        )
+        if payload is not None:
+            return payload
+        logger.warning("copilot: EM live_team incomplete — fallback legacy")
+        return await legacy_fn()
+    except Exception as exc:
+        logger.warning("copilot: EM live_team failed (%s) — fallback legacy", exc)
         return await legacy_fn()

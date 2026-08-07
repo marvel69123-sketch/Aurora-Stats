@@ -141,7 +141,9 @@ def test_stage3_flags_default_off():
     assert snap["phase4_stage3_analyze"] is True
     assert snap["phase4_stage3_not_started"] is False
     assert snap["phase4_analyze_defaults_off"] is True
-    assert snap["phase4_stage4_not_started"] is True
+    assert snap["phase4_stage4_live_team"] is True
+    assert snap["phase4_stage4_not_started"] is False
+    assert snap["phase4_live_team_defaults_off"] is True
     assert snap["phase5_activation_not_started"] is True
 
 
@@ -351,19 +353,21 @@ def test_router_analyze_shim_wired_legacy_retained():
     # Soft-try / CM remain Orchestration
     assert "_save_analysis_context" in text
     assert "prefer_live" in text
-    # live_team NOT extracted as EM pipeline
-    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
+    # Stage 4 live_team composite also wired (defaults OFF)
+    assert "_em_live_team_or_legacy" in text
+    assert "live_team_pipeline_extraction_enabled" in text
     # Stage 1+2 still present
     assert "_em_thin_or_legacy" in text
     assert "_em_live_or_legacy" in text
 
 
-def test_live_team_not_extracted_stage3():
+def test_live_team_extracted_as_stage4_composite():
     _clear_em_flags()
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "live_team_analysis" in text
-    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
-    # live_team still bridges via analyze shim (not E4 composite)
+    assert "_em_live_team_or_legacy" in text
+    assert "async def _run_live_team_analysis" in text
+    # live_team still may bridge via analyze shim inside legacy body
     assert "_em_analyze_or_legacy" in text
 
 

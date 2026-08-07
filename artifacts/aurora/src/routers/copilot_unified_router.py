@@ -207,7 +207,6 @@ async def _em_analyze_or_legacy(
     Flag ON → EM analyze path; fail-open fallback to legacy.
     Match card attached here (Router), never inside EM.
     Soft-try / post-integrity / CM eligibility stay in the caller (§4.6–§4.7).
-    live_team composite is NOT extracted here (E4).
     """
     from src.execution_manager.flags import analyze_pipeline_extraction_enabled
 
@@ -238,6 +237,235 @@ async def _em_analyze_or_legacy(
         return payload
     except Exception as exc:
         logger.warning("copilot: EM analyze shim failed (%s) — fallback legacy", exc)
+        return await _legacy()
+
+
+async def _run_live_team_analysis(
+    *,
+    entities: dict,
+    ctx: dict,
+    brain: dict,
+    force_refresh: bool = False,
+    session_id: str = "",
+) -> dict:
+    """
+    Legacy live_team bridge body (mega-router SoT).
+
+    Retained for dual-path / fail-open when ENABLE_EM_PIPELINE_LIVE_TEAM is OFF
+    or EM path fails. Includes Orchestration integrity wrap + CM save (not EM).
+    """
+    # FIX 1 — "analise jogo do [team]" → search live for that team
+    # then call full _run_analyze pipeline with the found match.
+    from src.routers.live import _build_live_response as _lbr_single
+    _lt_team = entities.get("team", "")
+    logger.warning(
+        "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
+        _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
+    )
+    _lt_live  = await _lbr_single()
+    _lt_list  = _lt_live.get("matches", [])
+    logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
+    # Phase 5A — live matching via EntityResolver (fold + name_match)
+    from src.core.entity_resolver import match_team_in_fixture_names
+    _lt_home, _lt_away = "", ""
+    for _lt_fx in _lt_list:
+        _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
+        _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
+        if match_team_in_fixture_names(_lt_team, _lt_h, _lt_a):
+            _lt_home, _lt_away = _lt_h, _lt_a
+            logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
+            break
+    if _lt_home and _lt_away:
+        from src.core.fixture_integrity import (
+            apply_integrity_to_payload as _apply_lt,
+            assess_analyze_result as _assess_lt,
+            assess_named_fixture as _assess_named_lt,
+            blocked_integrity_payload as _blocked_lt,
+        )
+
+        _lt_pre = _assess_named_lt(_lt_home, _lt_away)
+        if _lt_pre.is_blocked:
+            payload = _blocked_lt(_lt_pre, brain=brain)
+        else:
+            payload = await _em_analyze_or_legacy(
+                _lt_home,
+                _lt_away,
+                prefer_live=True,
+                force_refresh=force_refresh,
+                session_id=session_id,
+                entities=entities,
+            )
+            _lt_post = _assess_lt(
+                _lt_home,
+                _lt_away,
+                fixture_id=payload.get("fixture_id"),
+                is_partial=bool(payload.get("_partial")),
+                data_completeness=float(
+                    ((payload.get("brain") or {}).get("inference") or {}).get(
+                        "data_completeness", 1.0
+                    )
+                ),
+            )
+            payload = _apply_lt(payload, _lt_post)
+            if not _lt_post.is_blocked:
+                _save_analysis_context(ctx, payload, _lt_home, _lt_away)
+        logger.warning(
+            "[AUDIT] live_team_analysis: done match=%r status=%r found=%r",
+            payload.get("match"),
+            payload.get("fixture_status"),
+            payload.get("fixture_found"),
+        )
+    else:
+        logger.warning(
+            "[AUDIT] live_team_analysis: %r not found in %d live matches",
+            _lt_team, len(_lt_list),
+        )
+        from src.brain import get_brain_meta as _gbm_lt
+        from src.core.inference_context import InferenceContext
+
+        _lt_ctx = InferenceContext(soft_mode=True)
+        _lt_ctx.register_failure(
+            "live_team_lookup",
+            f"{_lt_team} não está no feed ao vivo",
+            signal="fixture",
+        )
+        _lt_ctx.finalize()
+        payload = {
+            "intent": "live_team_analysis",
+            "match": None, "is_live": False, "status": "NotFound", "minute": None,
+            "executive_summary": (
+                f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
+                f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                f"com confiança reduzida.\n\n"
+                f"Se souber o adversário, diga:\n"
+                f"\"Analisar {_lt_team} x [adversário]\""
+            ),
+            "best_markets": [],
+            "confidence": {
+                "score": _lt_ctx.apply_to_score(2.0),
+                "label": "insufficient",
+                "explanation": (
+                    f"Inference V2: time ausente ao vivo — "
+                    f"penalidade −{_lt_ctx.total_penalty():.1f}"
+                ),
+                "data_sources": ["Feed ao vivo API-Football", "Inference Layer V2"],
+            },
+            "risk": {
+                "level": "Unknown",
+                "flags": list(_lt_ctx.missing_signals),
+                "invalidation_conditions": [],
+            },
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                "examples": {}, "no_bet": True,
+                "reasoning": "Sem partida ao vivo identificada.",
+            },
+            "positive_factors": [], "negative_factors": [],
+            "historical_references": [],
+            "knowledge_notes": _lt_ctx.knowledge_notes_pt(),
+            "final_recommendation": (
+                f"Não encontrei {_lt_team} ao vivo. "
+                f"Tente: \"Analisar {_lt_team} x [adversário]\""
+            ),
+            "aurora_version": "Copilot v1.0",
+            "brain": {**_gbm_lt(), "inference": _lt_ctx.explainability()},
+        }
+    logger.warning(
+        "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+        ctx.get("last_match"), ctx.get("last_intent"),
+    )
+    return payload
+
+
+async def _em_live_team_or_legacy(
+    *,
+    entities: dict | None = None,
+    ctx: dict | None = None,
+    brain: dict | None = None,
+    force_refresh: bool = False,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 036 Phase 4 Stage 4 — Progressive Extraction E4 (live_team_analyze).
+
+    DEFAULT OFF → legacy `_run_live_team_analysis`.
+    Flag ON → EM live_team composite; fail-open fallback to legacy.
+    Post-integrity / CM save stay here (Orchestration), never inside EM.
+    Match card attached here (Router), never inside EM.
+    """
+    ents = dict(entities or {}) if entities else {}
+    session_ctx = ctx if isinstance(ctx, dict) else {}
+    brain_meta = brain if isinstance(brain, dict) else {}
+
+    async def _legacy():
+        return await _run_live_team_analysis(
+            entities=ents,
+            ctx=session_ctx,
+            brain=brain_meta,
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+        )
+
+    from src.execution_manager.flags import live_team_pipeline_extraction_enabled
+
+    if not live_team_pipeline_extraction_enabled():
+        return await _legacy()
+
+    try:
+        from src.execution_manager.router_shim import em_live_team_or_legacy
+
+        payload = await em_live_team_or_legacy(
+            _legacy,
+            team=str(ents.get("team") or ""),
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+            entities=ents,
+        )
+        if not isinstance(payload, dict):
+            return await _legacy()
+
+        # Match-card attach (Router-only) when EM analyze child stashed fixture data.
+        if "_em_analyze_fixture_data" in payload:
+            data = payload.pop("_em_analyze_fixture_data")
+            payload = _attach_analyze_match_card(payload, data)
+
+        _lt_home = str(payload.pop("_em_live_team_home", "") or "")
+        _lt_away = str(payload.pop("_em_live_team_away", "") or "")
+        if not _lt_home or not _lt_away:
+            # NotFound / incomplete — no CM write
+            return payload
+
+        from src.core.fixture_integrity import (
+            apply_integrity_to_payload as _apply_lt,
+            assess_analyze_result as _assess_lt,
+            assess_named_fixture as _assess_named_lt,
+            blocked_integrity_payload as _blocked_lt,
+        )
+
+        _lt_pre = _assess_named_lt(_lt_home, _lt_away)
+        if _lt_pre.is_blocked and (
+            payload.get("fixture_quality") == "INVALID"
+            or (payload.get("entities") or {}).get("entity_invalid") is True
+        ):
+            payload = _blocked_lt(_lt_pre, brain=brain_meta)
+        else:
+            _lt_post = _assess_lt(
+                _lt_home,
+                _lt_away,
+                fixture_id=payload.get("fixture_id"),
+                is_partial=bool(payload.get("_partial")),
+                data_completeness=float(
+                    ((payload.get("brain") or {}).get("inference") or {}).get(
+                        "data_completeness", 1.0
+                    )
+                ),
+            )
+            payload = _apply_lt(payload, _lt_post)
+            if not _lt_post.is_blocked:
+                _save_analysis_context(session_ctx, payload, _lt_home, _lt_away)
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM live_team shim failed (%s) — fallback legacy", exc)
         return await _legacy()
 
 
@@ -4129,125 +4357,12 @@ async def _copilot_inner(
                         )
 
             elif intent == "live_team_analysis":
-                # FIX 1 — "analise jogo do [team]" → search live for that team
-                # then call full _run_analyze pipeline with the found match.
-                from src.routers.live import _build_live_response as _lbr_single
-                _lt_team = entities.get("team", "")
-                logger.warning(
-                    "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
-                    _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
-                )
-                _lt_live  = await _lbr_single()
-                _lt_list  = _lt_live.get("matches", [])
-                logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
-                # Phase 5A — live matching via EntityResolver (fold + name_match)
-                from src.core.entity_resolver import match_team_in_fixture_names
-                _lt_home, _lt_away = "", ""
-                for _lt_fx in _lt_list:
-                    _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
-                    _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
-                    if match_team_in_fixture_names(_lt_team, _lt_h, _lt_a):
-                        _lt_home, _lt_away = _lt_h, _lt_a
-                        logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
-                        break
-                if _lt_home and _lt_away:
-                    from src.core.fixture_integrity import (
-                        apply_integrity_to_payload as _apply_lt,
-                        assess_analyze_result as _assess_lt,
-                        assess_named_fixture as _assess_named_lt,
-                        blocked_integrity_payload as _blocked_lt,
-                    )
-
-                    _lt_pre = _assess_named_lt(_lt_home, _lt_away)
-                    if _lt_pre.is_blocked:
-                        payload = _blocked_lt(_lt_pre, brain=brain)
-                    else:
-                        payload = await _em_analyze_or_legacy(
-                            _lt_home,
-                            _lt_away,
-                            prefer_live=True,
-                            force_refresh=force_refresh,
-                            session_id=session_id,
-                            entities=entities,
-                        )
-                        _lt_post = _assess_lt(
-                            _lt_home,
-                            _lt_away,
-                            fixture_id=payload.get("fixture_id"),
-                            is_partial=bool(payload.get("_partial")),
-                            data_completeness=float(
-                                ((payload.get("brain") or {}).get("inference") or {}).get(
-                                    "data_completeness", 1.0
-                                )
-                            ),
-                        )
-                        payload = _apply_lt(payload, _lt_post)
-                        if not _lt_post.is_blocked:
-                            _save_analysis_context(ctx, payload, _lt_home, _lt_away)
-                    logger.warning(
-                        "[AUDIT] live_team_analysis: done match=%r status=%r found=%r",
-                        payload.get("match"),
-                        payload.get("fixture_status"),
-                        payload.get("fixture_found"),
-                    )
-                else:
-                    logger.warning(
-                        "[AUDIT] live_team_analysis: %r not found in %d live matches",
-                        _lt_team, len(_lt_list),
-                    )
-                    from src.brain import get_brain_meta as _gbm_lt
-                    from src.core.inference_context import InferenceContext
-
-                    _lt_ctx = InferenceContext(soft_mode=True)
-                    _lt_ctx.register_failure(
-                        "live_team_lookup",
-                        f"{_lt_team} não está no feed ao vivo",
-                        signal="fixture",
-                    )
-                    _lt_ctx.finalize()
-                    payload = {
-                        "intent": "live_team_analysis",
-                        "match": None, "is_live": False, "status": "NotFound", "minute": None,
-                        "executive_summary": (
-                            f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
-                            f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
-                            f"com confiança reduzida.\n\n"
-                            f"Se souber o adversário, diga:\n"
-                            f"\"Analisar {_lt_team} x [adversário]\""
-                        ),
-                        "best_markets": [],
-                        "confidence": {
-                            "score": _lt_ctx.apply_to_score(2.0),
-                            "label": "insufficient",
-                            "explanation": (
-                                f"Inference V2: time ausente ao vivo — "
-                                f"penalidade −{_lt_ctx.total_penalty():.1f}"
-                            ),
-                            "data_sources": ["Feed ao vivo API-Football", "Inference Layer V2"],
-                        },
-                        "risk": {
-                            "level": "Unknown",
-                            "flags": list(_lt_ctx.missing_signals),
-                            "invalidation_conditions": [],
-                        },
-                        "bankroll_recommendation": {
-                            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-                            "examples": {}, "no_bet": True,
-                            "reasoning": "Sem partida ao vivo identificada.",
-                        },
-                        "positive_factors": [], "negative_factors": [],
-                        "historical_references": [],
-                        "knowledge_notes": _lt_ctx.knowledge_notes_pt(),
-                        "final_recommendation": (
-                            f"Não encontrei {_lt_team} ao vivo. "
-                            f"Tente: \"Analisar {_lt_team} x [adversário]\""
-                        ),
-                        "aurora_version": "Copilot v1.0",
-                        "brain": {**_gbm_lt(), "inference": _lt_ctx.explainability()},
-                    }
-                logger.warning(
-                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
-                    ctx.get("last_match"), ctx.get("last_intent"),
+                payload = await _em_live_team_or_legacy(
+                    entities=dict(entities or {}),
+                    ctx=ctx,
+                    brain=brain if isinstance(brain, dict) else {},
+                    force_refresh=force_refresh,
+                    session_id=session_id,
                 )
 
             elif intent == "live_opportunities":

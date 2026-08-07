@@ -356,19 +356,21 @@ def test_router_keeps_run_helpers_no_extraction():
     for needle in (
         "async def _run_analyze",
         "async def _run_live",
+        "async def _run_live_team_analysis",
         "def _run_bankroll",
         "def _run_learning",
         "def _run_knowledge",
         "def _save_analysis_context",
     ):
         assert needle in text
-    # Observe hook present; Stage 1/2/3 shims present; live_team flag absent
+    # Observe hook present; Stage 1–4 shims present; defaults remain OFF
     assert "_observe_em_shadow" in text
     assert "_em_thin_or_legacy" in text
     assert "_em_live_or_legacy" in text
     assert "_em_analyze_or_legacy" in text
+    assert "_em_live_team_or_legacy" in text
     assert "analyze_pipeline_extraction_enabled" in text
-    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
+    assert "live_team_pipeline_extraction_enabled" in text
     assert "payload = maybe_em_shadow_observe" not in text
 
 
@@ -396,4 +398,7 @@ def test_flag_snapshot_phase3_posture():
     assert snap["phase4_stage2_live"] is True
     assert snap["phase4_stage3_not_started"] is False
     assert snap["phase4_stage3_analyze"] is True
+    assert snap["phase4_stage4_live_team"] is True
+    assert snap["phase4_stage4_not_started"] is False
+    assert snap["phase4_extraction_complete"] is True
     assert snap["shadow_enabled"] is False

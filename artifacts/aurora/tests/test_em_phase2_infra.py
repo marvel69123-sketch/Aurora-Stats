@@ -120,6 +120,10 @@ def test_flags_default_off_snapshot():
     assert snap["phase4_stage3_not_started"] is False
     assert snap["phase4_stage3_analyze"] is True
     assert snap["phase4_analyze_defaults_off"] is True
+    assert snap["phase4_stage4_not_started"] is False
+    assert snap["phase4_stage4_live_team"] is True
+    assert snap["phase4_live_team_defaults_off"] is True
+    assert snap["phase4_extraction_complete"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 
@@ -371,12 +375,15 @@ def test_live_team_analyze_stub_delegates():
         _req(
             pipeline="live_team_analyze",
             run_id="lta-1",
-            flags={"integrity_outcome": "PASS"},
-            entities={"home": "A", "away": "B"},
+            flags={"integrity_outcome": "PASS", "force_delegate": True},
+            entities={"home": "A", "away": "B", "team": "A"},
         )
     )
     assert result.status == ExecutionStatus.COMPLETED
-    assert result.payload["analyze"]["stub"] is True
+    assert result.diagnostics.get("phase4_stage4") is True
+    assert result.diagnostics.get("matched") is True
+    # Child analyze may be stub-shaped under inert ports
+    assert result.payload.get("intent") in ("analyze_match", "live_team_analysis")
 
 
 def test_budget_denied_fails():
@@ -440,8 +447,8 @@ def test_em_package_forbids_cm_matchcard_begin_request():
 
 def test_router_shadow_hook_is_observe_only_not_sole_path():
     """
-    Phase 3 shadow remains observe-only. Phase 4 Stage 1/2/3 add thin+live+analyze shims.
-    live_team must NOT be sole-pathed. Legacy bodies remain.
+    Phase 3 shadow remains observe-only. Phase 4 Stage 1–4 add thin+live+analyze+live_team
+    shims. Legacy bodies remain. Defaults OFF → no sole-path traffic.
     """
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "_observe_em_shadow" in text
@@ -450,15 +457,16 @@ def test_router_shadow_hook_is_observe_only_not_sole_path():
     assert "_em_thin_or_legacy" in text
     assert "_em_live_or_legacy" in text
     assert "_em_analyze_or_legacy" in text
+    assert "_em_live_team_or_legacy" in text
     assert "analyze_pipeline_extraction_enabled" in text
-    # Stage 3 analyze wired; live_team pipeline flag absent from Router
-    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
+    assert "live_team_pipeline_extraction_enabled" in text
     # Must not assign shadow result onto production payload
     assert "payload = maybe_em_shadow_observe" not in text
     assert "payload = _observe_em_shadow" not in text
     for needle in (
         "async def _run_analyze",
         "async def _run_live",
+        "async def _run_live_team_analysis",
         "def _run_bankroll",
         "def _run_learning",
         "def _run_knowledge",
