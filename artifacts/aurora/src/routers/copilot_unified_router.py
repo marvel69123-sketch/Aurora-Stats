@@ -60,6 +60,30 @@ def _observe_em_shadow(
         logger.warning("copilot: EM shadow observe skipped (%s)", _em_shadow_exc)
 
 
+def _em_thin_or_legacy(
+    pipeline_id: str,
+    legacy_fn,
+    *,
+    entities: dict | None = None,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 033 Phase 4 Stage 1 — Progressive Extraction E1 (thin reports).
+
+    DEFAULT OFF → legacy `_run_bankroll` / `_run_learning` / `_run_knowledge`.
+    Flag ON → EM thin path; fail-open fallback to legacy. Live/analyze/live_team
+    are NOT gated here. Shadow observe remains separate and operational.
+    """
+    from src.execution_manager.router_shim import em_thin_or_legacy
+
+    return em_thin_or_legacy(
+        pipeline_id,
+        legacy_fn,
+        entities=entities,
+        session_id=session_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Request model
 # ---------------------------------------------------------------------------
@@ -4127,13 +4151,29 @@ async def _copilot_inner(
                 )
 
             elif intent == "bankroll_review":
-                payload = _run_bankroll()
+                payload = _em_thin_or_legacy(
+                    "bankroll",
+                    _run_bankroll,
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
 
             elif intent == "learning_recap":
-                payload = _run_learning()
+                payload = _em_thin_or_legacy(
+                    "learning",
+                    _run_learning,
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
 
             elif intent == "knowledge_search":
-                payload = _run_knowledge(entities.get("query", message))
+                _kq = entities.get("query", message)
+                payload = _em_thin_or_legacy(
+                    "knowledge",
+                    lambda: _run_knowledge(_kq),
+                    entities={"query": _kq},
+                    session_id=session_id,
+                )
 
             elif intent == "greeting":
                 payload = _run_greeting()

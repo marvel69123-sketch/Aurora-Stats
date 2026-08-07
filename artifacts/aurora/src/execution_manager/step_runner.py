@@ -2,7 +2,8 @@
 Step Runner core + ExecutionManager façade.
 
 Phase 3: shadow_compare is observe-only dual-run vs a provided legacy payload.
-Production primary path remains legacy `_run_*` until Phase 4+.
+Phase 4 Stage 1: thin report pipelines are real handlers; Router shims gate
+them behind DEFAULT OFF flags. Production primary path remains legacy when OFF.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from src.execution_manager.registry import ensure_default_registrations, get_pip
 
 
 class StepRunner:
-    """Sequential Step Runner — dispatches to registered pipeline stubs."""
+    """Sequential Step Runner — dispatches to registered pipeline handlers."""
 
     def __init__(self, ports: PortBundle | None = None) -> None:
         self.ports = ports or PortBundle()
@@ -35,7 +36,9 @@ class StepRunner:
             emit("em.run.failed", run_id=request.run_id, reason="unknown_pipeline")
             return ExecutionResult(
                 run_id=request.run_id,
-                pipeline_id=str(pipeline_id.value if isinstance(pipeline_id, PipelineId) else pipeline_id),
+                pipeline_id=str(
+                    pipeline_id.value if isinstance(pipeline_id, PipelineId) else pipeline_id
+                ),
                 status=ExecutionStatus.FAILED,
                 payload={"error": "unknown_pipeline", "pipeline_id": str(pipeline_id)},
                 diagnostics={"stub": True},
@@ -47,7 +50,7 @@ class ExecutionManager:
     """
     Spec §4.1 conceptual API.
 
-    `run` executes EM pipelines (stubs in Phase 2/3).
+    `run` executes EM pipelines (thin = Phase 4 Stage 1; others may still stub).
     `shadow_compare` observes EM vs a legacy payload — never replaces primary.
     """
 
@@ -77,7 +80,6 @@ class ExecutionManager:
             shadow_compare as _shadow_compare,
         )
 
-        # Force shadow mode on the request copy semantics via flags on a new request.
         shadow_req = ExecutionRequest(
             run_id=request.run_id,
             pipeline_id=request.pipeline_id,
@@ -93,7 +95,6 @@ class ExecutionManager:
         pipeline_id = str(shadow_req.normalized_pipeline_id().value)
 
         if legacy_payload is None:
-            # No legacy peer — still exercise EM path for harness; report wired.
             try:
                 em_result = self.run(shadow_req)
                 meta = ShadowCompareResult(

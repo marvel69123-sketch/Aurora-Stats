@@ -79,6 +79,30 @@ def pipeline_enabled(pipeline_flag: str) -> bool:
     return _flag_truthy(pipeline_flag)
 
 
+# Phase 4 Stage 1 (E1 thin reports) — pipeline flag names.
+_THIN_PIPELINE_FLAGS: dict[str, str] = {
+    "bankroll": "ENABLE_EM_PIPELINE_BANKROLL",
+    "learning": "ENABLE_EM_PIPELINE_LEARNING",
+    "knowledge": "ENABLE_EM_PIPELINE_KNOWLEDGE",
+}
+
+
+def thin_pipeline_extraction_enabled(pipeline_id: str) -> bool:
+    """
+    Stage 1 shim gate: True only when the thin pipeline flag is ON.
+
+    Defaults OFF. Does not arm live/analyze/live_team. Master/PGR untouched.
+    """
+    flag = _THIN_PIPELINE_FLAGS.get(str(pipeline_id))
+    if not flag:
+        return False
+    return pipeline_enabled(flag)
+
+
+def any_thin_pipeline_enabled() -> bool:
+    return any(pipeline_enabled(f) for f in _THIN_PIPELINE_FLAGS.values())
+
+
 def any_pipeline_enabled() -> bool:
     return any(_flag_truthy(f) for f in EM_PIPELINE_FLAGS)
 
@@ -256,7 +280,11 @@ def em_flag_snapshot() -> dict[str, Any]:
         "illegal_violations": collect_illegal_em_combinations(),
         "phase3_shadow_observe_only": True,
         "phase3_shadow_default_off": not shadow_enabled(),
-        "phase4_extraction_not_started": True,
+        # Phase 4 Stage 1 (E1 thin) capability exists; defaults remain OFF.
+        "phase4_extraction_not_started": False,
+        "phase4_stage1_thin_reports": True,
+        "phase4_stage2_not_started": True,
+        "phase4_thin_defaults_off": not any_thin_pipeline_enabled(),
         "phase5_activation_not_started": True,
     }
 

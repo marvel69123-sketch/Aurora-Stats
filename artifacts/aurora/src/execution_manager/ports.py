@@ -122,6 +122,29 @@ class InertDbReadPort:
 
 
 @dataclass
+class ProductionDbReadPort:
+    """
+    Phase 4 Stage 1 — thin-report Db read adapter.
+
+    Calls learning_db / knowledge_db read APIs only. Never CM write.
+    Never Tool Registry. Used when EM thin pipelines are flag-armed.
+    """
+
+    def learning_stats(self) -> dict[str, Any]:
+        from src.learning_db import get_learning_stats
+
+        return get_learning_stats()
+
+    def knowledge_search(self, query: str = "") -> list[dict[str, Any]]:
+        from src.knowledge_db import search_knowledge_items
+
+        return search_knowledge_items(query, limit=6)
+
+    def memory_recall(self, session_id: str = "") -> dict[str, Any]:
+        return {"session_id": session_id}
+
+
+@dataclass
 class PortBundle:
     """Injectable port bundle for Step Runner / pipeline stubs."""
 

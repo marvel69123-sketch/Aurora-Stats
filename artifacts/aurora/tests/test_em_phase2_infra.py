@@ -110,7 +110,11 @@ def test_flags_default_off_snapshot():
     assert snap["EM_ACTIVATION_PCT"] == 0.0
     assert snap["phase3_shadow_observe_only"] is True
     assert snap["phase3_shadow_default_off"] is True
-    assert snap["phase4_extraction_not_started"] is True
+    # Phase 4 Stage 1 capability exists; thin pipeline defaults remain OFF.
+    assert snap["phase4_extraction_not_started"] is False
+    assert snap["phase4_stage1_thin_reports"] is True
+    assert snap["phase4_stage2_not_started"] is True
+    assert snap["phase4_thin_defaults_off"] is True
     for name in EM_BOOL_FLAGS:
         assert snap["flags"][name] is False
 
@@ -339,10 +343,18 @@ def test_live_and_thin_stubs():
     live = em.run(_req(pipeline="live", run_id="live-1"))
     assert live.status == ExecutionStatus.COMPLETED
     assert live.payload["stub"] is True
+    # Phase 4 Stage 1: thin pipelines are real handlers (not stub payloads).
+    expected_intent = {
+        "bankroll": "bankroll_review",
+        "learning": "learning_recap",
+        "knowledge": "knowledge_search",
+    }
     for pid in ("bankroll", "learning", "knowledge"):
         r = em.run(_req(pipeline=pid, run_id=f"{pid}-1"))
         assert r.status == ExecutionStatus.COMPLETED
-        assert r.payload["stub"] is True
+        assert r.payload.get("intent") == expected_intent[pid]
+        assert r.diagnostics.get("thin") is True
+        assert "stub" not in r.payload
 
 
 def test_live_team_analyze_stub_delegates():
@@ -421,18 +433,18 @@ def test_em_package_forbids_cm_matchcard_begin_request():
 
 def test_router_shadow_hook_is_observe_only_not_sole_path():
     """
-    Phase 3: Router may call EM shadow observe helper, but must NOT:
-    - extract `_run_*` bodies
-    - enable sole-path / pipeline flags in code defaults
-    - replace production returns with EM results
+    Phase 3 shadow remains observe-only. Phase 4 Stage 1 adds thin shims only.
+    Live/analyze/live_team must NOT be sole-pathed. Legacy bodies remain.
     """
     text = ROUTER.read_text(encoding="utf-8", errors="replace")
     assert "_observe_em_shadow" in text
     assert "maybe_em_shadow_observe" in text
     assert "ENABLE_EXECUTION_MANAGER_SHADOW" in text
-    assert "ENABLE_EM_PIPELINE_" not in text
-    assert 'os.environ.get("ENABLE_EXECUTION_MANAGER")' not in text
-    assert "ExecutionManager().run" not in text
+    assert "_em_thin_or_legacy" in text
+    # Stage 1 thin only — live/analyze/live_team pipeline flags absent from Router
+    assert "ENABLE_EM_PIPELINE_LIVE" not in text
+    assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
+    assert "ENABLE_EM_PIPELINE_LIVE_TEAM" not in text
     # Must not assign shadow result onto production payload
     assert "payload = maybe_em_shadow_observe" not in text
     assert "payload = _observe_em_shadow" not in text

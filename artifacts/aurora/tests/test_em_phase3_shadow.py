@@ -362,9 +362,11 @@ def test_router_keeps_run_helpers_no_extraction():
         "def _save_analysis_context",
     ):
         assert needle in text
-    # Observe hook present; sole-path pipeline flags absent from router
+    # Observe hook present; Stage 1 thin shim present; Stage 2+ flags absent
     assert "_observe_em_shadow" in text
+    assert "_em_thin_or_legacy" in text
     assert "ENABLE_EM_PIPELINE_ANALYZE" not in text
+    assert "ENABLE_EM_PIPELINE_LIVE" not in text
     assert "payload = maybe_em_shadow_observe" not in text
 
 
@@ -386,5 +388,7 @@ def test_flag_snapshot_phase3_posture():
     snap = em_flag_snapshot()
     assert snap["phase3_shadow_observe_only"] is True
     assert snap["phase3_shadow_default_off"] is True
-    assert snap["phase4_extraction_not_started"] is True
+    assert snap["phase4_extraction_not_started"] is False
+    assert snap["phase4_stage1_thin_reports"] is True
+    assert snap["phase4_stage2_not_started"] is True
     assert snap["shadow_enabled"] is False

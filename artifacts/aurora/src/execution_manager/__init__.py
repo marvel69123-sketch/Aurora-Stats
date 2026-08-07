@@ -1,8 +1,8 @@
 """
-Execution Manager — Phase 2 Infrastructure scaffolding + Phase 3 Shadow observe.
+Execution Manager — Phase 2/3 scaffolding + Phase 4 Stage 1 thin extraction.
 
-Contracts, Step Runner skeleton, ports, flag controller, and Shadow Mode
-(observe-only dual-run). Defaults OFF. Shadow never replaces production results.
+Contracts, Step Runner, ports, flag controller, Shadow Mode (observe-only),
+and thin-report progressive extraction behind DEFAULT OFF pipeline flags.
 """
 
 from __future__ import annotations
@@ -24,9 +24,14 @@ from src.execution_manager.flags import (
     assert_legal_em_flag_matrix,
     em_flag_snapshot,
     em_flags_all_off,
+    pipeline_enabled,
+    rollback_em_all_off,
     rollback_em_shadow_off,
+    rollback_em_sole_path_off,
     shadow_enabled,
+    thin_pipeline_extraction_enabled,
 )
+from src.execution_manager.router_shim import em_thin_or_legacy
 from src.execution_manager.shadow import (
     APPENDIX_A_MANDATORY_KEYS,
     ShadowCompareResult,
@@ -55,9 +60,14 @@ __all__ = [
     "assert_legal_em_flag_matrix",
     "em_flag_snapshot",
     "em_flags_all_off",
+    "em_thin_or_legacy",
     "maybe_em_shadow_observe",
+    "pipeline_enabled",
+    "rollback_em_all_off",
     "rollback_em_shadow_off",
+    "rollback_em_sole_path_off",
     "shadow_compare",
     "shadow_enabled",
     "shadow_metrics_snapshot",
+    "thin_pipeline_extraction_enabled",
 ]
