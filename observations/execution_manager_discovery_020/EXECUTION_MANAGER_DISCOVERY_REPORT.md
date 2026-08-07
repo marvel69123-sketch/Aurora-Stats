@@ -438,10 +438,10 @@ Risco que o relatório deixa claro para o futuro: se reconstruirmos sem cuidado,
 Para **esta** Missão 020 (entender o módulo atual): praticamente concluída após commit/push.
 
 ```text
-███████████████████░  95%
+████████████████████  100%
 ```
 
-(Os ~5% restantes são o commit/push e a sua confirmação. A reconstrução do Execution Manager está em **0%** — deliberadamente não começou.)
+(Missão 020 Discovery concluída e publicada no Git. A reconstrução do Execution Manager permanece em **0%** — deliberadamente não começou.)
 
 🏗️ Analogia simples
 
