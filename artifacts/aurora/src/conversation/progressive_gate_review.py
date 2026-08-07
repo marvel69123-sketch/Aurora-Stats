@@ -11,7 +11,9 @@ Each activation increase is an independent gate. This module operationalizes:
   PGR-06 → STAGE6_100PCT (100%)
 
 PGR-01..PGR-06 are authorized as independent gates (one gate per mission
-decision). No auto-advance. No Phase 6 Stabilization.
+decision). No auto-advance. Phase 6 Stabilization (Mission 016) is complete
+as observability posture only — does NOT enable ENABLE_LANGGRAPH_STATE /
+definitive Activation (Mission 017 Acceptance pending).
 
 Repo default: all PGR gates OFF. Operators enable PGR-01..PGR-06 explicitly
 via env. Mirror drift remains OPEN — PGR gates are controlled/gated
@@ -761,7 +763,10 @@ def operator_enable_pgr06_instructions() -> str:
         "# Repo default remains OFF. Mirror drift OPEN ⇒ not full-env Activation.\n"
         "# STAGE6 raises canary % to 100%; same funnel paths as STAGE5 "
         "(boundary+analyze+note).\n"
-        "# Legacy writers remain present when OFF / not selected. Phase 6 NOT started.\n"
+        "# Legacy writers remain present when OFF / not selected.\n"
+        "# Phase 6 Stabilization COMPLETE (Mission 016) — validation only.\n"
+        "# Definitive Activation / ENABLE_LANGGRAPH_STATE=ON blocked until\n"
+        "# Mission 017 Final Acceptance + mirror drift closure (FINDING-024).\n"
         "set AURORA_PGR_06_ENABLE=1\n"
         "set AURORA_SOLE_WRITER_FUNNEL_PCT=100\n"
         "set ENABLE_STS_WRITE_FUNNEL_BOUNDARY=1\n"
@@ -774,9 +779,8 @@ def operator_enable_pgr06_instructions() -> str:
         "# set AURORA_PGR_03_ENABLE=1\n"
         "# set AURORA_PGR_04_ENABLE=1\n"
         "# set AURORA_PGR_05_ENABLE=1\n"
-        "# Do NOT set ENABLE_LANGGRAPH_STATE=1 (full prod write / Phase 6)\n"
+        "# Do NOT set ENABLE_LANGGRAPH_STATE=1 (definitive Activation)\n"
         "# Do NOT set AURORA_FUNNEL_PO_STAGE_UNLOCK unless PO approved >100%\n"
-        "# Phase 6 Stabilization is NOT started by this gate\n"
         "#\n"
         "# Instant rollback to OFF:\n"
         "#   unset AURORA_PGR_06_ENABLE\n"
@@ -856,11 +860,14 @@ def pgr_flag_snapshot() -> dict[str, Any]:
         "pgr06_stage": PGR06_STAGE,
         "authorized_highest_gate": AUTHORIZED_HIGHEST_GATE,
         "authorized_operational_max_pct": AUTHORIZED_OPERATIONAL_MAX_PCT,
-        # Phase 6 Stabilization remains locked (not a PGR ladder step).
+        # No auto-advance beyond PGR ladder into definitive Activation.
         "higher_gates_locked": True,
         "higher_gate_attempted": higher_pgr_gate_attempted(),
         "auto_advance": False,
-        "phase6_not_started": True,
+        # Mission 016 Phase 6 Stabilization complete (observability); write still OFF.
+        "phase6_not_started": False,
+        "phase6_stabilization_complete": True,
+        "definitive_activation_not_started": True,
         "pgr02_not_started": False,
         "pgr03_not_started": False,
         "pgr04_not_started": False,
@@ -875,6 +882,7 @@ def pgr_flag_snapshot() -> dict[str, Any]:
         "operator_enable_pgr04_runbook": operator_enable_pgr04_instructions(),
         "operator_enable_pgr05_runbook": operator_enable_pgr05_instructions(),
         "operator_enable_pgr06_runbook": operator_enable_pgr06_instructions(),
+        # FINDING-024 / Plan 014 IO9 — open until Mission 017 sync/acceptance.
         "mirror_drift_open": True,
         "production_langgraph_write_required": False,
         "legacy_writers_present": True,

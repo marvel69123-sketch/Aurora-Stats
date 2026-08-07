@@ -177,7 +177,7 @@ def test_pgr04_defaults_off_not_armed():
     assert snap["pgr04_not_started"] is False
     assert snap["pgr05_not_started"] is False
     assert snap["pgr06_not_started"] is False
-    assert snap["phase6_not_started"] is True
+    assert snap["phase6_not_started"] is False
     assert snap["auto_advance"] is False
     assert snap["mirror_drift_open"] is True
     assert PGR04_PCT == 25
@@ -228,7 +228,7 @@ def test_pgr04_twenty_five_pct_path_when_enabled():
         assert snap["pgr04_not_started"] is False
         assert snap["pgr05_not_started"] is False
         assert snap["pgr06_not_started"] is False
-        assert snap["phase6_not_started"] is True
+        assert snap["phase6_not_started"] is False
         assert snap["phase5_langgraph_write_not_started"] is True
         assert langgraph_state_enabled() is False
         assert pgr_flag_snapshot()["active_gate"] == "PGR-04"
@@ -486,7 +486,7 @@ def test_pgr04_no_auto_advance_and_phase6_not_started():
         assert snap["pgr04_not_started"] is False
         assert snap["pgr05_not_started"] is False
         assert snap["pgr06_not_started"] is False
-        assert snap["phase6_not_started"] is True
+        assert snap["phase6_not_started"] is False
         assert snap["effective_pct"] == 25
         assert snap["note_funnel_live"] is True
         assert snap["analyze_funnel_live"] is True

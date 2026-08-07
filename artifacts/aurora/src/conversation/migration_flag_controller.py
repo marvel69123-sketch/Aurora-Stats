@@ -103,6 +103,68 @@ def deploy_sts_modules_present() -> bool:
         return False
 
 
+# Context Manager modules that must exist under deploy SoT; mirror parity is
+# FINDING-024 / Plan 014 IO9 (open drift = P4 NO-GO for definitive Activation).
+_CM_MIRROR_MODULES: tuple[str, ...] = (
+    "appendix_b_ingress_harness.py",
+    "episode_transition.py",
+    "langgraph_state_adapter.py",
+    "langgraph_state_graph.py",
+    "migration_flag_controller.py",
+    "minimal_commit_orchestrator.py",
+    "progressive_gate_review.py",
+    "serial_lease.py",
+    "sole_writer_funnel.py",
+    "sport_topic_state.py",
+    "sts_checkpoint.py",
+    "sts_commit_gate.py",
+    "thread_identity.py",
+    "topic_boundary_v2.py",
+)
+
+
+def assess_cm_mirror_drift() -> dict[str, Any]:
+    """
+    Operational probe: artifacts/aurora SoT CM modules vs aurora/ mirror.
+
+    Sync is NOT performed here (Stabilization documents OPEN when risky).
+    Deploy SoT remains artifacts/aurora/. Open drift ⇒ definitive Activation NO-GO.
+    """
+    from pathlib import Path
+
+    here = Path(__file__).resolve()
+    sot_conv = here.parent  # artifacts/aurora/src/conversation
+    repo_root = here.parents[4]
+    mirror_conv = repo_root / "aurora" / "src" / "conversation"
+
+    missing_sot: list[str] = []
+    missing_mirror: list[str] = []
+    for name in _CM_MIRROR_MODULES:
+        if not (sot_conv / name).is_file():
+            missing_sot.append(name)
+        if not (mirror_conv / name).is_file():
+            missing_mirror.append(name)
+
+    open_drift = bool(missing_sot or missing_mirror)
+    return {
+        "deploy_sot": "artifacts/aurora/",
+        "mirror_path": "aurora/",
+        "required_cm_modules": list(_CM_MIRROR_MODULES),
+        "missing_in_sot": missing_sot,
+        "missing_in_mirror": missing_mirror,
+        "mirror_drift_open": open_drift,
+        "sync_performed": False,
+        "sync_deferred_reason": (
+            "Selective/full aurora/ sync deferred — mirror tree incomplete/"
+            "untracked pollution risk; document OPEN for Mission 017 "
+            "(FINDING-024 / IO9). Deploy SoT remains artifacts/aurora/."
+            if open_drift
+            else ""
+        ),
+        "definitive_activation_nogo_while_open": True,
+    }
+
+
 def get_migration_stage() -> MigrationStage:
     """
     Resolve MIGRATION_STAGE from env, or infer from legacy flags.
@@ -270,7 +332,9 @@ def flag_snapshot() -> dict[str, Any]:
             "effective_pct": 0,
             "stage_name": "OFF_0",
             "phase5_not_started": True,
-            "phase6_not_started": True,
+            "phase6_not_started": False,
+            "phase6_stabilization_complete": True,
+            "definitive_activation_not_started": True,
             "pgr02_not_started": False,
             "pgr03_not_started": False,
             "pgr04_not_started": False,
@@ -292,7 +356,9 @@ def flag_snapshot() -> dict[str, Any]:
             "pgr05_enable": False,
             "pgr06_enable": False,
             "higher_gates_locked": True,
-            "phase6_not_started": True,
+            "phase6_not_started": False,
+            "phase6_stabilization_complete": True,
+            "definitive_activation_not_started": True,
             "pgr02_not_started": False,
             "pgr03_not_started": False,
             "pgr04_not_started": False,
@@ -300,6 +366,7 @@ def flag_snapshot() -> dict[str, Any]:
             "pgr06_not_started": False,
             "mirror_drift_open": True,
         }
+    mirror = assess_cm_mirror_drift()
     return {
         "migration_stage": get_migration_stage().value,
         "ENABLE_LANGGRAPH_STATE": langgraph_state_enabled(),
@@ -323,4 +390,9 @@ def flag_snapshot() -> dict[str, Any]:
         "AURORA_PGR_06_ENABLE": _flag_truthy("AURORA_PGR_06_ENABLE"),
         "sole_writer_funnel": funnel_pct_snap,
         "progressive_gate_review": pgr_snap,
+        "deploy_sts_modules_present": deploy_sts_modules_present(),
+        "cm_mirror_drift": mirror,
+        "phase6_stabilization_complete": True,
+        "definitive_activation_not_started": not langgraph_state_enabled(),
+        "mirror_drift_open": bool(mirror.get("mirror_drift_open", True)),
     }

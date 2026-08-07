@@ -659,7 +659,10 @@ def funnel_flag_snapshot() -> dict[str, Any]:
         "phase5_pgr05_started": bool(pgr05_on or effective >= 50),
         "phase5_pgr06_started": bool(pgr06_on or effective >= 100),
         "phase5_langgraph_write_not_started": not langgraph_state_enabled(),
-        "phase6_not_started": True,
+        # Mission 016 Phase 6 Stabilization complete; definitive Activation still OFF.
+        "phase6_not_started": False,
+        "phase6_stabilization_complete": True,
+        "definitive_activation_not_started": not langgraph_state_enabled(),
         "pgr02_not_started": False,
         "pgr03_not_started": False,
         "pgr04_not_started": False,

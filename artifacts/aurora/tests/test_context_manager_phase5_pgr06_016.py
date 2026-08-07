@@ -7,8 +7,9 @@ Proves:
   - pct=100 without PGR-06 stays OFF; no auto-advance
   - Instant rollback to OFF; PGR-01..PGR-05 still coherent when PGR-06 off
   - Shadow still works; legacy writers present
-  - ENABLE_LANGGRAPH_STATE remains OFF (no full prod write / Phase 6)
-  - No auto-advance; Phase 6 Stabilization not started
+  - ENABLE_LANGGRAPH_STATE remains OFF (no definitive Activation)
+  - No auto-advance; Phase 6 Stabilization posture is complete (Mission 016)
+    but production write remains OFF
 """
 
 from __future__ import annotations
@@ -202,7 +203,7 @@ def test_pgr06_defaults_off_not_armed():
     assert snap["higher_gates_locked"] is True
     assert snap["pgr05_not_started"] is False
     assert snap["pgr06_not_started"] is False
-    assert snap["phase6_not_started"] is True
+    assert snap["phase6_not_started"] is False
     assert snap["auto_advance"] is False
     assert snap["mirror_drift_open"] is True
     assert PGR06_PCT == 100
@@ -251,7 +252,7 @@ def test_pgr06_hundred_pct_path_when_enabled():
         assert snap["analyze_funnel_live"] is True
         assert snap["boundary_funnel_live"] is True
         assert snap["pgr06_not_started"] is False
-        assert snap["phase6_not_started"] is True
+        assert snap["phase6_not_started"] is False
         assert snap["phase5_langgraph_write_not_started"] is True
         assert langgraph_state_enabled() is False
         assert pgr_flag_snapshot()["active_gate"] == "PGR-06"
@@ -527,14 +528,16 @@ def test_pgr06_flag_snapshot_and_runbook():
     assert "Phase 6" in runbook
 
 
-def test_pgr06_no_auto_advance_and_phase6_not_started():
+def test_pgr06_no_auto_advance_and_phase6_stabilization_posture():
     _clear_flags()
     _arm_pgr06()
     try:
         snap = funnel_flag_snapshot()
         assert snap["auto_advance"] is False
         assert snap["pgr06_not_started"] is False
-        assert snap["phase6_not_started"] is True
+        assert snap["phase6_not_started"] is False
+        assert snap["phase6_stabilization_complete"] is True
+        assert snap["definitive_activation_not_started"] is True
         assert snap["effective_pct"] == 100
         assert snap["note_funnel_live"] is True
         assert snap["analyze_funnel_live"] is True
