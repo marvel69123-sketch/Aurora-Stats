@@ -48,8 +48,8 @@ Elevação L2/L3: NÃO — readiness docs-only; no product delta; no Spec/Plan/M
 | Mission | 029 READINESS_REVIEW — EM Final Readiness |
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(governance): add Execution Manager Final Readiness` |
-| Commit hash | `043c94b8ad0c237289e8939f8a75917f462892c9` (body); stamp `db8af1d27bb137403cc522aafe04473966ee53d3` |
-| Push | *(filled after push)* |
+| Commit hash | `043c94b8ad0c237289e8939f8a75917f462892c9` (body); stamp `db8af1d27bb137403cc522aafe04473966ee53d3`; finalize `d9eb3b6` |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`81834c2..d9eb3b6`) |
 | Product code | **Nenhuma alteração de código: SIM** |
 | Spec / Plan / ADR / Master / Blueprint / SSOT | **UNTOUCHED** |
 | Implementation started | **NO** |
@@ -321,8 +321,8 @@ Para o **programa Execution Manager** (da descoberta até poder construir com se
 | Field | Value |
 |-------|-------|
 | Commit message | `docs(governance): add Execution Manager Final Readiness` |
-| Commit hash | `043c94b8ad0c237289e8939f8a75917f462892c9` (body); stamp `db8af1d27bb137403cc522aafe04473966ee53d3` |
-| Push | *(filled after push)* |
+| Commit hash | `043c94b8ad0c237289e8939f8a75917f462892c9` (body); stamp `db8af1d27bb137403cc522aafe04473966ee53d3`; finalize `d9eb3b6` |
+| Push | **YES** — `origin/feat/aurora-response-selector-001` (`81834c2..d9eb3b6`) |
 | Files staged | `observations/execution_manager_readiness_029/EXECUTION_MANAGER_FINAL_READINESS.md` only |
 | Product code | **Nenhuma alteração de código: SIM** |
 
