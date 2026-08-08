@@ -12,6 +12,7 @@
 | Substitution Waiver Template | [`SUBSTITUTION_WAIVER_TEMPLATE.md`](./SUBSTITUTION_WAIVER_TEMPLATE.md) | Time-boxed waiver form (Path B); prefer Master Path A |
 | Dual Reporting Policy (REGRA Nº 29) | [`DUAL_REPORTING_POLICY.md`](./DUAL_REPORTING_POLICY.md) | AEL Dual Reporting — Engineering + PO reports; Prompt Mestre block; PO visual template + progress bar |
 | Aurora Module Blueprint | [`AURORA_MODULE_BLUEPRINT.md`](./AURORA_MODULE_BLUEPRINT.md) | Official reusable AEL model to reconstruct any Aurora Core module (Research → Frozen); Mission 018 |
+| AEL Production Extension Addendum | [`AEL_PRODUCTION_EXTENSION_ADDENDUM.md`](./AEL_PRODUCTION_EXTENSION_ADDENDUM.md) | Post-FROZEN AEL: Production Rollout → Production Accepted (Mission 046; strategy package under `observations/aurora_production_rollout_046/`) |
 
 ---
 

@@ -58,6 +58,7 @@ docs/architecture/
 | Substitution Waiver Template | [`governance/SUBSTITUTION_WAIVER_TEMPLATE.md`](./governance/SUBSTITUTION_WAIVER_TEMPLATE.md) | Time-boxed waiver form (prefer master coverage; do not use to bypass Spec residuals) |
 | Dual Reporting Policy (REGRA Nº 29) | [`governance/DUAL_REPORTING_POLICY.md`](./governance/DUAL_REPORTING_POLICY.md) | AEL Dual Reporting — Eng + PO; Prompt Mestre block; PO visual template |
 | Aurora Module Blueprint | [`governance/AURORA_MODULE_BLUEPRINT.md`](./governance/AURORA_MODULE_BLUEPRINT.md) | Official reusable process model for any Aurora Core module (AEL ladder → Frozen) |
+| AEL Production Extension | [`governance/AEL_PRODUCTION_EXTENSION_ADDENDUM.md`](./governance/AEL_PRODUCTION_EXTENSION_ADDENDUM.md) | Post-FROZEN: Production Rollout → Production Accepted (Mission 046) |
 
 ---
 

@@ -584,8 +584,24 @@ Await: Product Owner
 | Version | Date | Change |
 |---------|------|--------|
 | 2026.08.07 | 2026-08-07 | Initial official Aurora Module Blueprint from CM AEL cycle (Mission 018) |
+| 2026.08.07.1 | 2026-08-07 | Pointer to post-FROZEN AEL Production Extension (Mission 046) — no Spec/Master rewrite |
+
+---
+
+## 11. Post-FROZEN lifecycle (pointer)
+
+Module FROZEN ends the **implementation** AEL cycle defined above. Live entry continues under a separate governance addendum — **not** a reopen of module Specs or Master pillars:
+
+```text
+Module FROZEN → Production Rollout → Production Accepted
+```
+
+**Canonical addendum:** [`AEL_PRODUCTION_EXTENSION_ADDENDUM.md`](./AEL_PRODUCTION_EXTENSION_ADDENDUM.md)  
+**Strategy package (working paper):** `observations/aurora_production_rollout_046/`
+
+Publishing or citing this pointer does **not** arm feature flags, start Production Rollout, or authorize the next module.
 
 ---
 
 **End of Aurora Module Blueprint.**  
-**Next module:** only on explicit Product Owner instruction.
+**Next module / live rollout:** only on explicit Product Owner instruction.
