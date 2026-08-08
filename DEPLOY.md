@@ -169,7 +169,7 @@ O hook `[postMerge]` em `.replit` (`scripts/post-merge.sh`) só roda **install**
 | `build` | Web prod + api-server scaffold |
 | `typecheck` | Typecheck monorepo |
 | `deploy` / `deploy:build` | Procedimento único de prep de deploy |
-| `sync:aurora` | Espelho local opcional `aurora/` |
+| `sync:aurora` | Espelho local opcional `aurora/` (Mission 047: manter parity com SoT) |
 
 ---
 

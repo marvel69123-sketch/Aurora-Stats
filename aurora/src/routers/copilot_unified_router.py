@@ -33,6 +33,442 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _observe_em_shadow(
+    intent: str | None,
+    payload: dict | None,
+    *,
+    session_id: str = "",
+    entities: dict | None = None,
+) -> None:
+    """
+    Mission 032 Phase 3 — Execution Manager Shadow (observe-only).
+
+    Gated by ENABLE_EXECUTION_MANAGER_SHADOW (default OFF). Fail-open.
+    Must NOT mutate payload, ctx, memory, or the user-facing response (REGRA 23).
+    Must NOT replace legacy `_run_*` results. Must NOT write CM.
+    """
+    try:
+        from src.execution_manager.shadow import maybe_em_shadow_observe
+
+        maybe_em_shadow_observe(
+            legacy_payload=payload if isinstance(payload, dict) else None,
+            intent=intent,
+            session_id=session_id or "",
+            entities=dict(entities or {}) if entities else None,
+        )
+    except Exception as _em_shadow_exc:
+        logger.warning("copilot: EM shadow observe skipped (%s)", _em_shadow_exc)
+
+
+def _em_thin_or_legacy(
+    pipeline_id: str,
+    legacy_fn,
+    *,
+    entities: dict | None = None,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 033 Phase 4 Stage 1 — Progressive Extraction E1 (thin reports).
+
+    DEFAULT OFF → legacy `_run_bankroll` / `_run_learning` / `_run_knowledge`.
+    Flag ON → EM thin path; fail-open fallback to legacy. Analyze/live_team
+    are NOT gated here. Shadow observe remains separate and operational.
+    """
+    from src.execution_manager.router_shim import em_thin_or_legacy
+
+    return em_thin_or_legacy(
+        pipeline_id,
+        legacy_fn,
+        entities=entities,
+        session_id=session_id,
+    )
+
+
+def _attach_live_match_card(payload: dict, fixtures: list) -> dict:
+    """
+    Router-only post-processing for live payloads (Plan §7.3).
+
+    Never called from EM package — match card stays outside Execution Manager.
+    """
+    try:
+        from src.communication import (
+            attach_match_card,
+            build_match_card_from_live_fixture,
+        )
+
+        ents = payload.get("entities") or {}
+        hn = str(ents.get("live_home") or "").strip().lower()
+        an = str(ents.get("live_away") or "").strip().lower()
+        top_fx = None
+        for fx in fixtures or []:
+            fh = str(((fx.get("home") or {}).get("name") or "")).strip().lower()
+            fa = str(((fx.get("away") or {}).get("name") or "")).strip().lower()
+            if hn and an and fh == hn and fa == an:
+                top_fx = fx
+                break
+        if top_fx is None and fixtures:
+            top_fx = fixtures[0]
+        if top_fx:
+            card = build_match_card_from_live_fixture(
+                top_fx,
+                confidence=payload.get("confidence")
+                if isinstance(payload.get("confidence"), dict)
+                else None,
+            )
+            payload = attach_match_card(payload, card)
+            if card:
+                payload["match"] = f"{card['home']['name']} x {card['away']['name']}"
+                payload["minute"] = card.get("minute")
+                payload["status"] = card.get("status_label") or payload.get("status")
+    except Exception as _mc_exc:
+        logger.warning("copilot: live match_card skipped (%s)", _mc_exc)
+    return payload
+
+
+async def _em_live_or_legacy(
+    *,
+    entities: dict | None = None,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 034 Phase 4 Stage 2 — Progressive Extraction E2 (live).
+
+    DEFAULT OFF → legacy `_run_live`.
+    Flag ON → EM live path; fail-open fallback to legacy.
+    Match card attached here (Router), never inside EM.
+    Analyze / live_team are NOT gated here.
+    """
+    from src.execution_manager.flags import live_pipeline_extraction_enabled
+
+    if not live_pipeline_extraction_enabled():
+        return await _run_live()
+
+    try:
+        from src.execution_manager.router_shim import em_live_or_legacy
+
+        payload = await em_live_or_legacy(
+            _run_live,
+            entities=dict(entities or {}) if entities else None,
+            session_id=session_id or "",
+        )
+        # When EM path succeeded, shim may stash fixtures for Router card attach.
+        fixtures = []
+        if isinstance(payload, dict) and "_em_live_fixtures" in payload:
+            fixtures = list(payload.pop("_em_live_fixtures") or [])
+            return _attach_live_match_card(payload, fixtures)
+        # Legacy fallback already attached card inside _run_live.
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM live shim failed (%s) — fallback legacy", exc)
+        return await _run_live()
+
+
+def _attach_analyze_match_card(payload: dict, data: dict | None) -> dict:
+    """Router-only match card for analyze (Plan §7.3 / Spec A13 — never inside EM)."""
+    if not isinstance(payload, dict) or not isinstance(data, dict):
+        return payload
+    # Do not attach on HARD-ABORT / INVALID blocked payloads.
+    if payload.get("fixture_quality") == "INVALID" or (
+        isinstance(payload.get("entities"), dict)
+        and payload["entities"].get("entity_invalid") is True
+    ):
+        return payload
+    try:
+        from src.communication import attach_match_card, build_match_card_from_analyze
+
+        card = build_match_card_from_analyze(
+            data,
+            is_live=bool(payload.get("is_live")),
+            minute=payload.get("minute") if isinstance(payload.get("minute"), int) else None,
+            status_label=str(payload.get("status")) if payload.get("status") else None,
+            confidence=payload.get("confidence")
+            if isinstance(payload.get("confidence"), dict)
+            else None,
+        )
+        return attach_match_card(payload, card)
+    except Exception as _mc_exc:
+        logger.warning("copilot: analyze match_card skipped (%s)", _mc_exc)
+        return payload
+
+
+async def _em_analyze_or_legacy(
+    home: str,
+    away: str,
+    prefer_live: bool = False,
+    *,
+    force_refresh: bool = False,
+    session_id: str = "",
+    entities: dict | None = None,
+) -> dict:
+    """
+    Mission 035 Phase 4 Stage 3 — Progressive Extraction E3 (analyze).
+
+    DEFAULT OFF → legacy `_run_analyze`.
+    Flag ON → EM analyze path; fail-open fallback to legacy.
+    Match card attached here (Router), never inside EM.
+    Soft-try / post-integrity / CM eligibility stay in the caller (§4.6–§4.7).
+    """
+    from src.execution_manager.flags import analyze_pipeline_extraction_enabled
+
+    async def _legacy():
+        return await _run_analyze(
+            home, away, prefer_live=prefer_live, force_refresh=force_refresh
+        )
+
+    if not analyze_pipeline_extraction_enabled():
+        return await _legacy()
+
+    try:
+        from src.execution_manager.router_shim import em_analyze_or_legacy
+
+        payload = await em_analyze_or_legacy(
+            _legacy,
+            home=home,
+            away=away,
+            prefer_live=prefer_live,
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+            entities=dict(entities or {}) if entities else None,
+        )
+        if isinstance(payload, dict) and "_em_analyze_fixture_data" in payload:
+            data = payload.pop("_em_analyze_fixture_data")
+            return _attach_analyze_match_card(payload, data)
+        # Legacy fallback already attached card inside _run_analyze; HARD-ABORT has none.
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM analyze shim failed (%s) — fallback legacy", exc)
+        return await _legacy()
+
+
+async def _run_live_team_analysis(
+    *,
+    entities: dict,
+    ctx: dict,
+    brain: dict,
+    force_refresh: bool = False,
+    session_id: str = "",
+) -> dict:
+    """
+    Legacy live_team bridge body (mega-router SoT).
+
+    Retained for dual-path / fail-open when ENABLE_EM_PIPELINE_LIVE_TEAM is OFF
+    or EM path fails. Includes Orchestration integrity wrap + CM save (not EM).
+    """
+    # FIX 1 — "analise jogo do [team]" → search live for that team
+    # then call full _run_analyze pipeline with the found match.
+    from src.routers.live import _build_live_response as _lbr_single
+    _lt_team = entities.get("team", "")
+    logger.warning(
+        "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
+        _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
+    )
+    _lt_live  = await _lbr_single()
+    _lt_list  = _lt_live.get("matches", [])
+    logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
+    # Phase 5A — live matching via EntityResolver (fold + name_match)
+    from src.core.entity_resolver import match_team_in_fixture_names
+    _lt_home, _lt_away = "", ""
+    for _lt_fx in _lt_list:
+        _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
+        _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
+        if match_team_in_fixture_names(_lt_team, _lt_h, _lt_a):
+            _lt_home, _lt_away = _lt_h, _lt_a
+            logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
+            break
+    if _lt_home and _lt_away:
+        from src.core.fixture_integrity import (
+            apply_integrity_to_payload as _apply_lt,
+            assess_analyze_result as _assess_lt,
+            assess_named_fixture as _assess_named_lt,
+            blocked_integrity_payload as _blocked_lt,
+        )
+
+        _lt_pre = _assess_named_lt(_lt_home, _lt_away)
+        if _lt_pre.is_blocked:
+            payload = _blocked_lt(_lt_pre, brain=brain)
+        else:
+            payload = await _em_analyze_or_legacy(
+                _lt_home,
+                _lt_away,
+                prefer_live=True,
+                force_refresh=force_refresh,
+                session_id=session_id,
+                entities=entities,
+            )
+            _lt_post = _assess_lt(
+                _lt_home,
+                _lt_away,
+                fixture_id=payload.get("fixture_id"),
+                is_partial=bool(payload.get("_partial")),
+                data_completeness=float(
+                    ((payload.get("brain") or {}).get("inference") or {}).get(
+                        "data_completeness", 1.0
+                    )
+                ),
+            )
+            payload = _apply_lt(payload, _lt_post)
+            if not _lt_post.is_blocked:
+                _save_analysis_context(ctx, payload, _lt_home, _lt_away)
+        logger.warning(
+            "[AUDIT] live_team_analysis: done match=%r status=%r found=%r",
+            payload.get("match"),
+            payload.get("fixture_status"),
+            payload.get("fixture_found"),
+        )
+    else:
+        logger.warning(
+            "[AUDIT] live_team_analysis: %r not found in %d live matches",
+            _lt_team, len(_lt_list),
+        )
+        from src.brain import get_brain_meta as _gbm_lt
+        from src.core.inference_context import InferenceContext
+
+        _lt_ctx = InferenceContext(soft_mode=True)
+        _lt_ctx.register_failure(
+            "live_team_lookup",
+            f"{_lt_team} não está no feed ao vivo",
+            signal="fixture",
+        )
+        _lt_ctx.finalize()
+        payload = {
+            "intent": "live_team_analysis",
+            "match": None, "is_live": False, "status": "NotFound", "minute": None,
+            "executive_summary": (
+                f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
+                f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
+                f"com confiança reduzida.\n\n"
+                f"Se souber o adversário, diga:\n"
+                f"\"Analisar {_lt_team} x [adversário]\""
+            ),
+            "best_markets": [],
+            "confidence": {
+                "score": _lt_ctx.apply_to_score(2.0),
+                "label": "insufficient",
+                "explanation": (
+                    f"Inference V2: time ausente ao vivo — "
+                    f"penalidade −{_lt_ctx.total_penalty():.1f}"
+                ),
+                "data_sources": ["Feed ao vivo API-Football", "Inference Layer V2"],
+            },
+            "risk": {
+                "level": "Unknown",
+                "flags": list(_lt_ctx.missing_signals),
+                "invalidation_conditions": [],
+            },
+            "bankroll_recommendation": {
+                "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
+                "examples": {}, "no_bet": True,
+                "reasoning": "Sem partida ao vivo identificada.",
+            },
+            "positive_factors": [], "negative_factors": [],
+            "historical_references": [],
+            "knowledge_notes": _lt_ctx.knowledge_notes_pt(),
+            "final_recommendation": (
+                f"Não encontrei {_lt_team} ao vivo. "
+                f"Tente: \"Analisar {_lt_team} x [adversário]\""
+            ),
+            "aurora_version": "Copilot v1.0",
+            "brain": {**_gbm_lt(), "inference": _lt_ctx.explainability()},
+        }
+    logger.warning(
+        "[AUDIT] ctx_after: last_match=%r last_intent=%r",
+        ctx.get("last_match"), ctx.get("last_intent"),
+    )
+    return payload
+
+
+async def _em_live_team_or_legacy(
+    *,
+    entities: dict | None = None,
+    ctx: dict | None = None,
+    brain: dict | None = None,
+    force_refresh: bool = False,
+    session_id: str = "",
+) -> dict:
+    """
+    Mission 036 Phase 4 Stage 4 — Progressive Extraction E4 (live_team_analyze).
+
+    DEFAULT OFF → legacy `_run_live_team_analysis`.
+    Flag ON → EM live_team composite; fail-open fallback to legacy.
+    Post-integrity / CM save stay here (Orchestration), never inside EM.
+    Match card attached here (Router), never inside EM.
+    """
+    ents = dict(entities or {}) if entities else {}
+    session_ctx = ctx if isinstance(ctx, dict) else {}
+    brain_meta = brain if isinstance(brain, dict) else {}
+
+    async def _legacy():
+        return await _run_live_team_analysis(
+            entities=ents,
+            ctx=session_ctx,
+            brain=brain_meta,
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+        )
+
+    from src.execution_manager.flags import live_team_pipeline_extraction_enabled
+
+    if not live_team_pipeline_extraction_enabled():
+        return await _legacy()
+
+    try:
+        from src.execution_manager.router_shim import em_live_team_or_legacy
+
+        payload = await em_live_team_or_legacy(
+            _legacy,
+            team=str(ents.get("team") or ""),
+            force_refresh=force_refresh,
+            session_id=session_id or "",
+            entities=ents,
+        )
+        if not isinstance(payload, dict):
+            return await _legacy()
+
+        # Match-card attach (Router-only) when EM analyze child stashed fixture data.
+        if "_em_analyze_fixture_data" in payload:
+            data = payload.pop("_em_analyze_fixture_data")
+            payload = _attach_analyze_match_card(payload, data)
+
+        _lt_home = str(payload.pop("_em_live_team_home", "") or "")
+        _lt_away = str(payload.pop("_em_live_team_away", "") or "")
+        if not _lt_home or not _lt_away:
+            # NotFound / incomplete — no CM write
+            return payload
+
+        from src.core.fixture_integrity import (
+            apply_integrity_to_payload as _apply_lt,
+            assess_analyze_result as _assess_lt,
+            assess_named_fixture as _assess_named_lt,
+            blocked_integrity_payload as _blocked_lt,
+        )
+
+        _lt_pre = _assess_named_lt(_lt_home, _lt_away)
+        if _lt_pre.is_blocked and (
+            payload.get("fixture_quality") == "INVALID"
+            or (payload.get("entities") or {}).get("entity_invalid") is True
+        ):
+            payload = _blocked_lt(_lt_pre, brain=brain_meta)
+        else:
+            _lt_post = _assess_lt(
+                _lt_home,
+                _lt_away,
+                fixture_id=payload.get("fixture_id"),
+                is_partial=bool(payload.get("_partial")),
+                data_completeness=float(
+                    ((payload.get("brain") or {}).get("inference") or {}).get(
+                        "data_completeness", 1.0
+                    )
+                ),
+            )
+            payload = _apply_lt(payload, _lt_post)
+            if not _lt_post.is_blocked:
+                _save_analysis_context(session_ctx, payload, _lt_home, _lt_away)
+        return payload
+    except Exception as exc:
+        logger.warning("copilot: EM live_team shim failed (%s) — fallback legacy", exc)
+        return await _legacy()
+
+
 # ---------------------------------------------------------------------------
 # Request model
 # ---------------------------------------------------------------------------
@@ -975,7 +1411,7 @@ async def _run_analyze(
 
 
 async def _run_live() -> dict:
-    """Live opportunities — powered by Live Intelligence Engine v1.0."""
+    """Live opportunities — powered by Live Intelligence Engine v1.0 (legacy body retained)."""
     from src.brain import get_brain_meta
     from src.core.live_intelligence_engine import build_live_payload
     from src.routers.live import _build_live_response
@@ -983,38 +1419,7 @@ async def _run_live() -> dict:
     live     = await _build_live_response()
     fixtures = live.get("matches", [])   # processed format from live.py
     payload  = build_live_payload(fixtures, get_brain_meta())
-    try:
-        from src.communication import (
-            attach_match_card,
-            build_match_card_from_live_fixture,
-        )
-        ents = payload.get("entities") or {}
-        hn = str(ents.get("live_home") or "").strip().lower()
-        an = str(ents.get("live_away") or "").strip().lower()
-        top_fx = None
-        for fx in fixtures:
-            fh = str(((fx.get("home") or {}).get("name") or "")).strip().lower()
-            fa = str(((fx.get("away") or {}).get("name") or "")).strip().lower()
-            if hn and an and fh == hn and fa == an:
-                top_fx = fx
-                break
-        if top_fx is None and fixtures:
-            top_fx = fixtures[0]
-        if top_fx:
-            card = build_match_card_from_live_fixture(
-                top_fx,
-                confidence=payload.get("confidence")
-                if isinstance(payload.get("confidence"), dict)
-                else None,
-            )
-            payload = attach_match_card(payload, card)
-            if card:
-                payload["match"] = f"{card['home']['name']} x {card['away']['name']}"
-                payload["minute"] = card.get("minute")
-                payload["status"] = card.get("status_label") or payload.get("status")
-    except Exception as _mc_exc:
-        logger.warning("copilot: live match_card skipped (%s)", _mc_exc)
-    return payload
+    return _attach_live_match_card(payload, fixtures)
 
 
 def _run_bankroll() -> dict:
@@ -1510,7 +1915,7 @@ def _run_fallback(message: str, intent: str) -> dict:
 
     summary = (
         tip +
-        "• **Analisar Arsenal x Chelsea** — análise completa de uma partida\n"
+        "• **Analisar Flamengo x Palmeiras** — análise completa de uma partida\n"
         "• **Melhores oportunidades ao vivo** — partidas em andamento\n"
         "• **Revisar banca** — seu histórico e desempenho\n"
         "• **O que a Aurora aprendeu hoje?** — resumo de aprendizado\n"
@@ -1803,7 +2208,69 @@ async def _copilot_inner(
     except Exception:
         pass
 
-    # Per-turn flags (must not leak across turns in the same session)
+    # ── PATCH-002A: Sports Language Layer (BEFORE routing / memory / GA) ──
+    _sll = None
+    try:
+        from src.conversation.sports_language import apply_sports_language_layer
+
+        _sll = apply_sports_language_layer(message, ctx)
+        if _sll.applied and _sll.normalized_text:
+            message = _sll.normalized_text
+    except Exception as _sll_exc:
+        logger.warning("copilot: SLL skipped (%s)", _sll_exc)
+
+    # Mission 016 Phase 3 — Path B ingress-order SHADOW (post-SLL pre-CSL).
+    # Observe-only / fail-open. Gated by ENABLE_LANGGRAPH_STATE_SHADOW (default OFF).
+    # Must NOT mutate message, ctx subject writers, memory, or user response (REGRA 23).
+    try:
+        from src.conversation.langgraph_state_adapter import ingress_order_shadow_compare
+
+        _sll_clubs = list(getattr(_sll, "clubs", None) or []) if _sll is not None else None
+        ingress_order_shadow_compare(message, ctx, sll_clubs=_sll_clubs)
+    except Exception as _lg_ingress_exc:
+        logger.warning("copilot: ingress-order shadow skipped (%s)", _lg_ingress_exc)
+
+    # TOPIC-BOUNDARY-002 — Episode boundary V2 BEFORE CSL / sport-intent rewrite.
+    # Uses raw (post-SLL) message so subject rotation beats fixture reuse.
+    # Flag OFF by default. Does not redesign boundary rules — only order + cleanup.
+    try:
+        from src.conversation.topic_boundary_v2 import apply_topic_boundary_v2
+
+        apply_topic_boundary_v2(message, ctx)
+    except Exception as _tbv2_exc:
+        logger.warning("copilot: topic boundary v2 skipped (%s)", _tbv2_exc)
+
+    # ── CSL-001: Conversation State Layer façade (after SLL + boundary) ──
+    # Stores slots + may contextualize bare follow-ups. Does not replace engines.
+    try:
+        from src.conversation.conversation_state_layer import apply_csl_resolve
+
+        message = apply_csl_resolve(message, ctx)
+    except Exception as _csl_exc:
+        logger.warning("copilot: CSL skipped (%s)", _csl_exc)
+
+    # ── INTENT-001: Semantic Sports Intent Layer (after CSL) ──
+    # Classifies sport intents and routes follow-ups to specialized skills.
+    try:
+        from src.conversation.sport_intent_layer import apply_sport_intent_resolve
+
+        message = apply_sport_intent_resolve(message, ctx)
+    except Exception as _sil_exc:
+        logger.warning("copilot: sport intent layer skipped (%s)", _sil_exc)
+
+    # LANGGRAPH-STATE-POC-001 / Mission 016 Phase 3 — Path A legacy-position SHADOW
+    # (post CSL/intent). Log-only OLD vs NEW. Gated by ENABLE_LANGGRAPH_STATE_SHADOW
+    # (default OFF). Independent of ENABLE_LANGGRAPH_STATE (write OFF). Fail-open;
+    # must not change message, payload, response, or live ctx subject writers (REGRA 23).
+    try:
+        from src.conversation.langgraph_state_adapter import maybe_shadow_compare
+
+        maybe_shadow_compare(message, ctx)
+    except Exception as _lg_shadow_exc:
+        logger.warning("copilot: langgraph shadow skipped (%s)", _lg_shadow_exc)
+
+    # Per-turn flags (must not leak across turns in the same session).
+    # Do NOT pop episode_boundary / subject_guard — set earlier this turn by V2.
     try:
         ctx.pop("ownership_stability_block_ga", None)
         ctx.pop("sport_continuity_block_ga", None)
@@ -1993,153 +2460,202 @@ async def _copilot_inner(
     except Exception as _ev2_exc:
         logger.warning("copilot: entity_resolver_v2 skipped (%s)", _ev2_exc)
 
-    # Phase 8.3-B / 8.4-A.8 — continuity: sim / leitura / placar / mercados…
-    # while window armed after repair/opinion/partial/team_summary.
-    # Resolve + claim BEFORE MasterIntent / GA so short FUs are never stolen.
+    # Phase 8.3-B / 8.4-A.8 — continuity resolve (message rewrite) always.
+    # RESPONSE-SELECTOR-001: when enabled, collect generators → select once
+    # instead of first-wins race. OS / SCG remain as fallback generators.
     try:
         from src.conversation.conversation_continuity import (
             apply_continuity_resolve as _cont_resolve,
-            is_active_sport_followup as _cont_active,
-            try_contextual_short_followup as _cont_fu_early,
         )
 
         message = _cont_resolve(message, ctx)
-        if payload is None and _cont_active(ctx, message):
-            from src.brain import get_brain_meta as _gbm_cont_early
-
-            _early_fu = _cont_fu_early(message, ctx, brain=_gbm_cont_early())
-            if isinstance(_early_fu, dict):
-                payload = _early_fu
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.94
-                skipped_nl = True
-                logger.warning(
-                    "[AUDIT] ContinuityFollowUp: EARLY claim before MasterIntent "
-                    "kind=%s team=%r",
-                    entities.get("continuity_kind"),
-                    entities.get("followup_resolved_team"),
-                )
     except Exception as _cont_exc:
         logger.warning("copilot: continuity resolve skipped (%s)", _cont_exc)
 
-    # Phase 8.4-A.10 — Pronoun Continuity BEFORE GA / fallback
-    # ("e dele?", "e o outro?", "e esse time?" → reuse last fixture/team)
+    _use_response_selector = False
     try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_pronoun
-            from src.conversation.pronoun_continuity import (
-                try_pronoun_continuity as _pronoun_try,
-            )
+        from src.conversation.response_selector import (
+            response_selector_enabled as _rs_enabled,
+            try_select_early_response as _rs_select,
+        )
 
-            _pronoun_payload = _pronoun_try(
-                message, ctx, brain=_gbm_pronoun()
-            )
-            if isinstance(_pronoun_payload, dict):
-                payload = _pronoun_payload
+        _use_response_selector = bool(_rs_enabled())
+        if payload is None and _use_response_selector:
+            from src.brain import get_brain_meta as _gbm_rs
+
+            _rs_payload = _rs_select(message, ctx, brain=_gbm_rs())
+            if isinstance(_rs_payload, dict):
+                payload = _rs_payload
                 intent = str(payload.get("intent") or "follow_up")
                 entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.93
+                routing_confidence = float(
+                    entities.get("response_selector_confidence") or 0.92
+                )
                 skipped_nl = True
                 try:
                     ctx["sport_pipeline_blocked"] = False
+                    if entities.get("response_selector_fallback") or entities.get(
+                        "sport_continuity_guard"
+                    ):
+                        ctx["sport_continuity_block_ga"] = True
                 except Exception:
                     pass
                 logger.warning(
-                    "[AUDIT] PronounContinuity: EARLY claim before MasterIntent "
-                    "value=%s entity=%r fixture=%r",
-                    entities.get("pronoun_value"),
-                    entities.get("pronoun_entity"),
-                    entities.get("pronoun_fixture"),
+                    "[AUDIT] ResponseSelector: EARLY select owner=%s priority=%s "
+                    "fallback=%s",
+                    entities.get("response_selector_owner")
+                    or entities.get("response_owner"),
+                    entities.get("response_selector_priority"),
+                    entities.get("response_selector_fallback"),
                 )
-    except Exception as _pronoun_exc:
-        logger.warning("copilot: pronoun continuity skipped (%s)", _pronoun_exc)
+    except Exception as _rs_exc:
+        logger.warning("copilot: response selector skipped (%s)", _rs_exc)
+        _use_response_selector = False
 
-    # Phase 8.4-A.11 — Advanced Football Continuity BEFORE GA / fallback
-    # (xg? / pressão? / kelly? / edge? after active fixture)
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_adv
-            from src.conversation.advanced_football_continuity import (
-                try_advanced_football_continuity as _adv_try,
+    # Legacy first-wins race (flag off or selector miss with empty pool)
+    if not _use_response_selector:
+        try:
+            from src.conversation.conversation_continuity import (
+                is_active_sport_followup as _cont_active,
+                try_contextual_short_followup as _cont_fu_early,
             )
 
-            _adv_payload = _adv_try(message, ctx, brain=_gbm_adv())
-            if isinstance(_adv_payload, dict):
-                payload = _adv_payload
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.92
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] AdvancedFootball: EARLY claim before MasterIntent "
-                    "term=%s fixture=%r reused=%s",
-                    entities.get("advanced_term"),
-                    entities.get("followup_resolved_fixture")
-                    or entities.get("pronoun_fixture"),
-                    entities.get("advanced_fixture_reused"),
-                )
-    except Exception as _adv_exc:
-        logger.warning("copilot: advanced football continuity skipped (%s)", _adv_exc)
+            if payload is None and _cont_active(ctx, message):
+                from src.brain import get_brain_meta as _gbm_cont_early
 
-    # Phase 8.4-A.18 — Sport Continuity Guard (anchor + short FU → SPORT, no sticky OS)
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_scg
-            from src.conversation.sport_continuity_guard import (
-                try_sport_continuity_claim as _scg_try,
+                _early_fu = _cont_fu_early(message, ctx, brain=_gbm_cont_early())
+                if isinstance(_early_fu, dict):
+                    payload = _early_fu
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.94
+                    skipped_nl = True
+                    logger.warning(
+                        "[AUDIT] ContinuityFollowUp: EARLY claim before MasterIntent "
+                        "kind=%s team=%r",
+                        entities.get("continuity_kind"),
+                        entities.get("followup_resolved_team"),
+                    )
+        except Exception as _cont_exc:
+            logger.warning("copilot: continuity claim skipped (%s)", _cont_exc)
+
+        # Phase 8.4-A.10 — Pronoun Continuity BEFORE GA / fallback
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_pronoun
+                from src.conversation.pronoun_continuity import (
+                    try_pronoun_continuity as _pronoun_try,
+                )
+
+                _pronoun_payload = _pronoun_try(
+                    message, ctx, brain=_gbm_pronoun()
+                )
+                if isinstance(_pronoun_payload, dict):
+                    payload = _pronoun_payload
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.93
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] PronounContinuity: EARLY claim before MasterIntent "
+                        "value=%s entity=%r fixture=%r",
+                        entities.get("pronoun_value"),
+                        entities.get("pronoun_entity"),
+                        entities.get("pronoun_fixture"),
+                    )
+        except Exception as _pronoun_exc:
+            logger.warning("copilot: pronoun continuity skipped (%s)", _pronoun_exc)
+
+        # Phase 8.4-A.11 — Advanced Football Continuity BEFORE GA / fallback
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_adv
+                from src.conversation.advanced_football_continuity import (
+                    try_advanced_football_continuity as _adv_try,
+                )
+
+                _adv_payload = _adv_try(message, ctx, brain=_gbm_adv())
+                if isinstance(_adv_payload, dict):
+                    payload = _adv_payload
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.92
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] AdvancedFootball: EARLY claim before MasterIntent "
+                        "term=%s fixture=%r reused=%s",
+                        entities.get("advanced_term"),
+                        entities.get("followup_resolved_fixture")
+                        or entities.get("pronoun_fixture"),
+                        entities.get("advanced_fixture_reused"),
+                    )
+        except Exception as _adv_exc:
+            logger.warning(
+                "copilot: advanced football continuity skipped (%s)", _adv_exc
             )
 
-            _scg = _scg_try(message, ctx, brain=_gbm_scg())
-            if isinstance(_scg, dict):
-                payload = _scg
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.935
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                    ctx["sport_continuity_block_ga"] = True
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] SportContinuityGuard: EARLY claim owner=%s fixture=%r",
-                    entities.get("response_owner"),
-                    entities.get("followup_resolved_fixture")
-                    or entities.get("sport_anchor_fixture"),
+        # Phase 8.4-A.18 — Sport Continuity Guard
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_scg
+                from src.conversation.sport_continuity_guard import (
+                    try_sport_continuity_claim as _scg_try,
                 )
-    except Exception as _scg_exc:
-        logger.warning("copilot: sport continuity guard skipped (%s)", _scg_exc)
 
-    # Phase 8.4-A.15 — Ownership Stability: lock SPORT + short FU guard BEFORE GA
-    try:
-        if payload is None:
-            from src.brain import get_brain_meta as _gbm_own
-            from src.conversation.ownership_stability import (
-                try_ownership_stability_claim as _own_stab,
-            )
+                _scg = _scg_try(message, ctx, brain=_gbm_scg())
+                if isinstance(_scg, dict):
+                    payload = _scg
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.935
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                        ctx["sport_continuity_block_ga"] = True
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] SportContinuityGuard: EARLY claim owner=%s fixture=%r",
+                        entities.get("response_owner"),
+                        entities.get("followup_resolved_fixture")
+                        or entities.get("sport_anchor_fixture"),
+                    )
+        except Exception as _scg_exc:
+            logger.warning("copilot: sport continuity guard skipped (%s)", _scg_exc)
 
-            _stab = _own_stab(message, ctx, brain=_gbm_own())
-            if isinstance(_stab, dict):
-                payload = _stab
-                intent = str(payload.get("intent") or "follow_up")
-                entities = dict(payload.get("entities") or {})
-                routing_confidence = 0.91
-                skipped_nl = True
-                try:
-                    ctx["sport_pipeline_blocked"] = False
-                except Exception:
-                    pass
-                logger.warning(
-                    "[AUDIT] OwnershipStability: EARLY claim guard=%s",
-                    entities.get("ownership_stability_guard"),
+        # Phase 8.4-A.15 — Ownership Stability
+        try:
+            if payload is None:
+                from src.brain import get_brain_meta as _gbm_own
+                from src.conversation.ownership_stability import (
+                    try_ownership_stability_claim as _own_stab,
                 )
-    except Exception as _own_stab_exc:
-        logger.warning("copilot: ownership stability skipped (%s)", _own_stab_exc)
+
+                _stab = _own_stab(message, ctx, brain=_gbm_own())
+                if isinstance(_stab, dict):
+                    payload = _stab
+                    intent = str(payload.get("intent") or "follow_up")
+                    entities = dict(payload.get("entities") or {})
+                    routing_confidence = 0.91
+                    skipped_nl = True
+                    try:
+                        ctx["sport_pipeline_blocked"] = False
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUDIT] OwnershipStability: EARLY claim guard=%s",
+                        entities.get("ownership_stability_guard"),
+                    )
+        except Exception as _own_stab_exc:
+            logger.warning("copilot: ownership stability skipped (%s)", _own_stab_exc)
 
     # Pipeline order (Human Understanding):
     #   MasterIntent → (non-sport short-circuit)
@@ -2176,6 +2692,8 @@ async def _copilot_inner(
                 or e.get("sport_continuity_guard")
                 or e.get("ambiguous_context_guard")
                 or e.get("clarification_mode")
+                or e.get("response_selector")
+                or e.get("sport_intent_authored")
             )
 
         # Continuity / pronoun / advanced / owner-lock claimed → skip GA steal
@@ -3101,7 +3619,7 @@ async def _copilot_inner(
             routing_confidence = 0.95
             skipped_nl = True
             logger.warning("[AUDIT] ConversationIntel: CONTEXT RESET message=%r", message)
-        elif payload is None and _ci_is_topic_switch(message):
+        elif payload is None and _ci_is_topic_switch(message, ctx):
             # New A x B — drop pending clarify; active fixture replaced on analyze save
             if ctx.get("ci_pending"):
                 ctx.pop("ci_pending", None)
@@ -3748,8 +4266,13 @@ async def _copilot_inner(
                             ctx.get("last_match"), ctx.get("last_intent"),
                         )
                         prefer_live = bool(entities.get("is_live")) or _integrity.is_blocked
-                        payload = await _run_analyze(
-                            home, away, prefer_live=prefer_live, force_refresh=force_refresh
+                        payload = await _em_analyze_or_legacy(
+                            home,
+                            away,
+                            prefer_live=prefer_live,
+                            force_refresh=force_refresh,
+                            session_id=session_id,
+                            entities=entities,
                         )
                         _still_invalid = (
                             payload.get("fixture_quality") == "INVALID"
@@ -3834,120 +4357,12 @@ async def _copilot_inner(
                         )
 
             elif intent == "live_team_analysis":
-                # FIX 1 — "analise jogo do [team]" → search live for that team
-                # then call full _run_analyze pipeline with the found match.
-                from src.routers.live import _build_live_response as _lbr_single
-                _lt_team = entities.get("team", "")
-                logger.warning(
-                    "[AUDIT] live_team_analysis: team=%r | ctx_before=last_match=%r last_intent=%r",
-                    _lt_team, ctx.get("last_match"), ctx.get("last_intent"),
-                )
-                _lt_live  = await _lbr_single()
-                _lt_list  = _lt_live.get("matches", [])
-                logger.warning("[AUDIT] live_team_analysis: %d live matches to search", len(_lt_list))
-                # Phase 5A — live matching via EntityResolver (fold + name_match)
-                from src.core.entity_resolver import match_team_in_fixture_names
-                _lt_home, _lt_away = "", ""
-                for _lt_fx in _lt_list:
-                    _lt_h = ((_lt_fx.get("home") or {}).get("name") or "")
-                    _lt_a = ((_lt_fx.get("away") or {}).get("name") or "")
-                    if match_team_in_fixture_names(_lt_team, _lt_h, _lt_a):
-                        _lt_home, _lt_away = _lt_h, _lt_a
-                        logger.warning("[AUDIT] live_team_analysis: matched %r vs %r", _lt_h, _lt_a)
-                        break
-                if _lt_home and _lt_away:
-                    from src.core.fixture_integrity import (
-                        apply_integrity_to_payload as _apply_lt,
-                        assess_analyze_result as _assess_lt,
-                        assess_named_fixture as _assess_named_lt,
-                        blocked_integrity_payload as _blocked_lt,
-                    )
-
-                    _lt_pre = _assess_named_lt(_lt_home, _lt_away)
-                    if _lt_pre.is_blocked:
-                        payload = _blocked_lt(_lt_pre, brain=brain)
-                    else:
-                        payload = await _run_analyze(
-                            _lt_home, _lt_away, prefer_live=True, force_refresh=force_refresh
-                        )
-                        _lt_post = _assess_lt(
-                            _lt_home,
-                            _lt_away,
-                            fixture_id=payload.get("fixture_id"),
-                            is_partial=bool(payload.get("_partial")),
-                            data_completeness=float(
-                                ((payload.get("brain") or {}).get("inference") or {}).get(
-                                    "data_completeness", 1.0
-                                )
-                            ),
-                        )
-                        payload = _apply_lt(payload, _lt_post)
-                        if not _lt_post.is_blocked:
-                            _save_analysis_context(ctx, payload, _lt_home, _lt_away)
-                    logger.warning(
-                        "[AUDIT] live_team_analysis: done match=%r status=%r found=%r",
-                        payload.get("match"),
-                        payload.get("fixture_status"),
-                        payload.get("fixture_found"),
-                    )
-                else:
-                    logger.warning(
-                        "[AUDIT] live_team_analysis: %r not found in %d live matches",
-                        _lt_team, len(_lt_list),
-                    )
-                    from src.brain import get_brain_meta as _gbm_lt
-                    from src.core.inference_context import InferenceContext
-
-                    _lt_ctx = InferenceContext(soft_mode=True)
-                    _lt_ctx.register_failure(
-                        "live_team_lookup",
-                        f"{_lt_team} não está no feed ao vivo",
-                        signal="fixture",
-                    )
-                    _lt_ctx.finalize()
-                    payload = {
-                        "intent": "live_team_analysis",
-                        "match": None, "is_live": False, "status": "NotFound", "minute": None,
-                        "executive_summary": (
-                            f"**{_lt_team}** não está jogando ao vivo agora.\n\n"
-                            f"A Aurora registrou a falha (Inference V2) e manteve a conversa "
-                            f"com confiança reduzida.\n\n"
-                            f"Se souber o adversário, diga:\n"
-                            f"\"Analisar {_lt_team} x [adversário]\""
-                        ),
-                        "best_markets": [],
-                        "confidence": {
-                            "score": _lt_ctx.apply_to_score(2.0),
-                            "label": "insufficient",
-                            "explanation": (
-                                f"Inference V2: time ausente ao vivo — "
-                                f"penalidade −{_lt_ctx.total_penalty():.1f}"
-                            ),
-                            "data_sources": ["Feed ao vivo API-Football", "Inference Layer V2"],
-                        },
-                        "risk": {
-                            "level": "Unknown",
-                            "flags": list(_lt_ctx.missing_signals),
-                            "invalidation_conditions": [],
-                        },
-                        "bankroll_recommendation": {
-                            "recommended_stake_pct": 0.0, "method": "quarter-Kelly",
-                            "examples": {}, "no_bet": True,
-                            "reasoning": "Sem partida ao vivo identificada.",
-                        },
-                        "positive_factors": [], "negative_factors": [],
-                        "historical_references": [],
-                        "knowledge_notes": _lt_ctx.knowledge_notes_pt(),
-                        "final_recommendation": (
-                            f"Não encontrei {_lt_team} ao vivo. "
-                            f"Tente: \"Analisar {_lt_team} x [adversário]\""
-                        ),
-                        "aurora_version": "Copilot v1.0",
-                        "brain": {**_gbm_lt(), "inference": _lt_ctx.explainability()},
-                    }
-                logger.warning(
-                    "[AUDIT] ctx_after: last_match=%r last_intent=%r",
-                    ctx.get("last_match"), ctx.get("last_intent"),
+                payload = await _em_live_team_or_legacy(
+                    entities=dict(entities or {}),
+                    ctx=ctx,
+                    brain=brain if isinstance(brain, dict) else {},
+                    force_refresh=force_refresh,
+                    session_id=session_id,
                 )
 
             elif intent == "live_opportunities":
@@ -3959,7 +4374,10 @@ async def _copilot_inner(
                     " preserve_context=%s",
                     ctx.get("last_match"), ctx.get("last_intent"), _preserve_context,
                 )
-                payload = await _run_live()
+                payload = await _em_live_or_legacy(
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
                 if not _preserve_context:
                     _live_ents = payload.get("entities", {})
                     _hn = _live_ents.get("live_home", "")
@@ -3987,13 +4405,29 @@ async def _copilot_inner(
                 )
 
             elif intent == "bankroll_review":
-                payload = _run_bankroll()
+                payload = _em_thin_or_legacy(
+                    "bankroll",
+                    _run_bankroll,
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
 
             elif intent == "learning_recap":
-                payload = _run_learning()
+                payload = _em_thin_or_legacy(
+                    "learning",
+                    _run_learning,
+                    entities=dict(entities or {}),
+                    session_id=session_id,
+                )
 
             elif intent == "knowledge_search":
-                payload = _run_knowledge(entities.get("query", message))
+                _kq = entities.get("query", message)
+                payload = _em_thin_or_legacy(
+                    "knowledge",
+                    lambda: _run_knowledge(_kq),
+                    entities={"query": _kq},
+                    session_id=session_id,
+                )
 
             elif intent == "greeting":
                 payload = _run_greeting()
@@ -4066,8 +4500,13 @@ async def _copilot_inner(
                 if _pre404.is_blocked:
                     payload = _blocked_404(_pre404, brain=brain)
                 else:
-                    payload = await _run_analyze(
-                        home_q, away_q, prefer_live=False, force_refresh=force_refresh
+                    payload = await _em_analyze_or_legacy(
+                        home_q,
+                        away_q,
+                        prefer_live=False,
+                        force_refresh=force_refresh,
+                        session_id=session_id,
+                        entities=entities,
                     )
                     _post404 = _assess_404(
                         home_q,
@@ -4265,6 +4704,16 @@ async def _copilot_inner(
                 "brain": {**brain, "inference": _octx.explainability()},
             }
 
+    # Mission 032 Phase 3 — EM Shadow observe-only (post legacy `_run_*` / wrap).
+    # Primary remains legacy. Flag DEFAULT OFF. Fail-open. No CM write / no
+    # response replacement (REGRA 23 Zero User Impact).
+    _observe_em_shadow(
+        intent,
+        payload if isinstance(payload, dict) else None,
+        session_id=session_id,
+        entities=entities if isinstance(entities, dict) else None,
+    )
+
     # ── LLM Conversational Layer (Phases 1–9) ────────────────────────────
     # Called ONLY when the LLM router decides it adds value.
     # Aurora's calculations are never replaced — only the narrative is enhanced.
@@ -4335,6 +4784,8 @@ async def _copilot_inner(
             or _ents_polish.get("continuity_followup")
             or _ents_polish.get("assistant_capabilities")
             or _ents_polish.get("assistant_kind") == "capabilities"
+            or _ents_polish.get("sport_intent_authored")
+            or _ents_polish.get("response_selector_skip_honesty")
         ):
             logger.warning(
                 "[AUDIT] Personality: SKIPPED — preliminary/continuity/capabilities lock"
@@ -4410,6 +4861,8 @@ async def _copilot_inner(
             )
             or _ents_cred.get("assistant_capabilities")
             or _ents_cred.get("assistant_kind") == "capabilities"
+            or _ents_cred.get("sport_intent_authored")
+            or _ents_cred.get("response_selector_skip_honesty")
         ):
             logger.warning(
                 "[AUDIT] CredibilityLayer: SKIPPED text upgrade — "
@@ -4853,6 +5306,29 @@ async def _copilot_inner(
             )
         except Exception as _fcj_note_exc:
             logger.warning("copilot: fiction/jump note skipped (%s)", _fcj_note_exc)
+        # CSL-001 — façade slot update (after sport notes; never touches FROZEN modules)
+        try:
+            from src.conversation.conversation_state_layer import (
+                note_csl_after_response as _csl_note,
+            )
+
+            if not _skip_sport_bootstrap:
+                payload = _csl_note(
+                    ctx,
+                    message,
+                    payload if isinstance(payload, dict) else None,
+                )
+        except Exception as _csl_note_exc:
+            logger.warning("copilot: CSL note skipped (%s)", _csl_note_exc)
+        # INTENT-001 — stamp sport intent / skill on entities
+        try:
+            from src.conversation.sport_intent_layer import (
+                note_sport_intent_on_payload as _sil_note,
+            )
+
+            payload = _sil_note(ctx, payload if isinstance(payload, dict) else None)
+        except Exception as _sil_note_exc:
+            logger.warning("copilot: sport intent note skipped (%s)", _sil_note_exc)
         try:
             from src.conversation.frustration_observability import (
                 note_frustration_observability as _frust_note,

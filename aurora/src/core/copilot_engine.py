@@ -598,7 +598,7 @@ def _fmt_greeting(session_id: str) -> str:
         "Combino dados ao vivo, gols esperados (xG), padrões históricos "
         "e 39 regras metodológicas de apostas para oferecer análises de nível profissional.\n\n"
         "**O que você pode me perguntar:**\n"
-        "  • *\"Analisar Arsenal x Chelsea\"* — relatório completo de inteligência\n"
+        "  • *\"Analisar Flamengo x Palmeiras\"* — relatório completo de inteligência\n"
         "  • *\"Melhores oportunidades ao vivo\"* — oportunidades em partidas ao vivo\n"
         "  • *\"Revisar banca\"* — desempenho das suas previsões\n"
         "  • *\"O que a Aurora aprendeu hoje?\"* — resumo de aprendizado e precisão\n"

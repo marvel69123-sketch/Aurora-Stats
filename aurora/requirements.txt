@@ -5,3 +5,12 @@ uvicorn[standard]==0.34.2
 httpx==0.28.1
 python-dotenv==1.1.1
 openai==1.82.0
+# CALENDAR-001 — PT-BR relative fixture dates (gated by ENABLE_DATEPARSER)
+dateparser==1.2.2
+# ENTITY-EDGE-001 — RapidFuzz for edge typo resolution (flag ENABLE_ENTITY_EDGE)
+rapidfuzz==3.13.0
+# LANGGRAPH-STATE-POC-001 — OPTIONAL (flags ENABLE_LANGGRAPH_STATE /
+# ENABLE_LANGGRAPH_STATE_SHADOW, both default OFF). Shadow ≠ production write path.
+# Imports are try/except; production fails open without this package.
+# Uncomment to install the host graph for the SportTopicState POC:
+# langgraph==0.4.8

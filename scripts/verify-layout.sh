@@ -76,7 +76,18 @@ if [ -d aurora/src ]; then
       fi
     fi
   done
-  echo "OK aurora/ mirror matches artifacts/aurora for critical files"
+  # Mission 047 — CM/EM presence parity (Activation hygiene)
+  for f in \
+    src/execution_manager/__init__.py \
+    src/execution_manager/flags.py \
+    src/conversation/sport_topic_state.py \
+    src/conversation/migration_flag_controller.py \
+    src/conversation/langgraph_state_graph.py
+  do
+    test -f "artifacts/aurora/$f" || fail "Missing SoT $f"
+    test -f "aurora/$f" || fail "Missing mirror $f — run: bash scripts/sync-aurora-mirror.sh"
+  done
+  echo "OK aurora/ mirror matches artifacts/aurora for critical + CM/EM files"
 fi
 
 # Production web artifact must force clean build (stale dist was serving old UI)
