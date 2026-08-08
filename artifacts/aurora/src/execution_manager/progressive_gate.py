@@ -1,16 +1,15 @@
 """
-Mission 042 Phase 5 — Progressive Gate Review for Execution Manager (REGRA 25).
+Execution Manager Progressive Gate Review (REGRA 25) — PGR-01..PGR-06.
 
-PGR-06 ONLY (100%) authorized this mission (final PGR ladder rung).
-PGR-01 (1%), PGR-02 (5%), PGR-03 (10%), PGR-04 (25%), and PGR-05 (50%) remain
-re-armable when PGR-06 is off. Stabilization / Final Acceptance NOT started.
+PGR ladder complete through PGR-06 (100% capability). Mission 043 Stabilization
+complete (observability only). Final Acceptance / definitive Activation NOT started.
 
-  PGR-01 → EM_STAGE1_SOLE_PATH_1PCT (1%)   — still available
-  PGR-02 → EM_STAGE2_SOLE_PATH_5PCT (5%)   — still available
-  PGR-03 → EM_STAGE3_SOLE_PATH_10PCT (10%) — still available
-  PGR-04 → EM_STAGE4_SOLE_PATH_25PCT (25%) — still available
-  PGR-05 → EM_STAGE5_SOLE_PATH_50PCT (50%) — still available
-  PGR-06 → EM_STAGE6_SOLE_PATH_100PCT (100%) — authorized this mission
+  PGR-01 → EM_STAGE1_SOLE_PATH_1PCT (1%)
+  PGR-02 → EM_STAGE2_SOLE_PATH_5PCT (5%)
+  PGR-03 → EM_STAGE3_SOLE_PATH_10PCT (10%)
+  PGR-04 → EM_STAGE4_SOLE_PATH_25PCT (25%)
+  PGR-05 → EM_STAGE5_SOLE_PATH_50PCT (50%)
+  PGR-06 → EM_STAGE6_SOLE_PATH_100PCT (100%)
 
 Repo default: all EM PGR gates OFF / EM_ACTIVATION_PCT=0 (even at 100% capability).
 Auto-advance = False. Instant rollback restores OFF / 0%.
@@ -894,7 +893,8 @@ def operator_enable_em_pgr06_instructions() -> str:
         "# set ENABLE_EM_PIPELINE_ANALYZE=1\n"
         "# set ENABLE_EM_PIPELINE_LIVE=1\n"
         "# set ENABLE_EM_PIPELINE_BANKROLL=1\n"
-        "# Auto-advance=False; Stabilization / Final Acceptance NOT started\n"
+        "# Auto-advance=False; Stabilization COMPLETE (Mission 043);\n"
+        "# definitive Activation blocked pending Mission 044 + R-EM-01 mirror drift\n"
         "#\n"
         "# Instant rollback:\n"
         "#   set ENABLE_EM_PGR_06=0\n"
@@ -1001,7 +1001,10 @@ def em_pgr_flag_snapshot() -> dict[str, Any]:
         "pgr04_not_started": False,
         "pgr05_not_started": False,
         "pgr06_not_started": False,
-        "phase6_stabilization_not_started": True,
+        "phase6_stabilization_not_started": False,
+        "phase6_stabilization_complete": True,
+        "definitive_activation_not_started": True,
+        "mirror_drift_open": True,  # R-EM-01 — honesty; sync deferred
         "gates": gates,
         "metrics": em_pgr_metrics_snapshot(),
         "operator_enable_pgr01_runbook": operator_enable_em_pgr01_instructions(),

@@ -351,11 +351,70 @@ def assert_legal_em_flag_matrix(*, raise_on_illegal: bool = True) -> list[dict[s
     return violations
 
 
+# EM package modules expected under SoT for mirror probe (Stabilization honesty).
+_EM_MIRROR_MODULES: tuple[str, ...] = (
+    "__init__.py",
+    "contracts.py",
+    "flags.py",
+    "observability.py",
+    "ports.py",
+    "progressive_gate.py",
+    "registry.py",
+    "router_shim.py",
+    "shadow.py",
+    "step_runner.py",
+)
+
+
+def assess_em_mirror_drift() -> dict[str, Any]:
+    """
+    Operational probe: artifacts/aurora SoT EM package vs aurora/ mirror.
+
+    Sync is NOT performed here (Stabilization documents OPEN when risky).
+    Deploy SoT remains artifacts/aurora/. Open drift ⇒ definitive Activation NO-GO.
+    """
+    from pathlib import Path
+
+    here = Path(__file__).resolve()
+    sot_em = here.parent  # artifacts/aurora/src/execution_manager
+    repo_root = here.parents[4]
+    mirror_em = repo_root / "aurora" / "src" / "execution_manager"
+
+    missing_sot: list[str] = []
+    missing_mirror: list[str] = []
+    for name in _EM_MIRROR_MODULES:
+        if not (sot_em / name).is_file():
+            missing_sot.append(name)
+        if not (mirror_em / name).is_file():
+            missing_mirror.append(name)
+
+    open_drift = bool(missing_sot or missing_mirror)
+    return {
+        "deploy_sot": "artifacts/aurora/",
+        "mirror_path": "aurora/",
+        "required_em_modules": list(_EM_MIRROR_MODULES),
+        "missing_in_sot": missing_sot,
+        "missing_in_mirror": missing_mirror,
+        "mirror_drift_open": open_drift,
+        "sync_performed": False,
+        "sync_deferred_reason": (
+            "Selective/full aurora/ sync deferred — EM package absent/incomplete "
+            "in mirror; document OPEN for Mission 044 Final Acceptance "
+            "(R-EM-01 / Plan IO9). Deploy SoT remains artifacts/aurora/."
+            if open_drift
+            else ""
+        ),
+        "definitive_activation_nogo_while_open": True,
+        "residual_id": "R-EM-01",
+    }
+
+
 def em_flag_snapshot() -> dict[str, Any]:
     """Read-only observability of EM flag posture."""
     from src.execution_manager.progressive_gate import em_pgr_flag_snapshot
 
     pgr_snap = em_pgr_flag_snapshot()
+    mirror = assess_em_mirror_drift()
     return {
         "flags": {name: _flag_truthy(name) for name in EM_BOOL_FLAGS},
         "EM_ACTIVATION_PCT": _activation_pct(),
@@ -404,7 +463,13 @@ def em_flag_snapshot() -> dict[str, Any]:
         "phase5_pgr06_not_started": False,
         "phase5_authorized_highest_gate": "PGR-06",
         "phase5_authorized_max_pct": 100,
-        "phase6_stabilization_not_started": True,
+        # Mission 043 Phase 6 Stabilization — observability posture only.
+        "phase6_stabilization_not_started": False,
+        "phase6_stabilization_complete": True,
+        "definitive_activation_not_started": True,
+        "mirror_drift_open": mirror["mirror_drift_open"],
+        "em_mirror_drift": mirror,
+        "legacy_copilot_engine_present": True,  # R-EM-02 — retirement = later mission
         "progressive_gate_review": pgr_snap,
         "auto_advance": False,
         "rollback_possible": True,

@@ -1,13 +1,13 @@
 """
 Execution Manager — Phase 2/3 scaffolding + Phase 4 Progressive Extraction
-+ Phase 5 Progressive Activation PGR-01 (1%) + PGR-02 (5%) + PGR-03 (10%)
-+ PGR-04 (25%) + PGR-05 (50%) + PGR-06 (100%).
++ Phase 5 Progressive Activation PGR-01..PGR-06 + Phase 6 Stabilization
+(Mission 043 observability).
 
 Contracts, Step Runner, ports, flag controller, Shadow Mode (observe-only),
 thin-report (E1), live (E2), analyze (E3), and live_team_analyze (E4)
 progressive extraction behind DEFAULT OFF flags. PGR-01..PGR-06 independent
-gates for 1%/5%/10%/25%/50%/100% sole-path canary (DEFAULT OFF; Stabilization
-not started).
+gates for 1%/5%/10%/25%/50%/100% sole-path canary (DEFAULT OFF). Stabilization
+complete; Final Acceptance / definitive Activation NOT started.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from src.execution_manager.flags import (
     IllegalEmFlagMatrixError,
     analyze_pipeline_extraction_enabled,
     assert_legal_em_flag_matrix,
+    assess_em_mirror_drift,
     effective_em_activation_pct,
     em_flag_snapshot,
     em_flags_all_off,
@@ -127,6 +128,7 @@ __all__ = [
     "StepTrace",
     "analyze_pipeline_extraction_enabled",
     "assert_legal_em_flag_matrix",
+    "assess_em_mirror_drift",
     "effective_em_activation_pct",
     "em_analyze_from_fixture",
     "em_analyze_or_legacy",

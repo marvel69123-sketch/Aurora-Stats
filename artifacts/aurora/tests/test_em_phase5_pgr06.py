@@ -8,7 +8,7 @@ Proves:
   - Instant rollback to 0% / PGR-06 OFF; PGR-01..PGR-05 still re-armable
   - Shadow still works; pipeline flags remain DEFAULT OFF
   - Phase 4 extraction-only (pipeline ON, no activation posture) still 100%
-  - Stabilization / Final Acceptance NOT started
+  - Stabilization posture: Mission 043 complete (observability); FA not started
 """
 
 from __future__ import annotations
@@ -181,7 +181,9 @@ def test_pgr06_defaults_off_not_armed():
     assert snap["effective_pct"] == 0
     assert snap["higher_gates_locked"] is True
     assert snap["pgr06_not_started"] is False
-    assert snap["phase6_stabilization_not_started"] is True
+    assert snap["phase6_stabilization_not_started"] is False
+    assert snap["phase6_stabilization_complete"] is True
+    assert snap["definitive_activation_not_started"] is True
     assert snap["auto_advance"] is False
     assert snap["rollback_possible"] is True
     assert PGR06_PCT == 100
@@ -196,7 +198,9 @@ def test_pgr06_defaults_off_not_armed():
     assert flag_snap["phase5_pgr06_not_started"] is False
     assert flag_snap["phase5_authorized_highest_gate"] == "PGR-06"
     assert flag_snap["phase5_authorized_max_pct"] == 100
-    assert flag_snap["phase6_stabilization_not_started"] is True
+    assert flag_snap["phase6_stabilization_not_started"] is False
+    assert flag_snap["phase6_stabilization_complete"] is True
+    assert flag_snap["definitive_activation_not_started"] is True
     assert flag_snap["progressive_gate_review"]["pgr06_enable"] is False
 
 
@@ -234,7 +238,8 @@ def test_pgr06_hundred_pct_path_when_enabled():
         assert snap["effective_pct"] == 100
         assert snap["active_gate"] == "PGR-06"
         assert snap["pgr06_not_started"] is False
-        assert snap["phase6_stabilization_not_started"] is True
+        assert snap["phase6_stabilization_not_started"] is False
+        assert snap["phase6_stabilization_complete"] is True
         assert snap["auto_advance"] is False
         # 100% canary selects all sessions
         assert in_em_canary_bucket("any-session") is True
@@ -463,7 +468,9 @@ def test_no_auto_advance_and_runbook():
         snap = em_flag_snapshot()
         assert snap["auto_advance"] is False
         assert snap["phase5_pgr06_not_started"] is False
-        assert snap["phase6_stabilization_not_started"] is True
+        assert snap["phase6_stabilization_not_started"] is False
+        assert snap["phase6_stabilization_complete"] is True
+        assert snap["definitive_activation_not_started"] is True
         assert snap["EM_ACTIVATION_PCT_EFFECTIVE"] == 100
         runbook = operator_enable_em_pgr06_instructions()
         assert "ENABLE_EM_PGR_06=1" in runbook
@@ -471,6 +478,7 @@ def test_no_auto_advance_and_runbook():
         assert "ENABLE_EXECUTION_MANAGER=1" in runbook
         assert "rollback_em_pgr06_to_off" in runbook
         assert "Stabilization" in runbook
+        assert "Mission 044" in runbook or "definitive Activation" in runbook
     finally:
         _clear_em_flags()
 
