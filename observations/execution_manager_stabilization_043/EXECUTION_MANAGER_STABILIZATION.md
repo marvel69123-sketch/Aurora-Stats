@@ -296,8 +296,8 @@ RECOMMENDED NEXT: Mission 044 Acceptance Review Final
 | Branch | `feat/aurora-response-selector-001` |
 | Commit message | `docs(governance): Execution Manager Stabilization` |
 | Justification for code | Observability markers + mirror probe + validation suite (CM Phase 6 pattern); **no** gate/pct/behavior change |
-| Commit hash | *(filled after commit)* |
-| Push | *(filled after push)* |
+| Commit hash | `1287efc` (`1287efc2cc1185e6b4aeaf000450afac3f62e599`) |
+| Push | YES — `origin/feat/aurora-response-selector-001` (`4f6abb5..1287efc`) |
 
 ---
 
