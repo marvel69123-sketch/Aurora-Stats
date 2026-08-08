@@ -47,19 +47,31 @@ _FOLLOWUP_PATTERNS: list[tuple[str, str]] = [
     (r"qual\s+(?:time|equipe)\s+(?:est[a]?\s+)?melhor", "who_is_better"),
     (r"qual\s+o\s+favorito",                         "who_is_better"),
     (r"quem\s+tem\s+mais\s+chance",                  "who_is_better"),
-    # Corners
+    # Corners (bare chip parity — Mission 050)
     (r"e\s+(?:os\s+)?escanteios?",                   "corners_market"),
     (r"e\s+(?:os\s+)?cantos?",                       "corners_market"),
     (r"escanteios?\s*$",                             "corners_market"),
     (r"corners?\s*$",                                "corners_market"),
-    # Goals
+    (r"cantos?\s*$",                                 "corners_market"),
+    # Goals / BTTS / over-under (bare chips — parity with escanteios)
     (r"e\s+(?:os\s+)?gols?",                         "goals_market"),
     (r"e\s+(?:os\s+)?golos?",                        "goals_market"),
     (r"e\s+o\s+over|e\s+o\s+under",                  "goals_market"),
     (r"e\s+o\s+btts|e\s+ambos\s+marcam",             "goals_market"),
-    # Cards
+    (r"gols?\s*$",                                   "goals_market"),
+    (r"golos?\s*$",                                  "goals_market"),
+    (r"btts\s*$",                                    "goals_market"),
+    (r"ambos\s+marcam\s*$",                          "goals_market"),
+    (r"ambas\s+marcam\s*$",                          "goals_market"),
+    (r"over\s*$",                                    "goals_market"),
+    (r"under\s*$",                                   "goals_market"),
+    (r"over\s+\d",                                   "goals_market"),
+    (r"under\s+\d",                                  "goals_market"),
+    # Cards (bare chip parity)
     (r"e\s+(?:os\s+)?cart[o]es?",                    "cards_market"),
     (r"e\s+(?:os\s+)?amarelos?",                     "cards_market"),
+    (r"cart[o]es?\s*$",                              "cards_market"),
+    (r"amarelos?\s*$",                               "cards_market"),
     (r"cards?\s*$",                                  "cards_market"),
     # Result
     (r"e\s+(?:o\s+)?resultado",                      "result_market"),

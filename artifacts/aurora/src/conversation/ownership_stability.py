@@ -33,6 +33,8 @@ _CONTINUITY_FU = re.compile(
     r"(?:e\s+)?(?:a\s+|o\s+|as\s+|os\s+)?"
     r"(?:pressao|pressão|xg|kelly|edge|stake|value|momentum|odds?|odd|"
     r"estatisticas?|estatísticas?|mercados?|placar|favorito|pesquisa|"
+    r"escanteios?|gols?|golos?|cart[oõ]es?|cart[aã]o|cards?|amarelos?|"
+    r"btts|ambos(?:\s+marcam)?|ambas(?:\s+marcam)?|over|under|handicap|"
     r"calendario|calendário|agenda|probabilidade|confianca|confiança|"
     r"criterio\s+de\s+kelly|critério\s+de\s+kelly)"
     r"|"
@@ -42,7 +44,7 @@ _CONTINUITY_FU = re.compile(
     r"|"
     r"(?:mais\s+detalhes|todos\s+os\s+mercados|explica\s+melhor|e\s+agora)"
     r"|"
-    r"(?:markets?|pressure|score|stats?|xg)"
+    r"(?:markets?|pressure|score|stats?|xg|corners?)"
     r")"
     r"(?:\s+\w+){0,3}"
     r"\s*[?!]*$",
@@ -335,6 +337,13 @@ def is_continuity_followup_candidate(message: str | None) -> bool:
     folded = _fold(raw)
     if len(folded.split()) > 8:
         return False
+    try:
+        from src.conversation.market_short_followup import is_bare_market_followup
+
+        if is_bare_market_followup(raw):
+            return True
+    except Exception:
+        pass
     try:
         from src.conversation.pronoun_continuity import is_pronoun_followup
 

@@ -173,7 +173,10 @@ _KNOWN_CLUB = re.compile(
 )
 
 
-def classify_master_intent(message: str) -> MasterIntentResult:
+def classify_master_intent(
+    message: str,
+    ctx: dict[str, Any] | None = None,
+) -> MasterIntentResult:
     folded = _fold(message)
     if not folded:
         return MasterIntentResult("GENERAL_CHAT", 0.4, "empty", False)
@@ -237,6 +240,23 @@ def classify_master_intent(message: str) -> MasterIntentResult:
     if _SPORT.search(folded) or _KNOWN_CLUB.search(folded):
         kind: MasterIntent = "LIVE_MATCH" if _LIVE.search(folded) else "SPORT_QUERY"
         return MasterIntentResult(kind, 0.9, "sport_signal", True)
+
+    # Mission 050 — sticky bare market chip (gols/escanteios/…) stays SPORT
+    try:
+        from src.conversation.market_short_followup import (
+            has_sport_sticky_context,
+            is_bare_market_followup,
+        )
+
+        if is_bare_market_followup(message) and has_sport_sticky_context(ctx):
+            return MasterIntentResult(
+                "SPORT_QUERY",
+                0.88,
+                "sticky_market_chip",
+                True,
+            )
+    except Exception:
+        pass
 
     if _SMALL.search(folded):
         return MasterIntentResult("SMALL_TALK", 0.96, "greeting_or_social", False)
@@ -308,7 +328,7 @@ def apply_master_intent(
         prev = (ctx.get(CTX_KEY) or {}).get("intent") if isinstance(ctx.get(CTX_KEY), dict) else None
     _route_log("INTENT_BEFORE", message_prefix=(message or "")[:80], prev_intent=prev or "none")
 
-    result = classify_master_intent(message)
+    result = classify_master_intent(message, ctx)
     if ctx is not None:
         ctx[CTX_KEY] = result.to_dict()
         if not result.allow_sport_pipeline:

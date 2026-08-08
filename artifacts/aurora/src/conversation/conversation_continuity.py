@@ -33,6 +33,14 @@ SPORT_FOLLOWUP_KINDS = frozenset(
         "favorito",
         "escalacoes",
         "continue",
+        # Mission 050 — bare market chips (parity with escanteios)
+        "gols",
+        "escanteios",
+        "cartoes",
+        "btts",
+        "over",
+        "under",
+        "handicap",
     }
 )
 
@@ -202,6 +210,15 @@ def _is_short_followup(message: str) -> str | None:
         return "escalacoes"
     if _SHORT_SPORT.match(folded):
         return "continue"
+    # Mission 050 — bare market chips (gols / escanteios / cartões / BTTS / …)
+    try:
+        from src.conversation.market_short_followup import bare_market_kind
+
+        kind = bare_market_kind(message)
+        if kind:
+            return kind
+    except Exception:
+        pass
     return None
 
 
@@ -279,6 +296,17 @@ def apply_continuity_resolve(
             rewrite = f"qual foi o placar do {team}?"
         elif kind == "mercados":
             rewrite = f"e os mercados do {team}?"
+        elif kind in {
+            "gols",
+            "escanteios",
+            "cartoes",
+            "btts",
+            "over",
+            "under",
+            "handicap",
+        }:
+            # Keep bare chip for follow_up_engine (do not invent team-as-market)
+            rewrite = message.strip()
         elif kind == "estatisticas":
             rewrite = f"e as estatísticas do {team}?"
         elif kind == "favorito":
@@ -471,6 +499,49 @@ def _build_contextual_reply(
             f"Se tiver a escalação (ou o adversário), eu encaixo na leitura."
         )
 
+    # Mission 050 — bare market chips after market prompt
+    if kind in {
+        "gols",
+        "escanteios",
+        "cartoes",
+        "btts",
+        "over",
+        "under",
+        "handicap",
+    }:
+        labels = {
+            "gols": "gols",
+            "escanteios": "escanteios",
+            "cartoes": "cartões",
+            "btts": "BTTS / ambas marcam",
+            "over": "over",
+            "under": "under",
+            "handicap": "handicap",
+        }
+        focus = labels.get(kind, kind)
+        if markets:
+            related = [
+                m
+                for m in markets
+                if focus.split()[0].lower()[:4]
+                in str(m.get("market") or m.get("name") or "").lower()
+            ] or markets[:3]
+            lines = [
+                f"No confronto **{label}**, recorte **{focus}**:",
+                "",
+            ]
+            for m in related[:4]:
+                name = m.get("market") or m.get("name") or "mercado"
+                lines.append(f"• **{name}**")
+            lines.append("")
+            lines.append("Quer outro recorte (gols, escanteios, cartões ou BTTS)?")
+            return "\n".join(lines)
+        return (
+            f"Seguindo **{label}** no recorte **{focus}**.\n\n"
+            f"Ainda sem lista numérica fechada neste turno — posso priorizar "
+            f"esse mercado em cima do confronto sem inventar odds."
+        )
+
     if kind == "leitura":
         return (
             f"Leitura rápida no contexto de **{label}** "
@@ -546,6 +617,13 @@ def try_contextual_short_followup(
                     "leitura": "resumo da analise",
                     "continue": "explique melhor",
                     "affirm": "resumo da analise",
+                    "gols": "gols",
+                    "escanteios": "escanteios",
+                    "cartoes": "cartoes",
+                    "btts": "btts",
+                    "over": "over",
+                    "under": "under",
+                    "handicap": "handicap",
                 }.get(str(kind), message)
                 if is_followup(engine_msg):
                     payload = fu_resolve(engine_msg, ctx, brain or {})

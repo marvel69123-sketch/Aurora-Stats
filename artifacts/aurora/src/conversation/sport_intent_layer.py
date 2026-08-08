@@ -89,7 +89,9 @@ _INTENT_PATTERNS: list[tuple[str, re.Pattern[str], float]] = [
         re.compile(
             r"(?:"
             r"\b(?:over|under)\s*\d|"
+            r"\b(?:over|under)\b|"
             r"\bbtts\b|ambos\s+marcam|ambas\s+marcam|"
+            r"\bgols?\b|\bgolos?\b|"
             r"\bescanteios?\b|\bcantos?\b|\bcorners?\b|"
             r"\bcart[oõ]es?\b|\bamarelos?\b|\bcards?\b|"
             r"\bmercados?\b|\bmarket\b|"
