@@ -11,11 +11,6 @@ import {
   CONVERSATION_PROFILE_LIST,
   type ConversationPreferences,
   type ConversationProfileId,
-  type DetailLevel,
-  type EmojiLevel,
-  type EnthusiasmLevel,
-  type HeadersListsLevel,
-  type StructureLevel,
 } from "@/lib/conversationPersonalization";
 import type { AboutYouProfile } from "@/lib/auroraIdentity";
 
@@ -127,15 +122,19 @@ export function AuroraIdentityCenter({
 }: AuroraIdentityCenterProps) {
   const [tab, setTab] = useState<TabId>("personality");
 
-  const patchPrefs = <K extends keyof ConversationPreferences>(
+  function patchPrefs<K extends keyof ConversationPreferences>(
     key: K,
     value: ConversationPreferences[K],
-  ) => onPreferencesChange({ ...preferences, [key]: value });
+  ) {
+    onPreferencesChange({ ...preferences, [key]: value });
+  }
 
-  const patchAbout = <K extends keyof AboutYouProfile>(
+  function patchAbout<K extends keyof AboutYouProfile>(
     key: K,
     value: AboutYouProfile[K],
-  ) => onAboutYouChange({ ...aboutYou, [key]: value });
+  ) {
+    onAboutYouChange({ ...aboutYou, [key]: value });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -254,7 +253,7 @@ export function AuroraIdentityCenter({
                   );
                 })}
               </div>
-              <OptionRow<EmojiLevel>
+              <OptionRow
                 label="Emojis"
                 value={preferences.emojis}
                 onChange={(v) => patchPrefs("emojis", v)}
@@ -265,7 +264,7 @@ export function AuroraIdentityCenter({
                   { value: "high", label: "Alto" },
                 ]}
               />
-              <OptionRow<EnthusiasmLevel>
+              <OptionRow
                 label="Entusiasmo"
                 value={preferences.enthusiasm}
                 onChange={(v) => patchPrefs("enthusiasm", v)}
@@ -280,7 +279,7 @@ export function AuroraIdentityCenter({
 
           {tab === "preferences" ? (
             <section className="space-y-4" aria-label="Preferências">
-              <OptionRow<StructureLevel>
+              <OptionRow
                 label="Estrutura"
                 value={preferences.structure}
                 onChange={(v) => patchPrefs("structure", v)}
@@ -290,7 +289,7 @@ export function AuroraIdentityCenter({
                   { value: "technical", label: "Mais técnico" },
                 ]}
               />
-              <OptionRow<HeadersListsLevel>
+              <OptionRow
                 label="Cabeçalhos e listas"
                 value={preferences.headersLists}
                 onChange={(v) => patchPrefs("headersLists", v)}
@@ -300,7 +299,7 @@ export function AuroraIdentityCenter({
                   { value: "many", label: "Muitos" },
                 ]}
               />
-              <OptionRow<DetailLevel>
+              <OptionRow
                 label="Nível de detalhamento"
                 value={preferences.detail}
                 onChange={(v) => patchPrefs("detail", v)}
